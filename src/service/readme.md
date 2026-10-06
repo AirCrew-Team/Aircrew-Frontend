@@ -1,0 +1,1 @@
+# Carpeta que tendra la lógica de comunicación con el Api Gateway del backend. 

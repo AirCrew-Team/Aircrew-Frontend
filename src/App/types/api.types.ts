@@ -1,0 +1,1 @@
+// Archivo para formato común de respuesta y error en la API.

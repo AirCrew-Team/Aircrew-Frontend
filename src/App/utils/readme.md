@@ -1,0 +1,1 @@
+# Carpeta que almacenara iconos, tipografias, etc.
