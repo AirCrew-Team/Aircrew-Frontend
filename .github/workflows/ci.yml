@@ -18,9 +18,9 @@ jobs:
           fetch-depth: 0
 
       - name: Buscar secretos (Gitleaks)
-        uses: gitleaks/gitleaks-action@v3
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/repo" \
+            ghcr.io/gitleaks/gitleaks:latest git --redact -v /repo
 
   build:
     name: Lint y build
@@ -30,13 +30,19 @@ jobs:
       - name: Descargar el código
         uses: actions/checkout@v6
 
-      # Instala pnpm, Node y las dependencias (con cache entre ejecuciones)
-      - name: Configurar pnpm y Node
-        uses: pnpm/setup@v1
+      # Toma la versión exacta de pnpm del campo packageManager del package.json
+      - name: Instalar pnpm
+        uses: pnpm/action-setup@v6
         with:
-          version: 11
-          runtime: node@24
           cache: true
+
+      - name: Configurar Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
 
       - name: Lint
         run: pnpm lint
