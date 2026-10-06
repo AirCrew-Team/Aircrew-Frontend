@@ -1,0 +1,1 @@
+# CI: lint y build en cada PR

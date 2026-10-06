@@ -1,0 +1,1 @@
+# Van las secciones con significado de negocio que aparecen en varias páginas, como una tarjeta de propuesta de reemplazo o un resumen de vuelo.
