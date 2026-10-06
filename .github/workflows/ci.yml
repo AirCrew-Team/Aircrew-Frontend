@@ -1,0 +1,52 @@
+name: CI - Inicial
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  security-check:
+    name: Escaneo de secretos
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar el código con todo el historial
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Buscar secretos (Gitleaks)
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/repo" \
+            ghcr.io/gitleaks/gitleaks:latest git --redact -v /repo
+
+  build:
+    name: Lint y build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v6
+
+      # Toma la versión exacta de pnpm del campo packageManager del package.json
+      - name: Instalar pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          cache: true
+
+      - name: Configurar Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      # El script build de Vite ejecuta tsc antes de compilar,
+      - name: Build
+        run: pnpm build
