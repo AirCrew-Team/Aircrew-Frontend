@@ -1,7 +1,9 @@
 # ADR 001: Selección de Estilo Arquitectónico
 
 **Estado:** Aceptado
+
 **Fecha:** 11 de octubre de 2026
+
 **Autores:** Johan David Taborda Arroyave y Asley Torres Palacio
 
 ## Contexto
