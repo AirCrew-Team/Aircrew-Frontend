@@ -4,13 +4,20 @@ import { PATHS } from "@/routes/paths"
 export interface RouteCase {
   path: string
   role: Role
-  // Nombre de la sección: texto del h1 y base del título del documento.
+  // Nombre de la sección: base del título del documento y, si no hay `heading`, texto del h1.
   section: string
+  // Texto del h1 cuando no coincide con la sección (HT-02: Inicio del tripulante).
+  heading?: string
 }
 
 // Las 11 rutas protegidas de la spec (CA-01), cada una con el rol que puede verla.
 export const ROUTE_CASES: RouteCase[] = [
-  { path: PATHS.tripulante.inicio, role: ROLES.TRIPULANTE, section: "Inicio" },
+  {
+    path: PATHS.tripulante.inicio,
+    role: ROLES.TRIPULANTE,
+    section: "Inicio",
+    heading: "Juan Pablo, Bienvenido a AirCrew",
+  },
   {
     path: PATHS.tripulante.misVuelos,
     role: ROLES.TRIPULANTE,
