@@ -14,6 +14,9 @@ export type Session = {
   role: Role
 }
 
+// Medio por el que se envía el código de recuperación
+export type RecoveryChannel = "email" | "sms"
+
 /** Datos de contacto ya enmascarados; nunca se exponen completos al cliente. */
 export type MaskedContacts = {
   email: string

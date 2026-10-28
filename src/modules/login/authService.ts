@@ -1,6 +1,7 @@
 import type {
   LoginResult,
   MaskedContacts,
+  RecoveryChannel,
   Role,
 } from "./types"
 
@@ -12,6 +13,8 @@ export interface AuthService {
   login(email: string, password: string): Promise<LoginResult>
   /** Devuelve contactos enmascarados, o null si la cuenta no existe. */
   getRecoveryContacts(email: string): Promise<MaskedContacts | null>
+  requestRecoveryCode(email: string, channel: RecoveryChannel): Promise<void>
+  verifyRecoveryCode(email: string, code: string): Promise<boolean>
   resetPassword(email: string, newPassword: string): Promise<void>
 }
 
@@ -26,6 +29,9 @@ type DemoAccount = {
   phone: string
   role: Role
 }
+
+// Código de verificación demo para el bloqueo tras tres intentos fallidos.
+export const DEMO_RECOVERY_CODE = "123456"
 
 // Una cuenta de ejemplo por cada rol
 const INITIAL_DEMO_ACCOUNTS: DemoAccount[] = [
@@ -84,6 +90,16 @@ const demoAuthService: AuthService = {
       email: `${user.slice(0, 1)}***@${domain}`,
       phone: `*** *** **${account.phone.slice(-2)}`,
     }
+  },
+
+  async requestRecoveryCode() {
+    // El backend real enviaría el código por el canal elegido.
+    await wait()
+  },
+
+  async verifyRecoveryCode(email, code) {
+    await wait(200)
+    return demoAccounts.has(normalize(email)) && code === DEMO_RECOVERY_CODE
   },
 
   // Reemplaza la contraseña de una cuenta registrada.

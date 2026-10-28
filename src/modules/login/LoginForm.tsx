@@ -98,7 +98,7 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
 
     // Al llegar al límite, abre la recuperación automáticamente
     if (nextAttempts >= MAX_LOGIN_ATTEMPTS) {
-      void recovery.open(email)
+      void recovery.open(email, true)
     }
   }
 
@@ -174,7 +174,7 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
         <div className="mt-[17px] mb-[38px] flex justify-end max-[700px]:mb-7">
           <button
             className="inline-flex items-center gap-[9px] border-0 bg-transparent p-0 text-[15px] font-semibold text-[#258dc3] hover:text-[#126b9b] hover:underline hover:underline-offset-4"
-            onClick={() => void recovery.open(email)}
+            onClick={() => void recovery.open()}
             type="button"
           >
             <LockKeyhole aria-hidden="true" size={15} />
