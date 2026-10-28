@@ -10,7 +10,7 @@ import { useAuthStore } from "@/stores/auth.store"
 
 // Bloque 1: bienvenida (h1 con el nombre de la sesión) y la tarjeta del reloj maestro.
 const WelcomeHeader = () => {
-  const fullName = useAuthStore((state) => state.user?.fullName)
+  const displayName = useAuthStore((state) => state.user?.displayName)
   const titleId = useId()
   const { data, isPending, isError } = useQuery({
     queryKey: ["crew", "status"],
@@ -42,7 +42,7 @@ const WelcomeHeader = () => {
             "font-bold tracking-tight text-brand-primary"
           )}
         >
-          {fullName}, Bienvenido a AirCrew
+          {displayName}, Bienvenido a AirCrew
         </h1>
         <p className={cn(typography.bodyLg, "text-muted-foreground")}>
           Portal Operacional de Vuelo • Turno Activo

@@ -46,11 +46,16 @@ describe("Inicio del tripulante: página", () => {
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1)
   })
 
-  it("HT-02: el nombre del h1 sale de la sesión, no de los datos simulados", async () => {
+  // D1 = A: el saludo lee displayName (nombre corto), no fullName (nombre completo del perfil).
+  it("HT-02 y D1: el nombre del h1 sale de displayName de la sesión, no de fullName ni de los datos simulados", async () => {
     const user = useAuthStore.getState().user
     expect(user).not.toBeNull()
     useAuthStore.setState({
-      user: { ...(user as NonNullable<typeof user>), fullName: "Ana María" },
+      user: {
+        ...(user as NonNullable<typeof user>),
+        displayName: "Ana María",
+        fullName: "Ana María Pérez Gómez",
+      },
     })
 
     renderInicio()
@@ -578,4 +583,44 @@ describe("Inicio del tripulante: tarjetas", () => {
       ).toBeInTheDocument()
     }
   )
+})
+
+// CP-07 (spec configuracion-perfil, D1 = A): con el nombre completo en el store,
+// el navbar y el saludo del Inicio siguen mostrando el nombre corto.
+describe("CP-07: el navbar y el Inicio no cambian con el nombre completo", () => {
+  it("CP-07: con el tripulante simulado, el botón se llama «Menú de perfil de Juan Pablo» y muestra las iniciales «JP»", async () => {
+    renderInicio()
+
+    const trigger = await screen.findByRole("button", {
+      name: "Menú de perfil de Juan Pablo",
+    })
+    expect(within(trigger).getByText("JP")).toBeInTheDocument()
+  })
+
+  it("CP-07: con el tripulante simulado, el h1 del Inicio sigue siendo «Juan Pablo, Bienvenido a AirCrew»", async () => {
+    renderInicio()
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: WELCOME })
+    ).toBeInTheDocument()
+  })
+
+  it("CP-07 y D1: el menú de perfil lee displayName, no fullName", async () => {
+    const user = useAuthStore.getState().user
+    expect(user).not.toBeNull()
+    useAuthStore.setState({
+      user: {
+        ...(user as NonNullable<typeof user>),
+        displayName: "Ana María",
+        fullName: "Ana María Pérez Gómez",
+      },
+    })
+
+    renderInicio()
+
+    const trigger = await screen.findByRole("button", {
+      name: "Menú de perfil de Ana María",
+    })
+    expect(within(trigger).getByText("AM")).toBeInTheDocument()
+  })
 })
