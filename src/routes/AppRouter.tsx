@@ -22,6 +22,7 @@ import ProtectedRoute from "./ProtectedRoute"
 import RootRedirect from "./RootRedirect"
 
 // Cada rol tiene su grupo: protección por rol → diseño base → páginas.
+// Las páginas comunes a los tres roles van en un grupo propio, sin prefijo de rol.
 // Se exporta para que los tests monten las rutas reales con createMemoryRouter.
 export const routes: RouteObject[] = [
   { path: PATHS.root, element: <RootRedirect /> },
@@ -72,6 +73,30 @@ export const routes: RouteObject[] = [
           { path: PATHS.superAdmin.inicio, element: <SuperAdminInicioPage /> },
           { path: PATHS.superAdmin.usuarios, element: <UsuariosPage /> },
           { path: PATHS.superAdmin.reportes, element: <ReportesPage /> },
+        ],
+      },
+    ],
+  },
+  {
+    element: (
+      <ProtectedRoute
+        allowedRoles={[ROLES.TRIPULANTE, ROLES.SUPER_VISOR, ROLES.SUPER_ADMIN]}
+      />
+    ),
+    children: [
+      {
+        element: <MainLayout />,
+        children: [
+          // Carga diferida: react-hook-form + zod + el módulo profile pesan más de ~30 kB gzip.
+          // HydrateFallback vacío: al entrar directo por URL, el guard y el layout se pintan
+          // mientras llega el chunk (sin él, React Router avisa y no pinta nada).
+          {
+            path: PATHS.configuracion,
+            HydrateFallback: () => null,
+            lazy: async () => ({
+              Component: (await import("@/pages/ConfiguracionPage")).default,
+            }),
+          },
         ],
       },
     ],
