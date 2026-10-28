@@ -1,10 +1,11 @@
+import LoginPage from "@/pages/LoginPage"
+import { Toaster } from "@/components/ui/sonner"
 
-const AirCrewApp = () => {
-  return (
-    <div>
-        Componente Inicial de AirCrewApp
-    </div>
-  )
-}
+const AirCrewApp = () => (
+  <>
+    <LoginPage />
+    <Toaster duration={4500} position="top-right" richColors />
+  </>
+)
 
 export default AirCrewApp
