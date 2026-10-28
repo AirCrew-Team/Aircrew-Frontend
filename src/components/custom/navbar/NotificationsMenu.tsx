@@ -12,29 +12,15 @@ import { cn } from "@/lib/utils"
 
 import { barButton, popoverSurface } from "./navbar.styles"
 
-interface NotificationsMenuProps {
-  hasUnread?: boolean
-}
-
 // Solo interfaz: el listado real se conectará cuando exista el módulo de notificaciones.
-const NotificationsMenu = ({ hasUnread = false }: NotificationsMenuProps) => {
+const NotificationsMenu = () => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        aria-label={
-          hasUnread
-            ? "Notificaciones, tienes notificaciones sin leer"
-            : "Notificaciones"
-        }
-        className={cn(barButton, "relative size-9 justify-center")}
+        aria-label="Notificaciones"
+        className={cn(barButton, "size-11 justify-center lg:size-9")}
       >
         <NotificationsIcon className="size-5" aria-hidden="true" />
-        {hasUnread && (
-          <span
-            aria-hidden="true"
-            className="absolute top-1.5 right-1.5 size-2 rounded-full bg-destructive ring-2 ring-brand-primary"
-          />
-        )}
       </DropdownMenuTrigger>
 
       <DropdownMenuContent

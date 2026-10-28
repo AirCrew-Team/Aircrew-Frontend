@@ -14,6 +14,6 @@ export const typography = {
   labelMd: "font-sans text-xs leading-4 font-medium tracking-[0.02em]",
   labelSm:
     "font-sans text-[11px] leading-[14px] font-semibold tracking-[0.04em]",
+  // Fuera de DESIGN.md: la referencia del navbar usa 13 px en los enlaces y en el nombre del perfil.
+  navLabel: "font-sans text-[13px] leading-5 font-medium",
 } as const
-
-export type TypographyVariant = keyof typeof typography

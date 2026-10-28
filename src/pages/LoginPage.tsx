@@ -1,5 +1,13 @@
+import DevRoleSwitcher from "@/components/custom/DevRoleSwitcher"
+
 const LoginPage = () => {
-  return <div>LoginPage</div>
+  return (
+    <>
+      <title>Iniciar sesión | AirCrew</title>
+      <div>LoginPage</div>
+      {import.meta.env.DEV && <DevRoleSwitcher />}
+    </>
+  )
 }
 
 export default LoginPage

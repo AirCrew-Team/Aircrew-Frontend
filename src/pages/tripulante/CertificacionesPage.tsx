@@ -1,8 +1,14 @@
+import { typography } from "@/App/utils/typography"
+import { cn } from "@/lib/utils"
+
 const CertificacionesPage = () => {
   return (
-    <h1 className="text-2xl font-semibold text-brand-primary">
-      Certificaciones
-    </h1>
+    <>
+      <title>Certificaciones | AirCrew</title>
+      <h1 className={cn(typography.headlineLg, "text-brand-primary")}>
+        Certificaciones
+      </h1>
+    </>
   )
 }
 

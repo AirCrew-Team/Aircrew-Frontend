@@ -1,8 +1,14 @@
+import { typography } from "@/App/utils/typography"
+import { cn } from "@/lib/utils"
+
 const ReportarAusenciaPage = () => {
   return (
-    <h1 className="text-2xl font-semibold text-brand-primary">
-      Reportar Ausencia
-    </h1>
+    <>
+      <title>Reportar Ausencia | AirCrew</title>
+      <h1 className={cn(typography.headlineLg, "text-brand-primary")}>
+        Reportar Ausencia
+      </h1>
+    </>
   )
 }
 

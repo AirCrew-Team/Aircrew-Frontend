@@ -18,7 +18,7 @@ const NavbarBrand = () => {
         alt=""
         width={36}
         height={36}
-        className="size-9 rounded-lg shadow-sm"
+        className="size-9"
       />
       <span className="flex flex-col leading-none">
         <span
@@ -29,7 +29,12 @@ const NavbarBrand = () => {
         >
           {BRAND.name}
         </span>
-        <span className="mt-0.5 text-[10px] font-medium tracking-wider text-white/70 uppercase">
+        <span
+          className={cn(
+            typography.labelSm,
+            "mt-0.5 font-medium text-white/70 uppercase"
+          )}
+        >
           {BRAND.tagline}
         </span>
       </span>

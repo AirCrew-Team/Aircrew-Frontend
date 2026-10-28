@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router"
+import { createBrowserRouter, type RouteObject } from "react-router"
 import { RouterProvider } from "react-router/dom"
 
 import { ROLES } from "@/App/types/auth.types"
@@ -22,7 +22,8 @@ import ProtectedRoute from "./ProtectedRoute"
 import RootRedirect from "./RootRedirect"
 
 // Cada rol tiene su grupo: protección por rol → diseño base → páginas.
-const router = createBrowserRouter([
+// Se exporta para que los tests monten las rutas reales con createMemoryRouter.
+export const routes: RouteObject[] = [
   { path: PATHS.root, element: <RootRedirect /> },
   { path: PATHS.login, element: <LoginPage /> },
   {
@@ -76,7 +77,9 @@ const router = createBrowserRouter([
     ],
   },
   { path: "*", element: <NotFoundPage /> },
-])
+]
+
+const router = createBrowserRouter(routes)
 
 const AppRouter = () => {
   return <RouterProvider router={router} />

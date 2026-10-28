@@ -1,13 +1,14 @@
 import { NavLink } from "react-router"
 
 import type { NavItem } from "@/App/types/navigation.types"
+import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
 
 import { focusRing } from "./navbar.styles"
 
 interface NavbarLinksProps {
   items: NavItem[]
-  // "horizontal" para la barra (md+) y "vertical" para el panel móvil.
+  // "horizontal" para la barra (lg+) y "vertical" para el panel móvil.
   orientation?: "horizontal" | "vertical"
   onNavigate?: () => void
   className?: string
@@ -37,13 +38,13 @@ const NavbarLinks = ({
               onClick={onNavigate}
               className={({ isActive }) =>
                 cn(
-                  "block rounded-md font-medium whitespace-nowrap transition-colors",
                   isVertical
-                    ? "px-3 py-2.5 text-sm"
-                    : "px-3 py-1.5 text-[13px]",
+                    ? [typography.bodyMd, "py-3"]
+                    : [typography.navLabel, "py-1.5"],
+                  "block rounded-md px-3 whitespace-nowrap transition-colors",
                   isActive
-                    ? "bg-brand-secondary font-semibold text-white"
-                    : "text-white/80 hover:bg-white/10 hover:text-white",
+                    ? "bg-brand-secondary/40 font-semibold text-white"
+                    : "font-medium text-white/80 hover:bg-brand-secondary/25 hover:text-white",
                   focusRing
                 )
               }

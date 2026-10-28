@@ -5,8 +5,10 @@ export const focusRing =
   "outline-none focus-visible:ring-2 focus-visible:ring-brand-tertiary focus-visible:ring-offset-2 focus-visible:ring-offset-brand-primary"
 
 // Botones de la barra (campana, perfil, hamburguesa).
-export const barButton = `flex items-center rounded-md text-white/80 transition-colors hover:bg-white/10 hover:text-white data-popup-open:bg-white/10 data-popup-open:text-white ${focusRing}`
+export const barButton = `flex items-center rounded-md text-white/80 transition-colors hover:bg-brand-secondary/25 hover:text-white data-popup-open:bg-brand-secondary/25 data-popup-open:text-white ${focusRing}`
 
-// Superficie de los desplegables (capa 2 de DESIGN.md).
-export const popoverSurface =
-  "w-auto rounded-lg border border-[#c0d4ec] bg-white p-1 shadow-[0_12px_24px_-6px_rgba(15,39,68,0.12),0_4px_8px_-2px_rgba(15,39,68,0.05)] ring-0"
+// Superficie de los desplegables (capa 2 de DESIGN.md): solo lo que cambia respecto a DropdownMenuContent.
+// w-auto: ancho según el contenido en vez del ancho del disparador.
+// Ojo: cn no reconoce shadow-popover como sombra y conserva el shadow-md por defecto; gana
+// shadow-popover solo porque Tailwind la emite después (orden alfabético). Revisar si se renombra.
+export const popoverSurface = "w-auto ring-brand-border-strong shadow-popover"

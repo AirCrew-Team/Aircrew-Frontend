@@ -28,9 +28,11 @@ interface AuthState {
   user: AuthUser | null
   // Solo para desarrollo: cambia el usuario simulado al del rol indicado.
   setMockRole: (role: Role) => void
+  logout: () => void
 }
 
 export const useAuthStore = create<AuthState>()((set) => ({
   user: MOCK_USERS[ROLES.TRIPULANTE],
   setMockRole: (role) => set({ user: MOCK_USERS[role] }),
+  logout: () => set({ user: null }),
 }))

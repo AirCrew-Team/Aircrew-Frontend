@@ -19,10 +19,13 @@ const DevRoleSwitcher = () => {
     <label className="fixed right-4 bottom-4 z-50 flex items-center gap-2 rounded-md border border-dashed border-brand-border bg-white px-3 py-2 text-xs text-muted-foreground shadow-sm">
       Rol (dev)
       <select
-        value={role}
+        value={role ?? ""}
         onChange={(event) => handleChange(event.target.value as Role)}
         className="rounded border border-brand-border bg-white px-1 py-0.5 text-brand-primary"
       >
+        <option value="" disabled>
+          Sin sesión
+        </option>
         {Object.values(ROLES).map((value) => (
           <option key={value} value={value}>
             {value}

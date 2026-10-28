@@ -5,7 +5,6 @@ export {
   ChevronDown as ChevronDownIcon,
   LogOut as LogoutIcon,
   Menu as MenuIcon,
-  Plane as PlaneIcon,
   Settings as SettingsIcon,
   X as CloseIcon,
 } from "lucide-react"

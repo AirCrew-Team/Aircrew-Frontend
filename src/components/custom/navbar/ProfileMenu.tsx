@@ -11,13 +11,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
+import { useAuthStore } from "@/stores/auth.store"
 
 import { barButton, popoverSurface } from "./navbar.styles"
 
 interface ProfileMenuProps {
   user: AuthUser
-  onOpenSettings?: () => void
-  onLogout?: () => void
 }
 
 // Iniciales de las dos primeras palabras del nombre: "Juan Pablo" -> "JP".
@@ -29,14 +28,19 @@ const getInitials = (fullName: string) =>
     .map((word) => word.charAt(0).toUpperCase())
     .join("")
 
-const itemClassName = cn(typography.bodyMd, "cursor-pointer gap-2.5 px-3 py-2")
+const itemClassName = cn(
+  typography.bodyMd,
+  "cursor-pointer gap-2.5 px-3 py-3 lg:py-2"
+)
 
-const ProfileMenu = ({ user, onOpenSettings, onLogout }: ProfileMenuProps) => {
+const ProfileMenu = ({ user }: ProfileMenuProps) => {
+  const logout = useAuthStore((state) => state.logout)
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={`Menú de perfil de ${user.fullName}`}
-        className={cn(barButton, "group gap-2.5 py-1 pr-2 pl-1")}
+        className={cn(barButton, "group gap-2.5 py-1.5 pr-2 pl-1 lg:py-1")}
       >
         {user.avatarUrl ? (
           <img
@@ -47,16 +51,29 @@ const ProfileMenu = ({ user, onOpenSettings, onLogout }: ProfileMenuProps) => {
         ) : (
           <span
             aria-hidden="true"
-            className="flex size-8 items-center justify-center rounded-full bg-brand-secondary text-[13px] font-bold tracking-wide text-white shadow-sm"
+            className={cn(
+              typography.navLabel,
+              "flex size-8 items-center justify-center rounded-full bg-brand-secondary font-bold tracking-wide text-white shadow-sm"
+            )}
           >
             {getInitials(user.fullName)}
           </span>
         )}
-        <span className="hidden flex-col text-left lg:flex">
-          <span className="text-[13px] leading-tight font-semibold text-white">
+        <span className="hidden max-w-40 min-w-0 flex-col text-left xl:flex">
+          <span
+            className={cn(
+              typography.navLabel,
+              "truncate leading-tight font-semibold text-white"
+            )}
+          >
             {user.fullName}
           </span>
-          <span className="text-[11px] leading-tight text-white/70">
+          <span
+            className={cn(
+              typography.labelSm,
+              "truncate leading-tight text-white/70"
+            )}
+          >
             {user.position}
           </span>
         </span>
@@ -82,17 +99,14 @@ const ProfileMenu = ({ user, onOpenSettings, onLogout }: ProfileMenuProps) => {
           </DropdownMenuLabel>
         </DropdownMenuGroup>
         <DropdownMenuSeparator className="bg-brand-border" />
-        <DropdownMenuItem
-          className={itemClassName}
-          onClick={() => onOpenSettings?.()}
-        >
+        <DropdownMenuItem className={itemClassName}>
           <SettingsIcon aria-hidden="true" />
           Configuración
         </DropdownMenuItem>
         <DropdownMenuItem
           variant="destructive"
           className={itemClassName}
-          onClick={() => onLogout?.()}
+          onClick={logout}
         >
           <LogoutIcon aria-hidden="true" />
           Cerrar sesión
