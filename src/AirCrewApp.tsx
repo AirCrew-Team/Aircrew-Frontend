@@ -1,10 +1,7 @@
+import AppRouter from "@/routes/AppRouter"
 
 const AirCrewApp = () => {
-  return (
-    <div>
-        Componente Inicial de AirCrewApp
-    </div>
-  )
+  return <AppRouter />
 }
 
 export default AirCrewApp
