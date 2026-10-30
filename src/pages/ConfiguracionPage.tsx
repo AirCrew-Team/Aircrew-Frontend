@@ -16,26 +16,23 @@ const ConfiguracionPage = () => {
   const isCrew = user.role === ROLES.TRIPULANTE
 
   return (
-    <>
-      <title>Configuración | AirCrew</title>
-      <div className="flex flex-col gap-6">
-        <ProfileHeader isCrew={isCrew} />
-        <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-3">
-          <div className="flex min-w-0 flex-col gap-4">
-            <IdentityCard user={user} isCrew={isCrew} />
-            {isCrew ? (
-              <>
-                <FdpUsageCard userId={user.id} />
-                <MedicalCertificateNotice userId={user.id} />
-              </>
-            ) : null}
-          </div>
-          <div className="min-w-0 lg:col-span-2">
-            <ProfileForm userId={user.id} isCrew={isCrew} />
-          </div>
+    <div className="flex flex-col gap-6">
+      <ProfileHeader isCrew={isCrew} />
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-3">
+        <div className="flex min-w-0 flex-col gap-4">
+          <IdentityCard user={user} isCrew={isCrew} />
+          {isCrew ? (
+            <>
+              <FdpUsageCard userId={user.id} />
+              <MedicalCertificateNotice userId={user.id} />
+            </>
+          ) : null}
+        </div>
+        <div className="min-w-0 lg:col-span-2">
+          <ProfileForm userId={user.id} isCrew={isCrew} />
         </div>
       </div>
-    </>
+    </div>
   )
 }
 

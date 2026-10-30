@@ -5,6 +5,7 @@ import { ROLES, type Role } from "@/App/types/auth.types"
 import { useAuthStore } from "@/stores/auth.store"
 
 import { renderRoute } from "../utils/renderRoute"
+import { findToast, queryToast } from "../utils/toasts"
 
 // Ruta fijada por el contrato de la spec configuracion-perfil (PATHS.configuracion).
 // Se usa el literal para que, en rojo, los tests lleguen a la 404 y no a una ruta indefinida.
@@ -64,21 +65,16 @@ export const findLoadedMain = async (role: Role) => {
   return main
 }
 
-// El role=status de la confirmación de guardado, si está visible.
-export const querySuccessStatus = () =>
-  screen
-    .queryAllByRole("status")
-    .find((element) => element.textContent?.includes(SUCCESS_TITLE)) ?? null
+// SN-01: la confirmación de guardado es un toast de sonner, no un role=status del formulario.
+export const querySuccessToast = () => queryToast(SUCCESS_TITLE)
 
-export const findSuccessStatus = () =>
-  waitFor(() => {
-    const status = querySuccessStatus()
-    expect(
-      status,
-      `debe aparecer un role=status «${SUCCESS_TITLE}»`
-    ).not.toBeNull()
-    return status as HTMLElement
-  })
+export const findSuccessToast = () => findToast(SUCCESS_TITLE)
+
+// Los role=status de `container` que contienen el título de la confirmación (SN-01: ninguno).
+export const successStatusesIn = (container: HTMLElement) =>
+  within(container)
+    .queryAllByRole("status")
+    .filter((element) => element.textContent?.includes(SUCCESS_TITLE))
 
 // Valor (dd) de un par etiqueta–valor (dt) de solo lectura.
 export const getDefinitionFor = (container: HTMLElement, term: string) => {

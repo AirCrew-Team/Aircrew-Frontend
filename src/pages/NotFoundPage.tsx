@@ -7,7 +7,6 @@ import { PATHS } from "@/routes/paths"
 const NotFoundPage = () => {
   return (
     <div className="flex min-h-svh flex-col items-center justify-center gap-4 p-4">
-      <title>Página no encontrada | AirCrew</title>
       <h1 className={cn(typography.headlineLg, "text-brand-primary")}>
         Página no encontrada
       </h1>

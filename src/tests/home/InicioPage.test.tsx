@@ -1,13 +1,19 @@
 import { screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it } from "vitest"
 
+import { ROLES } from "@/App/types/auth.types"
 import { PATHS } from "@/routes/paths"
 import { useAuthStore } from "@/stores/auth.store"
 
 import { renderRoute } from "../utils/renderRoute"
+import { findToast, queryAllToasts } from "../utils/toasts"
 
-// Pantalla completa con los datos simulados reales de home.data.ts y la sesión del tripulante por defecto.
+// Pantalla completa con los datos simulados reales de home.data.ts y la sesión del tripulante.
+// LG-08: el store arranca sin sesión, así que cada test la pone de forma explícita.
+beforeEach(() => {
+  useAuthStore.getState().setMockRole(ROLES.TRIPULANTE)
+})
 
 const WELCOME = "Juan Pablo, Bienvenido a AirCrew"
 
@@ -437,9 +443,34 @@ describe("Inicio del tripulante: solicitud de reemplazo urgente", () => {
     }
   )
 
+  // Abre el diálogo de «trigger», confirma y espera a que se cierre.
+  const confirmDecision = async ({
+    trigger,
+    title,
+    confirm,
+  }: (typeof DIALOGS)[number]) => {
+    const user = userEvent.setup()
+    renderInicio()
+
+    const banner = await findBanner()
+    await user.click(
+      within(banner).getByRole("button", {
+        name: new RegExp(`^${trigger}$`, "i"),
+      })
+    )
+    const dialog = await screen.findByRole("alertdialog", { name: title })
+
+    await user.click(within(dialog).getByRole("button", { name: confirm }))
+
+    await waitFor(() =>
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
+    )
+    return banner
+  }
+
   it.each(DIALOGS)(
-    "HT-18: al confirmar «$trigger», se cierra, se anuncia «$message», el foco pasa al mensaje y las acciones quedan deshabilitadas",
-    async ({ trigger, title, confirm, message }) => {
+    "SN-03: en «$trigger», «Cancelar» no muestra ningún toast",
+    async ({ trigger, title }) => {
       const user = userEvent.setup()
       renderInicio()
 
@@ -450,25 +481,58 @@ describe("Inicio del tripulante: solicitud de reemplazo urgente", () => {
         })
       )
       const dialog = await screen.findByRole("alertdialog", { name: title })
-
-      await user.click(within(dialog).getByRole("button", { name: confirm }))
+      await user.click(within(dialog).getByRole("button", { name: "Cancelar" }))
 
       await waitFor(() =>
         expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
       )
-      await waitFor(() =>
-        expect(within(banner).getByRole("status")).toHaveTextContent(message)
-      )
-      // El foco pasa al mensaje de resultado; si volviera a Aceptar/Rechazar (deshabilitados) caería en body.
-      await waitFor(() =>
-        expect(within(banner).getByRole("status")).toHaveFocus()
-      )
+      expect(queryAllToasts()).toHaveLength(0)
+    }
+  )
+
+  it.each(DIALOGS)(
+    "SN-03: al confirmar «$trigger», aparece un toast de éxito «$message»",
+    async (dialog) => {
+      const banner = await confirmDecision(dialog)
+
+      const toast = await findToast(dialog.message)
+      expect(toast).toHaveAttribute("data-type", "success")
+      expect(banner).not.toContainElement(toast)
+    }
+  )
+
+  it.each(DIALOGS)(
+    "SN-03 y HT-18: al confirmar «$trigger», «$message» sigue visible en el banner sin role=status ni tabIndex, y las acciones quedan deshabilitadas",
+    async (dialog) => {
+      const banner = await confirmDecision(dialog)
+
+      await waitFor(() => expect(banner).toHaveTextContent(dialog.message))
+      const result = within(banner).getByText(dialog.message)
+      expect(result).toBeVisible()
+      expect(result).not.toHaveAttribute("role")
+      expect(result).not.toHaveAttribute("tabindex")
+      // Ya cargado, el banner no tiene ningún role=status (ni el del resultado).
+      expect(within(banner).queryAllByRole("status")).toHaveLength(0)
       expect(
         within(banner).getByRole("button", { name: /^aceptar$/i })
       ).toBeDisabled()
       expect(
         within(banner).getByRole("button", { name: /^rechazar$/i })
       ).toBeDisabled()
+    }
+  )
+
+  it.each(DIALOGS)(
+    "SN-03: al cerrarse el diálogo de «$trigger», el foco pasa a «Ver Detalle Completo de la Solicitud», que sigue habilitado",
+    async (dialog) => {
+      const banner = await confirmDecision(dialog)
+
+      const detail = within(banner).getByRole("button", {
+        name: /ver detalle completo de la solicitud/i,
+      })
+      // Si volviera a Aceptar/Rechazar (deshabilitados) caería en body.
+      await waitFor(() => expect(detail).toHaveFocus())
+      expect(detail).toBeEnabled()
     }
   )
 })

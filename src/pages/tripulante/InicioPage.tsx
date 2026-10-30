@@ -7,19 +7,16 @@ import WelcomeHeader from "@/modules/home/components/WelcomeHeader"
 
 const InicioPage = () => {
   return (
-    <>
-      <title>Inicio | AirCrew</title>
-      <div className="flex flex-col gap-6">
-        <WelcomeHeader />
-        <AvailabilitySelector />
-        <ReplacementRequestBanner />
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <NextFlightCard />
-          <CertificationsCard />
-          <AbsenceCard />
-        </div>
+    <div className="flex flex-col gap-6">
+      <WelcomeHeader />
+      <AvailabilitySelector />
+      <ReplacementRequestBanner />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <NextFlightCard />
+        <CertificationsCard />
+        <AbsenceCard />
       </div>
-    </>
+    </div>
   )
 }
 

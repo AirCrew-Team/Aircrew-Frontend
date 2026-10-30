@@ -1,8 +1,9 @@
-// Roles disponibles en la aplicación.
+// Roles disponibles en la aplicación. Los valores son los mismos del módulo de Login
+// (src/modules/login/types.ts): LoginPage asigna session.role a Role sin traducir.
 export const ROLES = {
-  TRIPULANTE: "tripulante",
-  SUPER_ADMIN: "superAdmin",
-  SUPER_VISOR: "superVisor",
+  TRIPULANTE: "crew",
+  SUPER_ADMIN: "admin",
+  SUPER_VISOR: "supervisor",
 } as const
 
 export type Role = (typeof ROLES)[keyof typeof ROLES]

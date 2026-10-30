@@ -1,37 +1,51 @@
-import { waitFor } from "@testing-library/react"
+import { screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 
 import { PATHS } from "@/routes/paths"
 import { useAuthStore } from "@/stores/auth.store"
 
+import indexHtml from "../../../index.html?raw"
 import { renderRoute } from "../utils/renderRoute"
 import { ROUTE_CASES } from "../utils/routeCases"
 
-describe("CA-23: título del documento por página", () => {
+// TD-01: la pestaña dice siempre «AirCrew». El título sale solo de index.html,
+// y ninguna pantalla monta su propio <title> (si lo hiciera, React lo subiría al <head>).
+const expectNoPageTitle = () =>
+  expect(document.querySelectorAll("title")).toHaveLength(0)
+
+describe("TD-01: título fijo de la pestaña", () => {
+  it("TD-01: index.html declara el título «AirCrew»", () => {
+    expect(indexHtml).toContain("<title>AirCrew</title>")
+  })
+
   it.each(ROUTE_CASES)(
-    "CA-23: $path define el título «$section | AirCrew»",
-    async ({ path, role, section }) => {
+    "TD-01: $path ($role) no cambia el título",
+    async ({ path, role, section, heading }) => {
       useAuthStore.getState().setMockRole(role)
 
       renderRoute(path)
 
-      await waitFor(() => expect(document.title).toBe(`${section} | AirCrew`))
+      await screen.findByRole("heading", { level: 1, name: heading ?? section })
+      expectNoPageTitle()
     }
   )
 
-  it("CA-23: la 404 define el título «Página no encontrada | AirCrew»", async () => {
+  it("TD-01: la 404 no cambia el título", async () => {
     renderRoute("/ruta-que-no-existe")
 
-    await waitFor(() =>
-      expect(document.title).toBe("Página no encontrada | AirCrew")
-    )
+    await screen.findByRole("heading", {
+      level: 1,
+      name: "Página no encontrada",
+    })
+    expectNoPageTitle()
   })
 
-  it("CA-23: /login define el título «Iniciar sesión | AirCrew»", async () => {
+  it("TD-01: /login no cambia el título", async () => {
     useAuthStore.setState({ user: null })
 
     renderRoute(PATHS.login)
 
-    await waitFor(() => expect(document.title).toBe("Iniciar sesión | AirCrew"))
+    await screen.findByRole("heading", { level: 1 })
+    expectNoPageTitle()
   })
 })

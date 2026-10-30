@@ -9,10 +9,13 @@ import { useAuthStore } from "@/stores/auth.store"
 // Diseño base compartido por todos los roles: solo cambian las secciones del navbar.
 const MainLayout = () => {
   const user = useAuthStore((state) => state.user)
-  const { pathname } = useLocation()
+  const { pathname, state } = useLocation()
   const mainRef = useRef<HTMLElement>(null)
   // Última ruta enfocada: evita mover el foco en la carga inicial (y en el doble efecto de StrictMode).
-  const lastPathnameRef = useRef(pathname)
+  // Tras el login (state.focusMain) empieza vacía para que el efecto enfoque main al montarse.
+  const lastPathnameRef = useRef<string | null>(
+    state?.focusMain ? null : pathname
+  )
 
   // Al navegar, el foco pasa al contenido para que el lector de pantalla no se quede en el enlace pulsado.
   useEffect(() => {

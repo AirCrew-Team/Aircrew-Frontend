@@ -3,12 +3,9 @@ import { cn } from "@/lib/utils"
 
 const ReportesPage = () => {
   return (
-    <>
-      <title>Reportes | AirCrew</title>
-      <h1 className={cn(typography.headlineLg, "text-brand-primary")}>
-        Reportes
-      </h1>
-    </>
+    <h1 className={cn(typography.headlineLg, "text-brand-primary")}>
+      Reportes
+    </h1>
   )
 }
 

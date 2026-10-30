@@ -29,13 +29,15 @@ const MOCK_USERS: Record<Role, AuthUser> = {
 
 interface AuthState {
   user: AuthUser | null
-  // Solo para desarrollo: cambia el usuario simulado al del rol indicado.
+  // Pone el usuario simulado del rol indicado. Lo usan el Login (cuentas demo) y el
+  // selector «Rol (dev)»; se reemplaza al conectar la API real.
   setMockRole: (role: Role) => void
   logout: () => void
 }
 
+// Arranca sin sesión: al abrir la app se ve el Login. La sesión no se guarda al recargar.
 export const useAuthStore = create<AuthState>()((set) => ({
-  user: MOCK_USERS[ROLES.TRIPULANTE],
+  user: null,
   setMockRole: (role) => set({ user: MOCK_USERS[role] }),
   logout: () => set({ user: null }),
 }))

@@ -4,19 +4,23 @@ import { describe, expect, it } from "vitest"
 
 import { ROLES, type Role } from "@/App/types/auth.types"
 
+import { queryAllToasts, toastDescription } from "../utils/toasts"
 import {
   CONFIGURACION_PATH,
   FIELD,
   findLoadedMain,
-  findSuccessStatus,
-  querySuccessStatus,
+  findSuccessToast,
+  querySuccessToast,
   renderConfiguracion,
   SUCCESS_DETAIL,
   SUCCESS_TITLE,
+  successStatusesIn,
   SWITCH,
 } from "./profileTestUtils"
 
 // Formulario visual (react-hook-form + zod) con los datos simulados reales de profile.data.ts.
+// SN-01 (spec login-integracion, ampliación del 2026-10-30): la confirmación de guardado es
+// un toast de sonner; el role=status del formulario y el estado «saved» desaparecen.
 
 const INITIAL = {
   phone: "+57 310 445 8899",
@@ -107,7 +111,7 @@ describe("Configuración: validación al guardar", () => {
         expect.stringContaining(ERROR.phoneRequired)
       )
       await waitFor(() => expect(phone).toHaveFocus())
-      expect(querySuccessStatus()).toBeNull()
+      expect(querySuccessToast()).toBeNull()
     }
   )
 
@@ -138,7 +142,7 @@ describe("Configuración: validación al guardar", () => {
 
     expect(await screen.findByText(ERROR.phoneRequired)).toBeInTheDocument()
     expect(phone).toHaveAttribute("aria-invalid", "true")
-    expect(querySuccessStatus()).toBeNull()
+    expect(querySuccessToast()).toBeNull()
   })
 
   it("CP-17: el celular «abc» muestra el mensaje de formato no válido", async () => {
@@ -150,7 +154,7 @@ describe("Configuración: validación al guardar", () => {
     expect(await screen.findByText(ERROR.phoneFormat)).toBeInTheDocument()
     expect(phone).toHaveAttribute("aria-invalid", "true")
     await waitFor(() => expect(phone).toHaveFocus())
-    expect(querySuccessStatus()).toBeNull()
+    expect(querySuccessToast()).toBeNull()
   })
 
   it("CP-17: el celular «+57 300 000 0000» es válido y se guarda", async () => {
@@ -159,7 +163,7 @@ describe("Configuración: validación al guardar", () => {
     await replaceValue(user, phone, "+57 300 000 0000")
     await user.click(save)
 
-    await findSuccessStatus()
+    await findSuccessToast()
     expect(screen.queryByText(ERROR.phoneFormat)).not.toBeInTheDocument()
     expect(screen.queryByText(ERROR.phoneRequired)).not.toBeInTheDocument()
     expect(phone).not.toHaveAttribute("aria-invalid", "true")
@@ -181,44 +185,73 @@ describe("Configuración: validación al guardar", () => {
       expect.stringContaining(ERROR.zoneRequired)
     )
     await waitFor(() => expect(phone).toHaveFocus())
-    expect(querySuccessStatus()).toBeNull()
+    expect(querySuccessToast()).toBeNull()
   })
 })
 
-describe("Configuración: guardar y cancelar", () => {
-  it("CP-19: al guardar campos válidos aparece el role=status de confirmación y los valores editados se mantienen", async () => {
-    const { user, phone, zone, save } = await setup()
+describe("Configuración: confirmación de guardado con toast (SN-01 y SN-02)", () => {
+  it.each(Object.values(ROLES))(
+    "SN-01: con un %s, al guardar un formulario válido aparece un toast de éxito «Perfil actualizado con éxito» con su descripción",
+    async (role) => {
+      const { user, save } = await setup(role)
+
+      expect(querySuccessToast()).toBeNull()
+      await user.click(save)
+
+      const toast = await findSuccessToast()
+      expect(toast).toHaveAttribute("data-type", "success")
+      expect(toastDescription(toast)).toBe(SUCCESS_DETAIL)
+    }
+  )
+
+  it("SN-01 y CP-19: tras el toast, los valores editados se mantienen y la confirmación ya no está en ningún role=status de main", async () => {
+    const { user, main, phone, zone, save } = await setup()
 
     await replaceValue(user, phone, "+57 300 123 4567")
     await replaceValue(user, zone, "Zona Chapinero, Bogotá")
-    expect(querySuccessStatus()).toBeNull()
     await user.click(save)
 
-    const status = await findSuccessStatus()
-    expect(status).toHaveTextContent(SUCCESS_TITLE)
-    expect(status).toHaveTextContent(SUCCESS_DETAIL)
+    const toast = await findSuccessToast()
+    expect(main).not.toContainElement(toast)
+    expect(successStatusesIn(main)).toHaveLength(0)
+    expect(within(main).queryByText(SUCCESS_TITLE)).toBeNull()
     expect(phone).toHaveValue("+57 300 123 4567")
     expect(zone).toHaveValue("Zona Chapinero, Bogotá")
   })
 
-  it("CP-19: al volver a editar después de guardar, la confirmación desaparece", async () => {
-    const { user, zone, save } = await setup()
+  it("SN-01: al guardar, el foco no se mueve de «Guardar Cambios»", async () => {
+    const { user, save } = await setup()
 
-    await replaceValue(user, zone, "Zona Chapinero, Bogotá")
     await user.click(save)
-    await findSuccessStatus()
 
-    await user.type(zone, " Norte")
-
-    await waitFor(() => expect(querySuccessStatus()).toBeNull())
+    await findSuccessToast()
+    expect(save).toHaveFocus()
   })
 
+  it("SN-02: con errores de validación no aparece ningún toast y el error sigue en línea; al corregir y guardar, sí aparece", async () => {
+    const { user, phone, save } = await setup()
+
+    await user.clear(phone)
+    await user.click(save)
+
+    expect(await screen.findByText(ERROR.phoneRequired)).toBeInTheDocument()
+    expect(phone).toHaveAttribute("aria-invalid", "true")
+    expect(queryAllToasts()).toHaveLength(0)
+
+    // Ancla: el Toaster está montado, así que la ausencia anterior no es un falso verde.
+    await user.type(phone, "+57 300 000 0000")
+    await user.click(save)
+    await findSuccessToast()
+  })
+})
+
+describe("Configuración: guardar y cancelar", () => {
   it("CP-19: guardar no navega: la ruta sigue siendo /configuracion", async () => {
     const { user, router, save } = await setup()
 
     await user.click(save)
 
-    await findSuccessStatus()
+    await findSuccessToast()
     expect(router.state.location.pathname).toBe(CONFIGURACION_PATH)
   })
 
@@ -239,7 +272,7 @@ describe("Configuración: guardar y cancelar", () => {
     await replaceValue(user, phone, "+57 300 123 4567")
     await replaceValue(user, zone, "Zona Chapinero, Bogotá")
     await user.click(save)
-    await findSuccessStatus()
+    await findSuccessToast()
 
     await replaceValue(user, phone, "+57 311 999 0000")
     await replaceValue(user, zone, "Zona Suba, Bogotá")
@@ -267,19 +300,6 @@ describe("Configuración: guardar y cancelar", () => {
     expect(zone).not.toHaveAttribute("aria-invalid", "true")
     expect(phone).toHaveValue(INITIAL.phone)
     expect(zone).toHaveValue(INITIAL.zone)
-  })
-
-  it("CP-20: «Cancelar» oculta la confirmación de guardado y mantiene lo guardado", async () => {
-    const { user, zone, save, cancel } = await setup()
-
-    await replaceValue(user, zone, "Zona Chapinero, Bogotá")
-    await user.click(save)
-    await findSuccessStatus()
-
-    await user.click(cancel)
-
-    await waitFor(() => expect(querySuccessStatus()).toBeNull())
-    expect(zone).toHaveValue("Zona Chapinero, Bogotá")
   })
 })
 
@@ -327,11 +347,10 @@ describe("Configuración: interruptores de notificaciones (tripulante)", () => {
 
     await user.click(urgent)
     await user.click(save)
-    await findSuccessStatus()
+    await findSuccessToast()
     expect(urgent).not.toBeChecked()
 
     await user.click(gates)
-    await waitFor(() => expect(querySuccessStatus()).toBeNull())
     await user.click(cancel)
 
     await waitFor(() => expect(gates).toBeChecked())
@@ -370,7 +389,7 @@ describe("Configuración: botones «Próximamente»", () => {
     }
 
     expect(router.state.location.pathname).toBe(CONFIGURACION_PATH)
-    expect(querySuccessStatus()).toBeNull()
+    expect(querySuccessToast()).toBeNull()
     expect(screen.queryByText(ERROR.phoneRequired)).not.toBeInTheDocument()
     expect(phone).not.toHaveAttribute("aria-invalid", "true")
   })
@@ -382,7 +401,7 @@ describe("Configuración: botones «Próximamente»", () => {
       await user.click(within(main).getByRole("button", { name }))
     }
 
-    expect(querySuccessStatus()).toBeNull()
+    expect(querySuccessToast()).toBeNull()
   })
 
   it("CP-22: los tres botones siguen siendo alcanzables con el tabulador", async () => {
