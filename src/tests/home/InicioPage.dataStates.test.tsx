@@ -1,10 +1,17 @@
 import { screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
+import { ROLES } from "@/App/types/auth.types"
 import { PATHS } from "@/routes/paths"
+import { useAuthStore } from "@/stores/auth.store"
 
 import { renderRoute } from "../utils/renderRoute"
+
+// LG-08: el store arranca sin sesión, así que cada test pone la del tripulante.
+beforeEach(() => {
+  useAuthStore.getState().setMockRole(ROLES.TRIPULANTE)
+})
 
 type DataFn = (...args: unknown[]) => unknown
 

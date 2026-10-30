@@ -1,11 +1,18 @@
 import { screen, waitFor } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 
-import { ROLES } from "@/App/types/auth.types"
+import { ROLES, type Role } from "@/App/types/auth.types"
 import { PATHS } from "@/routes/paths"
 import { useAuthStore } from "@/stores/auth.store"
 
 import { renderRoute } from "../utils/renderRoute"
+
+// Inicio esperado por rol. LG-07: los valores de ROLES ya no coinciden con las claves de PATHS.
+const HOME_BY_ROLE: Record<Role, string> = {
+  [ROLES.TRIPULANTE]: PATHS.tripulante.inicio,
+  [ROLES.SUPER_VISOR]: PATHS.superVisor.inicio,
+  [ROLES.SUPER_ADMIN]: PATHS.superAdmin.inicio,
+}
 
 describe("RootRedirect y 404", () => {
   it.each(Object.values(ROLES))(
@@ -16,7 +23,7 @@ describe("RootRedirect y 404", () => {
       const router = renderRoute(PATHS.root)
 
       await waitFor(() =>
-        expect(router.state.location.pathname).toBe(PATHS[role].inicio)
+        expect(router.state.location.pathname).toBe(HOME_BY_ROLE[role])
       )
     }
   )

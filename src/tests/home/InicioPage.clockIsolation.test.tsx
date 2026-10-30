@@ -1,7 +1,9 @@
 import { act, screen, waitFor } from "@testing-library/react"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
+import { ROLES } from "@/App/types/auth.types"
 import { PATHS } from "@/routes/paths"
+import { useAuthStore } from "@/stores/auth.store"
 
 import { renderRoute } from "../utils/renderRoute"
 
@@ -15,6 +17,11 @@ vi.mock("@/modules/home/components/AvailabilitySelector", () => ({
     return <p>Selector de disponibilidad (simulado)</p>
   },
 }))
+
+// LG-08: el store arranca sin sesión, así que cada test pone la del tripulante.
+beforeEach(() => {
+  useAuthStore.getState().setMockRole(ROLES.TRIPULANTE)
+})
 
 afterEach(() => {
   vi.useRealTimers()

@@ -8,7 +8,7 @@ import {
   alertsWithText,
   FIELD,
   findLoadedMain,
-  findSuccessStatus,
+  findSuccessToast,
   loadingStatuses,
   NON_CREW_ROLES,
   renderConfiguracion,
@@ -225,7 +225,7 @@ describe("Configuración: error de los datos del tripulante", () => {
       within(main).getByRole("button", { name: "Guardar Cambios" })
     )
 
-    await findSuccessStatus()
+    await findSuccessToast()
     expect(zone).toHaveValue("Zona Chapinero, Bogotá")
   })
 })

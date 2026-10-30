@@ -1,6 +1,6 @@
 import { screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it } from "vitest"
 
 import { ROLES } from "@/App/types/auth.types"
 import { PATHS } from "@/routes/paths"
@@ -9,6 +9,11 @@ import { useAuthStore } from "@/stores/auth.store"
 import { renderRoute } from "../utils/renderRoute"
 
 describe("CA-16: cerrar sesión", () => {
+  // LG-08: el store arranca sin sesión. Sin ella, logout() pasaría en falso.
+  beforeEach(() => {
+    useAuthStore.getState().setMockRole(ROLES.TRIPULANTE)
+  })
+
   it("CA-16: logout() del store pone user en null", () => {
     useAuthStore.getState().logout()
 

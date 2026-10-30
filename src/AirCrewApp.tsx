@@ -1,10 +1,15 @@
-import LoginPage from "@/pages/LoginPage"
 import { Toaster } from "@/components/ui/sonner"
+import AppRouter from "@/routes/AppRouter"
 
 const AirCrewApp = () => (
   <>
-    <LoginPage />
-    <Toaster duration={4500} position="top-right" richColors />
+    <AppRouter />
+    <Toaster
+      containerAriaLabel="Notificaciones"
+      duration={4500}
+      position="top-right"
+      richColors
+    />
   </>
 )
 

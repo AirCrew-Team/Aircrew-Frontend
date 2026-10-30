@@ -16,9 +16,9 @@ const NavbarBrand = () => {
       <img
         src={BRAND.logoSrc}
         alt=""
-        width={36}
-        height={36}
-        className="size-9"
+        width={48}
+        height={48}
+        className="size-12 object-contain"
       />
       <span className="flex flex-col leading-none">
         <span

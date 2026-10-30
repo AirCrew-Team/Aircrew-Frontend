@@ -1,9 +1,9 @@
-import { useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useQuery } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
+import { toast } from "sonner"
 
-import { AcceptIcon, SaveIcon, SyncIcon } from "@/App/utils/icons"
+import { SaveIcon, SyncIcon } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
 import ContactSection from "@/modules/profile/components/ContactSection"
@@ -41,7 +41,6 @@ const EditableForm = ({
   profile,
   notifications,
 }: EditableFormProps) => {
-  const [saved, setSaved] = useState(false)
   const {
     register,
     handleSubmit,
@@ -59,20 +58,18 @@ const EditableForm = ({
   // Lo enviado pasa a ser el "último guardado" al que vuelve Cancelar.
   const onSubmit = (values: ProfileFormValues) => {
     reset(values)
-    setSaved(true)
+    toast.success("Perfil actualizado con éxito", {
+      description:
+        "Los datos operativos y preferencias han sido transmitidos a OCC.",
+    })
   }
 
-  const onCancel = () => {
-    reset()
-    setSaved(false)
-  }
+  const onCancel = () => reset()
 
   return (
     <form
       noValidate
       onSubmit={handleSubmit(onSubmit)}
-      // Cualquier edición oculta la confirmación de guardado.
-      onChange={() => setSaved(false)}
       className="flex flex-col gap-4"
     >
       <ContactSection
@@ -127,26 +124,6 @@ const EditableForm = ({
             Guardar Cambios
           </button>
         </div>
-      </div>
-
-      {/* Región viva siempre montada: el mensaje aparece al guardar sin errores. */}
-      <div role="status">
-        {saved ? (
-          <p className="flex items-start gap-3 rounded-xl border border-brand-border bg-muted p-4">
-            <AcceptIcon
-              aria-hidden="true"
-              className="size-5 shrink-0 text-brand-secondary"
-            />
-            <span className="flex flex-col gap-0.5">
-              <span className={cn(typography.labelLg, "text-brand-primary")}>
-                Perfil actualizado con éxito
-              </span>
-              <span className={cn(typography.bodySm, "text-muted-foreground")}>
-                Los datos operativos y preferencias han sido transmitidos a OCC.
-              </span>
-            </span>
-          </p>
-        ) : null}
       </div>
     </form>
   )

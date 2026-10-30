@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event"
 import { describe, expect, it } from "vitest"
 
 import { ROLES } from "@/App/types/auth.types"
+import { HOME_PATH_BY_ROLE } from "@/routes/navigation"
 import { PATHS } from "@/routes/paths"
 import { useAuthStore } from "@/stores/auth.store"
 
@@ -17,7 +18,7 @@ describe("CP-04: «Configuración» del menú de perfil", () => {
     async (role) => {
       useAuthStore.getState().setMockRole(role)
       const user = userEvent.setup()
-      const router = renderRoute(PATHS[role].inicio)
+      const router = renderRoute(HOME_PATH_BY_ROLE[role])
 
       await user.click(
         await screen.findByRole("button", { name: /menú de perfil/i })
@@ -45,7 +46,7 @@ describe("CP-04: «Configuración» del menú de perfil", () => {
     async (role) => {
       useAuthStore.getState().setMockRole(role)
       const user = userEvent.setup()
-      const router = renderRoute(PATHS[role].inicio)
+      const router = renderRoute(HOME_PATH_BY_ROLE[role])
 
       await user.click(
         await screen.findByRole("button", { name: /menú de perfil/i })
@@ -66,6 +67,7 @@ describe("CP-04: «Configuración» del menú de perfil", () => {
   )
 
   it("no regresión: si el menú de perfil se cierra con Escape (sin navegar), el foco vuelve al botón del menú", async () => {
+    useAuthStore.getState().setMockRole(ROLES.TRIPULANTE)
     const user = userEvent.setup()
     const router = renderRoute(PATHS.tripulante.inicio)
 

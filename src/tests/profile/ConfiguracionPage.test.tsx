@@ -85,6 +85,8 @@ describe("Configuración: identidad desde el store", () => {
   )
 
   it("CP-08: si cambia el usuario del store, el perfil muestra el nuevo nombre y cargo", async () => {
+    // LG-08: el store arranca sin sesión.
+    useAuthStore.getState().setMockRole(ROLES.TRIPULANTE)
     const user = useAuthStore.getState().user
     expect(user).not.toBeNull()
     // Mismo id para que los datos simulados del tripulante sigan resolviendo.

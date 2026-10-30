@@ -1,5 +1,6 @@
 import { useId, useRef, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
+import { toast } from "sonner"
 
 import {
   AcceptIcon,
@@ -70,7 +71,7 @@ const DECISIONS: {
 const ReplacementRequestBanner = () => {
   const titleId = useId()
   const detailId = useId()
-  const resultRef = useRef<HTMLParagraphElement>(null)
+  const detailButtonRef = useRef<HTMLButtonElement>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const [openDialog, setOpenDialog] = useState<Decision | null>(null)
   const [decision, setDecision] = useState<Decision | null>(null)
@@ -276,9 +277,9 @@ const ReplacementRequestBanner = () => {
                       <item.Icon aria-hidden="true" className="size-4.5" />
                       {item.trigger}
                     </AlertDialogTrigger>
-                    {/* Al confirmar, los botones quedan deshabilitados: el foco pasa al mensaje del resultado. */}
+                    {/* Al confirmar, los botones quedan deshabilitados: el foco pasa a «Ver Detalle». */}
                     <AlertDialogContent
-                      finalFocus={decision ? resultRef : true}
+                      finalFocus={decision ? detailButtonRef : true}
                     >
                       <AlertDialogHeader>
                         <AlertDialogTitle>{item.title}</AlertDialogTitle>
@@ -307,6 +308,9 @@ const ReplacementRequestBanner = () => {
                           onClick={() => {
                             setDecision(item.decision)
                             setOpenDialog(null)
+                            toast.success(
+                              `${item.result} la solicitud del vuelo ${request.flightNumber}`
+                            )
                           }}
                         >
                           {item.confirm}
@@ -317,6 +321,7 @@ const ReplacementRequestBanner = () => {
                 ))}
               </div>
               <Button
+                ref={detailButtonRef}
                 variant="link"
                 aria-expanded={detailOpen}
                 aria-controls={detailId}
@@ -334,13 +339,11 @@ const ReplacementRequestBanner = () => {
             </div>
           </div>
 
+          {/* Estado persistente, sin región viva: el toast ya anuncia el resultado. */}
           <p
-            ref={resultRef}
-            role="status"
-            tabIndex={-1}
             className={cn(
               typography.labelLg,
-              "mt-2 text-brand-primary empty:hidden focus-visible:outline-hidden"
+              "mt-2 text-brand-primary empty:hidden"
             )}
           >
             {resolved
