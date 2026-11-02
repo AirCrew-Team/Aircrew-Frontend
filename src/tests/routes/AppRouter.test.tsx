@@ -14,7 +14,12 @@ describe("AppRouter: rutas por rol", () => {
 
       const router = renderRoute(path)
 
-      const h1 = await screen.findByRole("heading", { level: 1 })
+      // Margen para las rutas lazy (chunk en frío).
+      const h1 = await screen.findByRole(
+        "heading",
+        { level: 1 },
+        { timeout: 3000 }
+      )
       expect(h1).toHaveTextContent(heading ?? section)
       expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1)
       expect(router.state.location.pathname).toBe(path)

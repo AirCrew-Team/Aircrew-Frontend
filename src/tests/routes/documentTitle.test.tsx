@@ -25,7 +25,12 @@ describe("TD-01: título fijo de la pestaña", () => {
 
       renderRoute(path)
 
-      await screen.findByRole("heading", { level: 1, name: heading ?? section })
+      // Margen para las rutas lazy (chunk en frío).
+      await screen.findByRole(
+        "heading",
+        { level: 1, name: heading ?? section },
+        { timeout: 3000 }
+      )
       expectNoPageTitle()
     }
   )

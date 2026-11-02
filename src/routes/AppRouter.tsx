@@ -15,7 +15,6 @@ import TripulacionPage from "@/pages/superVisor/TripulacionPage"
 import CertificacionesPage from "@/pages/tripulante/CertificacionesPage"
 import TripulanteInicioPage from "@/pages/tripulante/InicioPage"
 import MisVuelosPage from "@/pages/tripulante/MisVuelosPage"
-import ReportarAusenciaPage from "@/pages/tripulante/ReportarAusenciaPage"
 
 import { PATHS } from "./paths"
 import ProtectedRoute from "./ProtectedRoute"
@@ -39,9 +38,15 @@ export const routes: RouteObject[] = [
             path: PATHS.tripulante.certificaciones,
             element: <CertificacionesPage />,
           },
+          // Carga diferida: react-hook-form + zod, igual que /configuracion.
           {
             path: PATHS.tripulante.reportarAusencia,
-            element: <ReportarAusenciaPage />,
+            HydrateFallback: () => null,
+            lazy: async () => ({
+              Component: (
+                await import("@/pages/tripulante/ReportarAusenciaPage")
+              ).default,
+            }),
           },
         ],
       },

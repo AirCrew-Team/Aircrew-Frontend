@@ -33,6 +33,7 @@ export const ROUTE_CASES: RouteCase[] = [
     path: PATHS.tripulante.reportarAusencia,
     role: ROLES.TRIPULANTE,
     section: "Reportar Ausencia",
+    heading: "Reportar Novedad de Ausencia",
   },
   { path: PATHS.superVisor.inicio, role: ROLES.SUPER_VISOR, section: "Inicio" },
   {
