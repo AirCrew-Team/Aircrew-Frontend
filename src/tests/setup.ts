@@ -1,9 +1,14 @@
 import "@testing-library/jest-dom/vitest"
-import { cleanup } from "@testing-library/react"
+import { cleanup, configure } from "@testing-library/react"
 import { toast } from "sonner"
 import { afterEach } from "vitest"
 
 import { useAuthStore } from "@/stores/auth.store"
+
+// Las rutas lazy (Configuración, Reportar Ausencia) transforman su chunk en frío la
+// primera vez: con la máquina cargada, 1 s por defecto no siempre basta y el test falla
+// de forma intermitente. Solo amplía la espera máxima de findBy/waitFor.
+configure({ asyncUtilTimeout: 3000 })
 
 afterEach(() => {
   cleanup()
