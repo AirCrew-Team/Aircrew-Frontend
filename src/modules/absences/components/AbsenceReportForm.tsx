@@ -301,11 +301,11 @@ const AbsenceReportForm = () => {
         />
       </fieldset>
 
-      {/* Aviso estático: sin role="alert". bg-destructive/10 aproxima error-container. */}
-      <div className="flex items-start gap-3 rounded-md bg-destructive/10 p-4 sm:gap-4">
+      {/* Aviso estático: sin role="alert". Colores error-container de la referencia. */}
+      <div className="flex items-start gap-3 rounded-md bg-error-container/40 p-4 sm:gap-4">
         <span
           aria-hidden="true"
-          className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-destructive/15 text-destructive"
+          className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-error-container text-on-error-container"
         >
           <CriticalAlertIcon className="size-5" />
         </span>
@@ -313,7 +313,7 @@ const AbsenceReportForm = () => {
           <p
             className={cn(
               typography.labelLg,
-              "font-bold tracking-tight text-destructive"
+              "font-bold tracking-tight text-on-error-container"
             )}
           >
             Aviso Operacional Crítico
