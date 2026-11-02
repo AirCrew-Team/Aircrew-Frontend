@@ -627,7 +627,7 @@ describe("Inicio del tripulante: tarjetas", () => {
       card: "Novedad o Ausencia",
       link: /reportar ausencia/i,
       to: PATHS.tripulante.reportarAusencia,
-      h1: "Reportar Ausencia",
+      h1: "Reportar Novedad de Ausencia",
     },
   ])(
     "HT-23: el enlace de la tarjeta «$card» lleva a $to dentro del mismo layout",
@@ -640,7 +640,12 @@ describe("Inicio del tripulante: tarjetas", () => {
 
       await waitFor(() => expect(router.state.location.pathname).toBe(to))
       expect(
-        await screen.findByRole("heading", { level: 1, name: h1 })
+        // Reportar Ausencia es lazy: margen para el chunk en frío.
+        await screen.findByRole(
+          "heading",
+          { level: 1, name: h1 },
+          { timeout: 3000 }
+        )
       ).toBeInTheDocument()
       expect(
         screen.getByRole("navigation", { name: "Navegación principal" })
