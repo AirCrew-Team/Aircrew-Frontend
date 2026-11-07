@@ -23,7 +23,10 @@ export const NAV_ITEMS_BY_ROLE: Record<Role, NavItem[]> = {
   [ROLES.SUPER_ADMIN]: [
     { label: "Inicio", to: PATHS.superAdmin.inicio, end: true },
     { label: "Usuarios", to: PATHS.superAdmin.usuarios },
-    { label: "Reportes", to: PATHS.superAdmin.reportes },
+    // Igual que la referencia del Inicio del admin. Reportes sigue con su ruta
+    // (/admin/reportes), pero no aparece en el menú.
+    { label: "Aeronaves", to: PATHS.superAdmin.aeronaves },
+    { label: "Certificaciones", to: PATHS.superAdmin.certificaciones },
   ],
 }
 

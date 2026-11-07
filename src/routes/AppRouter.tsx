@@ -5,6 +5,8 @@ import { ROLES } from "@/App/types/auth.types"
 import MainLayout from "@/layouts/MainLayout"
 import LoginPage from "@/pages/LoginPage"
 import NotFoundPage from "@/pages/NotFoundPage"
+import AeronavesPage from "@/pages/superAdmin/AeronavesPage"
+import SuperAdminCertificacionesPage from "@/pages/superAdmin/CertificacionesPage"
 import SuperAdminInicioPage from "@/pages/superAdmin/InicioPage"
 import ReportesPage from "@/pages/superAdmin/ReportesPage"
 import UsuariosPage from "@/pages/superAdmin/UsuariosPage"
@@ -78,6 +80,12 @@ export const routes: RouteObject[] = [
           { path: PATHS.superAdmin.inicio, element: <SuperAdminInicioPage /> },
           { path: PATHS.superAdmin.usuarios, element: <UsuariosPage /> },
           { path: PATHS.superAdmin.reportes, element: <ReportesPage /> },
+          // Páginas aún sin contenido: destinos del navbar y de las tarjetas del Inicio.
+          { path: PATHS.superAdmin.aeronaves, element: <AeronavesPage /> },
+          {
+            path: PATHS.superAdmin.certificaciones,
+            element: <SuperAdminCertificacionesPage />,
+          },
         ],
       },
     ],
