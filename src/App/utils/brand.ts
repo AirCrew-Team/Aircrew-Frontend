@@ -1,5 +1,5 @@
-// Logo de la compañía, el mismo del Login (un solo archivo, cacheado una vez).
-import logoSrc from "./images/Logotipo.png"
+// Logo del navbar: el círculo recortado, sin margen blanco (el Login usa Logotipo.png).
+import logoSrc from "./images/Logo1.png"
 
 export const BRAND = {
   name: "AirCrew",

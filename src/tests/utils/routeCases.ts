@@ -6,11 +6,11 @@ export interface RouteCase {
   role: Role
   // Nombre de la sección: base del título del documento y, si no hay `heading`, texto del h1.
   section: string
-  // Texto del h1 cuando no coincide con la sección (HT-02: Inicio del tripulante; CP-01: Configuración).
+  // Texto del h1 cuando no coincide con la sección (HT-02: Inicio del tripulante; Inicio del admin; CP-01: Configuración).
   heading?: string
 }
 
-// Las 11 rutas protegidas por rol de la spec (CA-01), cada una con el rol que puede verla,
+// Las 13 rutas protegidas por rol de la spec (CA-01), cada una con el rol que puede verla,
 // y la ruta común /configuracion una vez por rol (CP-01).
 export const ROUTE_CASES: RouteCase[] = [
   {
@@ -52,7 +52,12 @@ export const ROUTE_CASES: RouteCase[] = [
     role: ROLES.SUPER_VISOR,
     section: "Ausencias",
   },
-  { path: PATHS.superAdmin.inicio, role: ROLES.SUPER_ADMIN, section: "Inicio" },
+  {
+    path: PATHS.superAdmin.inicio,
+    role: ROLES.SUPER_ADMIN,
+    section: "Inicio",
+    heading: "Admin AirCrew, Bienvenido a AirCrew",
+  },
   {
     path: PATHS.superAdmin.usuarios,
     role: ROLES.SUPER_ADMIN,
@@ -62,6 +67,16 @@ export const ROUTE_CASES: RouteCase[] = [
     path: PATHS.superAdmin.reportes,
     role: ROLES.SUPER_ADMIN,
     section: "Reportes",
+  },
+  {
+    path: PATHS.superAdmin.aeronaves,
+    role: ROLES.SUPER_ADMIN,
+    section: "Aeronaves",
+  },
+  {
+    path: PATHS.superAdmin.certificaciones,
+    role: ROLES.SUPER_ADMIN,
+    section: "Certificaciones",
   },
   {
     path: PATHS.configuracion,

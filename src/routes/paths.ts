@@ -20,5 +20,8 @@ export const PATHS = {
     inicio: "/admin",
     usuarios: "/admin/usuarios",
     reportes: "/admin/reportes",
+    // Destinos de los botones de las tarjetas del Inicio del admin y del navbar.
+    aeronaves: "/admin/aeronaves",
+    certificaciones: "/admin/certificaciones",
   },
 } as const
