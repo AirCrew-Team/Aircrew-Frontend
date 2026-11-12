@@ -621,7 +621,7 @@ describe("Inicio del tripulante: tarjetas", () => {
       card: "Certificaciones",
       link: /consultar licencias/i,
       to: PATHS.tripulante.certificaciones,
-      h1: "Certificaciones",
+      h1: "Certificaciones y Licencias",
     },
     {
       card: "Novedad o Ausencia",

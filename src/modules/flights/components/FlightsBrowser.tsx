@@ -2,6 +2,7 @@ import { useId, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 
 import { FilterIcon, SearchIcon } from "@/App/utils/icons"
+import { normalizeForSearch } from "@/App/utils/text"
 import { typography } from "@/App/utils/typography"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
@@ -25,13 +26,6 @@ const MONTHS = [
   { value: "2024-11", label: "Noviembre 2024", short: "Noviembre 2024" },
 ]
 
-// Sin mayúsculas ni tildes: «medellin» encuentra «Medellín».
-const normalize = (text: string) =>
-  text
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-
 const matchesSearch = (flight: CrewFlight, search: string) =>
   [
     flight.flightNumber,
@@ -39,7 +33,7 @@ const matchesSearch = (flight: CrewFlight, search: string) =>
     flight.origin.city,
     flight.destination.code,
     flight.destination.city,
-  ].some((value) => normalize(value).includes(search))
+  ].some((value) => normalizeForSearch(value).includes(search))
 
 // Borde muted-foreground/70 (4.06:1 sobre blanco): brand-border (1.34:1) no delimita un campo.
 const controlClass = cn(
@@ -65,7 +59,7 @@ const FlightsBrowser = () => {
   })
 
   const query = search.trim()
-  const normalizedQuery = normalize(query)
+  const normalizedQuery = normalizeForSearch(query)
   const lists = TABS.map(({ value, label }) => {
     const { data, isPending, isError } =
       value === "upcoming" ? upcoming : history
