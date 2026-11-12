@@ -25,7 +25,7 @@ const certificationsData = vi.hoisted(() => ({
 }))
 
 vi.mock(
-  "@/modules/certifications/data/certifications.data",
+  "@/modules/shared/certifications/data/certifications.data",
   async (importOriginal) => {
     const actual = await importOriginal<Record<string, unknown>>()
     return Object.fromEntries(

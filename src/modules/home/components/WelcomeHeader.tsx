@@ -5,6 +5,7 @@ import { ClockIcon } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
 import { getCrewStatus } from "@/modules/home/data/home.data"
+import DotSeparator from "@/modules/home/components/DotSeparator"
 import UtcClock from "@/modules/home/components/UtcClock"
 import { useAuthStore } from "@/stores/auth.store"
 
@@ -33,7 +34,13 @@ const WelcomeHeader = () => {
             aria-hidden="true"
             className="size-2 shrink-0 rounded-full bg-brand-secondary"
           />
-          Tripulación activa{data ? ` • Base ${data.base}` : null}
+          Tripulación activa
+          {data ? (
+            <>
+              <DotSeparator />
+              Base {data.base}
+            </>
+          ) : null}
         </p>
         <h1
           id={titleId}
@@ -44,9 +51,6 @@ const WelcomeHeader = () => {
         >
           {displayName}, Bienvenido a AirCrew
         </h1>
-        <p className={cn(typography.bodyLg, "text-muted-foreground")}>
-          Portal Operacional de Vuelo • Turno Activo
-        </p>
       </div>
 
       <div className="flex flex-col gap-2 rounded-xl bg-card p-4 shadow-sm lg:min-w-70 lg:shrink-0">
@@ -77,10 +81,6 @@ const WelcomeHeader = () => {
           </p>
         </div>
         <UtcClock />
-        <div
-          aria-hidden="true"
-          className="mt-0.5 h-1 w-full rounded-full bg-brand-secondary"
-        />
         {isPending ? (
           <p
             role="status"

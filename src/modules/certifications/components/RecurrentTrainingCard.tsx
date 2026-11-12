@@ -3,8 +3,8 @@ import { useQuery } from "@tanstack/react-query"
 import { CalendarIcon } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
-import { getRecurrentTraining } from "@/modules/certifications/data/certifications.data"
-import { formatShortDate } from "@/modules/certifications/utils/expiry"
+import { getRecurrentTraining } from "@/modules/shared/certifications/data/certifications.data"
+import { formatShortDate } from "@/modules/shared/certifications/utils/expiry"
 
 // T2: próximo entrenamiento recurrente en simulador.
 const RecurrentTrainingCard = () => {

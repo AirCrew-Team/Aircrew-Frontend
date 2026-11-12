@@ -4,19 +4,43 @@ import { useQuery } from "@tanstack/react-query"
 import { ArrowRightIcon, CertificationIcon, ClockIcon } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
-import { getCertificationsSummary } from "@/modules/home/data/home.data"
+import { getCertifications } from "@/modules/shared/certifications/data/certifications.data"
+import type { Certification } from "@/modules/shared/certifications/types/certifications.types"
+import { getExpiryInfo } from "@/modules/shared/certifications/utils/expiry"
 import { PATHS } from "@/routes/paths"
 
-// Tarjeta 2: resumen de certificaciones y acceso a las licencias.
+// Aptas = vigentes y vitalicias; la próxima es la de menos días que aún no venció.
+const summarize = (certifications: Certification[], today: Date) => {
+  let validCount = 0
+  let expiredCount = 0
+  let next: { name: string; days: number } | null = null
+  for (const certification of certifications) {
+    const { status, days } = getExpiryInfo(certification.expiresAt, today)
+    if (status === "vigente" || status === "vitalicio") validCount += 1
+    if (status === "vencido") expiredCount += 1
+    if (days !== null && days >= 0 && (next === null || days < next.days)) {
+      next = { name: certification.name, days }
+    }
+  }
+  return { validCount, expiredCount, next }
+}
+
+const formatDays = (days: number) =>
+  days === 0 ? "Hoy" : days === 1 ? "En 1 día" : `En ${days} días`
+
+// Tarjeta 2: resumen calculado de certificaciones y acceso a las licencias.
 const CertificationsCard = () => {
   const {
-    data: summary,
+    data: certifications,
     isPending,
     isError,
   } = useQuery({
-    queryKey: ["certifications", "summary"],
-    queryFn: getCertificationsSummary,
+    queryKey: ["certifications", "list"],
+    queryFn: getCertifications,
   })
+  const summary = certifications
+    ? summarize(certifications, new Date())
+    : undefined
 
   return (
     <article className="flex flex-col justify-between gap-6 rounded-xl bg-card p-6 shadow-sm">
@@ -35,7 +59,7 @@ const CertificationsCard = () => {
           >
             No se pudo cargar el resumen de certificaciones.
           </p>
-        ) : (
+        ) : summary ? (
           <>
             <div className="flex flex-col pt-2">
               <h2
@@ -68,35 +92,28 @@ const CertificationsCard = () => {
                   {summary.validCount} Requisitos
                 </span>
               </p>
-              <p className="flex items-center justify-between gap-2 rounded-sm bg-card p-2">
-                <span className="flex items-center gap-1.5 font-medium">
-                  <ClockIcon
-                    aria-hidden="true"
-                    className="size-4 shrink-0 text-brand-secondary"
-                  />
-                  {summary.nextExpiry.name}
-                </span>
-                <span
-                  className={cn(
-                    typography.labelSm,
-                    "shrink-0 rounded-sm bg-brand-neutral px-2 py-0.5 text-brand-primary"
-                  )}
-                >
-                  En {summary.nextExpiry.inDays} días
-                </span>
-              </p>
-              <p
-                className={cn(
-                  typography.labelSm,
-                  "leading-tight text-muted-foreground"
-                )}
-              >
-                Próxima fecha límite de examen psicofísico:{" "}
-                {summary.psychophysicalDeadline}.
-              </p>
+              {summary.next ? (
+                <p className="flex items-center justify-between gap-2 rounded-sm bg-card p-2">
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <ClockIcon
+                      aria-hidden="true"
+                      className="size-4 shrink-0 text-brand-secondary"
+                    />
+                    {summary.next.name}
+                  </span>
+                  <span
+                    className={cn(
+                      typography.labelSm,
+                      "shrink-0 rounded-sm bg-brand-neutral px-2 py-0.5 text-brand-primary"
+                    )}
+                  >
+                    {formatDays(summary.next.days)}
+                  </span>
+                </p>
+              ) : null}
             </div>
           </>
-        )}
+        ) : null}
 
         {/* Después del h2 en el DOM (orden de lectura); order-first lo muestra arriba. */}
         <div className="order-first flex items-center justify-between gap-2">
@@ -118,10 +135,15 @@ const CertificationsCard = () => {
             <p
               className={cn(
                 typography.labelSm,
-                "shrink-0 rounded-sm bg-brand-neutral px-2 py-0.5 text-brand-primary"
+                "shrink-0 rounded-sm px-2 py-0.5",
+                summary.expiredCount === 0
+                  ? "bg-brand-neutral text-brand-primary"
+                  : "bg-destructive/10 text-destructive"
               )}
             >
-              {summary.status}
+              {summary.expiredCount === 0
+                ? "Vigente"
+                : `${summary.expiredCount} ${summary.expiredCount === 1 ? "vencida" : "vencidas"}`}
             </p>
           ) : null}
         </div>

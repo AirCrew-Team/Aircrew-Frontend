@@ -7,8 +7,8 @@ import {
 } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
-import { getCertifications } from "@/modules/certifications/data/certifications.data"
-import { getExpiryInfo } from "@/modules/certifications/utils/expiry"
+import { getCertifications } from "@/modules/shared/certifications/data/certifications.data"
+import { getExpiryInfo } from "@/modules/shared/certifications/utils/expiry"
 
 // R: contadores por estado, calculados sobre la misma query que la lista.
 const CertificationsSummary = () => {
