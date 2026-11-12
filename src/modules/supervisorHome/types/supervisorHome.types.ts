@@ -28,7 +28,7 @@ export interface ShiftStatus {
   standbyReadiness: number
 }
 
-// Tarjeta «Solicitudes de Reemplazo» (ReplacementRequestsCard).
+// Tarjeta «Recomendaciones» (ReplacementRequestsCard).
 export interface ReplacementRequestsSummary {
   // Sugerencias de la IA pendientes de aprobación del supervisor.
   pendingApproval: number

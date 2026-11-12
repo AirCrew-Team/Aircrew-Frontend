@@ -101,7 +101,7 @@ const BLOCKS = [
   },
   {
     fn: "getReplacementRequestsSummary",
-    block: "Solicitudes de Reemplazo",
+    block: "Recomendaciones",
     loading: "Cargando solicitudes de reemplazo…",
     error: "No se pudo cargar el resumen de solicitudes.",
     shown: () => screen.findByText("5 por aprobar"),
@@ -149,7 +149,7 @@ describe("Inicio del supervisor: estados de datos (IS-07)", () => {
         "Cargando estado del turno…",
       ],
       [
-        screen.getByRole("article", { name: "Solicitudes de Reemplazo" }),
+        screen.getByRole("article", { name: "Recomendaciones" }),
         "Cargando solicitudes de reemplazo…",
       ],
       [
@@ -185,7 +185,7 @@ describe("Inicio del supervisor: estados de datos (IS-07)", () => {
   )
 
   it.each([
-    { fn: "getReplacementRequestsSummary", link: "Revisar Solicitudes" },
+    { fn: "getReplacementRequestsSummary", link: "Revisar Recomendaciones" },
     { fn: "getAbsencesSummary", link: "Gestionar Ausencias" },
     { fn: "getCrewSummary", link: "Ver Tripulación" },
   ])(

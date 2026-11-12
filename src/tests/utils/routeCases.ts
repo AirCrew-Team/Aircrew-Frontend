@@ -46,7 +46,8 @@ export const ROUTE_CASES: RouteCase[] = [
   {
     path: PATHS.superVisor.solicitudesReemplazo,
     role: ROLES.SUPER_VISOR,
-    section: "Solicitudes de Reemplazo",
+    section: "Recomendaciones",
+    heading: "Recomendaciones de Reemplazo",
   },
   {
     path: PATHS.superVisor.tripulacion,

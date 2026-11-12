@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils"
 const SolicitudesReemplazoPage = () => {
   return (
     <h1 className={cn(typography.headlineLg, "text-brand-primary")}>
-      Solicitudes de Reemplazo
+      Recomendaciones de Reemplazo
     </h1>
   )
 }
