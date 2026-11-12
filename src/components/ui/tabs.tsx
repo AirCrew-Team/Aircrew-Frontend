@@ -8,8 +8,11 @@ function Tabs({
   ...props
 }: TabsPrimitive.Root.Props) {
   return (
+    // orientation se pasa a Base UI a mano (la plantilla de shadcn no lo hacía): sin él, la
+    // lista vertical respondía a flechas izquierda/derecha. Conservarlo si se regenera.
     <TabsPrimitive.Root
       data-slot="tabs"
+      orientation={orientation}
       data-orientation={orientation}
       className={cn(
         "group/tabs flex gap-2 data-horizontal:flex-col",

@@ -1,12 +1,9 @@
-import { typography } from "@/App/utils/typography"
-import { cn } from "@/lib/utils"
+import RecommendationsBoard from "@/modules/recommendations/components/RecommendationsBoard"
 
+// Recomendaciones de reemplazo del supervisor (/supervisor/solicitudes-reemplazo).
+// Como toda página, solo compone: el tablero lleva el encabezado, la cola y los candidatos.
 const SolicitudesReemplazoPage = () => {
-  return (
-    <h1 className={cn(typography.headlineLg, "text-brand-primary")}>
-      Recomendaciones de Reemplazo
-    </h1>
-  )
+  return <RecommendationsBoard />
 }
 
 export default SolicitudesReemplazoPage
