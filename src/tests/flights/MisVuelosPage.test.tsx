@@ -25,8 +25,9 @@ const METRIC_TITLES = [
   "Vuelos este Mes",
 ] as const
 
+// AR-09 (spec asignacion-reemplazo-tripulante): «Reemplazo Aceptado» pasa a «Reemplazo Asignado».
 const STATUS_LABELS = [
-  "Reemplazo Aceptado",
+  "Reemplazo Asignado",
   "Programado Roster",
   "Completado",
 ] as const
@@ -35,7 +36,7 @@ const STATUS_LABELS = [
 const UPCOMING = [
   {
     number: "AV-9344",
-    status: "Reemplazo Aceptado",
+    status: "Reemplazo Asignado",
     route: ["BOG", "Bogotá, SKBO", "3h 55m", "Directo", "MIA", "Miami, KMIA"],
     texts: [
       "Fecha y Salida",
@@ -349,6 +350,16 @@ describe("Mis Vuelos: pestañas y próximos vuelos (MV-04, MV-05)", () => {
       }
     }
   )
+
+  it("AR-09: la tarjeta de AV-9344 muestra «Reemplazo Asignado» y en ningún sitio aparece «Reemplazo Aceptado»", async () => {
+    renderRoute(PATHS.tripulante.misVuelos)
+    const main = await findLoadedMain()
+    const article = flightArticle(within(main).getByRole("tabpanel"), "AV-9344")
+
+    expect(within(article).getByText("Reemplazo Asignado")).toBeInTheDocument()
+    // textContent incluye los paneles ocultos (Historial) y el contenido sr-only.
+    expect(document.body.textContent).not.toContain("Reemplazo Aceptado")
+  })
 
   it.each(UPCOMING)(
     "MV-05: la tarjeta de $number tiene el botón «Ver más detalle» con el nombre «Ver más detalle del vuelo $number»",

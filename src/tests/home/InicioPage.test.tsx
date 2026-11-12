@@ -1,4 +1,5 @@
-import { screen, waitFor, within } from "@testing-library/react"
+import { focusManager } from "@tanstack/react-query"
+import { act, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it } from "vitest"
 
@@ -7,7 +8,7 @@ import { PATHS } from "@/routes/paths"
 import { useAuthStore } from "@/stores/auth.store"
 
 import { renderRoute } from "../utils/renderRoute"
-import { findToast, queryAllToasts } from "../utils/toasts"
+import { findToast } from "../utils/toasts"
 
 // Pantalla completa con los datos simulados reales de home.data.ts y la sesión del tripulante.
 // LG-08: el store arranca sin sesión, así que cada test la pone de forma explícita.
@@ -27,12 +28,13 @@ const findCard = async (title: string) => {
   return card as HTMLElement
 }
 
+const BANNER = "Asignación de reemplazo"
+
 // Espera a que el banner tenga sus datos (mientras carga puede existir sin ellos).
+// Nombre exacto: el contador «+1 pendiente» no puede formar parte del h2.
 const findBanner = async () => {
-  const banner = await screen.findByRole("region", {
-    name: /solicitud de reemplazo urgente/i,
-  })
-  await waitFor(() => expect(banner).toHaveTextContent(/vuelo av-9344/i))
+  const banner = await screen.findByRole("region", { name: BANNER })
+  await waitFor(() => expect(banner).toHaveTextContent("Vuelo AV-9344"))
   return banner
 }
 
@@ -135,20 +137,7 @@ describe("Inicio del tripulante: página", () => {
     )
   })
 
-  it("HT-26: el banner tiene un h2 «Solicitud de reemplazo urgente» dentro de su región", async () => {
-    renderInicio()
-
-    const banner = await findBanner()
-
-    expect(
-      within(banner).getByRole("heading", {
-        level: 2,
-        name: /solicitud de reemplazo urgente/i,
-      })
-    ).toBeInTheDocument()
-  })
-
-  it("HL-01: el orden del DOM es bienvenida, estado de asignación, solicitud, próximo vuelo, certificaciones y novedad o ausencia", async () => {
+  it("HL-01: el orden del DOM es bienvenida, estado de asignación, asignación de reemplazo, próximo vuelo, certificaciones y novedad o ausencia", async () => {
     renderInicio()
 
     const blocks = [
@@ -162,7 +151,7 @@ describe("Inicio del tripulante: página", () => {
           name: "Estado de asignación",
         }),
       },
-      { name: "solicitud", element: await findBanner() },
+      { name: "asignación de reemplazo", element: await findBanner() },
       { name: "próximo vuelo", element: await findCard("AV-8520") },
       { name: "certificaciones", element: await findCard("Certificaciones") },
       {
@@ -238,16 +227,12 @@ describe("Inicio del tripulante: página", () => {
     }
   )
 
-  it("HT-26: los bloques son section con nombre accesible", async () => {
+  // La parte del banner de HT-26 pasa a AR-02.
+  it("HT-26: el estado de asignación es una section con nombre accesible", async () => {
     renderInicio()
 
     expect(
       await screen.findByRole("region", { name: /^estado de asignación/i })
-    ).toBeInTheDocument()
-    expect(
-      await screen.findByRole("region", {
-        name: /solicitud de reemplazo urgente/i,
-      })
     ).toBeInTheDocument()
   })
 })
@@ -332,39 +317,124 @@ describe("Inicio del tripulante: estado de asignación", () => {
   })
 })
 
-describe("Inicio del tripulante: solicitud de reemplazo urgente", () => {
-  it("HL-04: el banner muestra el h2, el plazo fuera del h2, el vuelo y la ruta con la flecha audible", async () => {
+// Spec asignacion-reemplazo-tripulante: AR-02, AR-04…AR-07 con los datos simulados reales
+// (AV-9344 y luego AV-9478). Sustituyen a HT-12…HT-18, SN-03 del banner y HL-04/HL-05.
+// AR-01, AR-03, AR-07 con una sola asignación y AR-08 están en InicioPage.dataStates.test.tsx.
+describe("Inicio del tripulante: asignación de reemplazo", () => {
+  const MOTIVO_AV_9344 =
+    "Incapacidad médica sobrevenida de tripulante titular. Aprobada por Supervisora Camila Restrepo (OCC Central). Cumple límites RAC 121 / Descanso Reglamentario."
+  const LINE_AV_9344 =
+    "Hoy, 16:15 UTC (11:15 local), Airbus A320neo, Primer Oficial (Copiloto), 3h 50m"
+  const LINE_AV_9478 =
+    "Mañana, 13:40 UTC (08:40 local), Airbus A320neo, Primer Oficial (Copiloto), 1h 05m"
+  const TOAST_AV_9344 = "Asignación del vuelo AV-9344 marcada como enterada"
+
+  // Pulsa «Enterado» en la asignación visible.
+  const acknowledge = async (
+    user: ReturnType<typeof userEvent.setup>,
+    banner: HTMLElement
+  ) => {
+    await user.click(within(banner).getByRole("button", { name: "Enterado" }))
+  }
+
+  it("AR-02: hay una sola región «Asignación de reemplazo» con un h2 de ese nombre", async () => {
     renderInicio()
 
     const banner = await findBanner()
 
+    expect(screen.getAllByRole("region", { name: BANNER })).toHaveLength(1)
+    expect(
+      within(banner).getByRole("heading", { level: 2, name: BANNER })
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole("region", { name: /solicitud de reemplazo/i })
+    ).not.toBeInTheDocument()
+  })
+
+  it("AR-02: se ven «Vuelo AV-9344», «+1 pendiente» fuera del h2 y la ruta «BOG → MIA» con los aeropuertos", async () => {
+    renderInicio()
+
+    const banner = await findBanner()
     const heading = within(banner).getByRole("heading", {
       level: 2,
-      name: "Solicitud de reemplazo urgente",
+      name: BANNER,
     })
-    const deadline = within(banner).getByText("T-11:42 restantes")
-    expect(heading).not.toContainElement(deadline)
-    expect(banner).toHaveTextContent("Vuelo AV-9344")
+
+    expect(within(banner).getByText("Vuelo AV-9344")).toBeInTheDocument()
+    const pending = within(banner).getByText("+1 pendiente")
+    expect(heading).not.toContainElement(pending)
 
     const spoken = spokenText(banner)
     expect(spoken).toContain("BOG → MIA")
-    expect(spoken).toContain("Bogotá El Dorado → Miami Intl")
+    expect(spoken).toContain("(Bogotá El Dorado → Miami Intl)")
   })
 
-  it("HL-04: la línea de datos se oye «Sale 16:15 UTC (11:15 local), Airbus A320neo, Primer Oficial (Copiloto), 3h 50m»", async () => {
+  it(`AR-02: la línea de datos se oye «${LINE_AV_9344}»`, async () => {
     renderInicio()
 
     const banner = await findBanner()
 
-    const line = getSpokenLine(banner, ["Sale 16:15 UTC", "3h 50m"])
-    expect(spokenText(line)).toBe(
-      "Sale 16:15 UTC (11:15 local), Airbus A320neo, Primer Oficial (Copiloto), 3h 50m"
-    )
+    const line = getSpokenLine(banner, ["Hoy, 16:15 UTC", "3h 50m"])
+    expect(spokenText(line)).toBe(LINE_AV_9344)
     // Ancla: los tres separadores se ven («·») aunque el lector no los oiga.
     expect(countDots(line), "la línea debe mostrar tres «·»").toBe(3)
   })
 
-  it("HL-04: el motivo y la tripulación no se ven hasta abrir el detalle", async () => {
+  it("AR-02: AV-9478 no aparece en ningún sitio mientras AV-9344 está visible", async () => {
+    renderInicio()
+
+    await findBanner()
+
+    // textContent incluye también lo oculto (detalle cerrado, sr-only).
+    expect(document.body.textContent).not.toContain("AV-9478")
+    expect(document.body.textContent).not.toContain("Medellín")
+    // Los códigos van en <span> pegados: textContent da «BOG→MDE», el lector «BOG → MDE».
+    expect(spokenText(document.body)).not.toContain("BOG → MDE")
+  })
+
+  it("AR-04: hay botón «Enterado», pero no «Aceptar» ni «Rechazar», ningún alertdialog ni el texto «restantes»", async () => {
+    renderInicio()
+
+    const banner = await findBanner()
+
+    // Ancla positiva: el banner ya tiene su acción.
+    expect(
+      within(banner).getByRole("button", { name: "Enterado" })
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: /aceptar/i })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: /rechazar/i })
+    ).not.toBeInTheDocument()
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
+    expect(banner).not.toHaveTextContent(/restantes/i)
+    expect(banner).not.toHaveTextContent(/T-11:42/)
+    // Antes HL-04: la ruta y la meteorología no vuelven, ni siquiera en el detalle.
+    expect(banner).not.toHaveTextContent(/ruta & meteorología/i)
+    expect(banner).not.toHaveTextContent(/ruta plan/i)
+    expect(banner).not.toHaveTextContent(/metar/i)
+  })
+
+  it("AR-06: el chip no roba el foco al cargar ni al volver a pedir los datos; solo tras «Enterado»", async () => {
+    renderInicio()
+
+    const banner = await findBanner()
+    const chip = within(banner).getByText("Vuelo AV-9344")
+    expect(chip).not.toHaveFocus()
+
+    // Simula salir y volver a la pestaña (refetchOnWindowFocus de TanStack Query).
+    act(() => {
+      focusManager.setFocused(false)
+      focusManager.setFocused(true)
+    })
+    await act(() => new Promise<void>((resolve) => setTimeout(resolve, 100)))
+    focusManager.setFocused(undefined)
+
+    expect(within(banner).getByText("Vuelo AV-9344")).not.toHaveFocus()
+  })
+
+  it("AR-05: el motivo y la tripulación no se ven hasta abrir el detalle", async () => {
     renderInicio()
 
     const banner = await findBanner()
@@ -385,18 +455,7 @@ describe("Inicio del tripulante: solicitud de reemplazo urgente", () => {
     }
   })
 
-  it("HL-04: «Ruta & Meteorología», el plan de ruta y el METAR no aparecen, ni siquiera en el detalle", async () => {
-    renderInicio()
-
-    const banner = await findBanner()
-
-    expect(banner).not.toHaveTextContent(/ruta & meteorología/i)
-    expect(banner).not.toHaveTextContent(/ruta plan/i)
-    expect(banner).not.toHaveTextContent(/W19 \/ MNX/)
-    expect(banner).not.toHaveTextContent(/metar/i)
-  })
-
-  it("HL-05: «Ver detalle completo» empieza con aria-expanded=false y aria-controls a un panel oculto", async () => {
+  it("AR-05: «Ver detalle completo» empieza con aria-expanded=false y aria-controls a un panel oculto", async () => {
     renderInicio()
 
     const banner = await findBanner()
@@ -410,7 +469,7 @@ describe("Inicio del tripulante: solicitud de reemplazo urgente", () => {
     expectHiddenOrAbsent(document.getElementById(panelId ?? ""))
   })
 
-  it("HL-05: al abrirlo, el panel muestra «Motivo», «Tripulación a bordo» y «Descanso post-vuelo» en dt y el botón pasa a «Ocultar detalle»; al volver a pulsarlo, vuelve al inicio", async () => {
+  it("AR-05: al abrirlo, «Motivo» dice «Aprobada por Supervisora Camila Restrepo (OCC Central)», «Tripulación a bordo» y «Descanso post-vuelo» van en dt y el botón pasa a «Ocultar detalle»; al volver a pulsarlo, se cierra", async () => {
     const user = userEvent.setup()
     renderInicio()
 
@@ -436,11 +495,14 @@ describe("Inicio del tripulante: solicitud de reemplazo urgente", () => {
       "Descanso post-vuelo",
     ])
     expect(panel).toHaveTextContent(
-      "Incapacidad médica sobrevenida de tripulante titular. Solicita Supervisora Camila Restrepo (OCC Central). Cumple límites RAC 121 / Descanso Reglamentario."
+      "Aprobada por Supervisora Camila Restrepo (OCC Central)"
     )
+    expect(panel).toHaveTextContent(MOTIVO_AV_9344)
+    expect(panel).not.toHaveTextContent(/solicita/i)
     expect(panel).toHaveTextContent("Comandante: Cap. Carlos Mendivelso")
-    expect(panel).toHaveTextContent("Jefe de Cabina: Mariana Santos + 3 TCPs")
     expect(panel).toHaveTextContent("Descanso garantizado: 18h en KMIA")
+    // Segunda línea (nota) de cada dato del detalle.
+    expect(panel).toHaveTextContent("Jefe de Cabina: Mariana Santos + 3 TCPs")
     expect(panel).toHaveTextContent("Retorno asignado: AV-9345 día siguiente")
 
     await user.click(hide)
@@ -452,221 +514,111 @@ describe("Inicio del tripulante: solicitud de reemplazo urgente", () => {
     expectHiddenOrAbsent(panel)
   })
 
-  const DIALOGS = [
-    {
-      trigger: "Aceptar",
-      title: "Confirmar Aceptación de Reemplazo",
-      confirm: "Confirmar Asignación",
-      message: "Aceptaste la solicitud del vuelo AV-9344",
-    },
-    {
-      trigger: "Rechazar",
-      title: "Rechazar Solicitud de Contingencia",
-      confirm: "Confirmar Rechazo",
-      message: "Rechazaste la solicitud del vuelo AV-9344",
-    },
-  ]
-
-  it("HT-15: «Aceptar» abre un alertdialog con el vuelo y la hora en la descripción", async () => {
+  it(`AR-06: pulsar «Enterado» en AV-9344 muestra un toast de éxito «${TOAST_AV_9344}» fuera del banner`, async () => {
     const user = userEvent.setup()
     renderInicio()
 
     const banner = await findBanner()
-    await user.click(within(banner).getByRole("button", { name: /^aceptar$/i }))
+    await acknowledge(user, banner)
 
-    const dialog = await screen.findByRole("alertdialog", {
-      name: "Confirmar Aceptación de Reemplazo",
-    })
-    expect(dialog).toHaveAccessibleDescription(/AV-9344/)
-    expect(dialog).toHaveAccessibleDescription(/16:15 UTC/)
-    expect(
-      within(dialog).getByRole("button", { name: "Cancelar" })
-    ).toBeInTheDocument()
-    expect(
-      within(dialog).getByRole("button", { name: "Confirmar Asignación" })
-    ).toBeInTheDocument()
+    const toast = await findToast(TOAST_AV_9344)
+    expect(toast).toHaveAttribute("data-type", "success")
+    expect(screen.getByRole("main")).not.toContainElement(toast)
   })
 
-  it("HT-16: «Rechazar» abre un alertdialog «Rechazar Solicitud de Contingencia»", async () => {
+  it(`AR-06: tras «Enterado», se ven «Vuelo AV-9478», «BOG → MDE» y «${LINE_AV_9478}», sin «pendiente» ni AV-9344`, async () => {
+    const user = userEvent.setup()
+    renderInicio()
+
+    const banner = await findBanner()
+    await acknowledge(user, banner)
+
+    const next = await screen.findByRole("region", { name: BANNER })
+    await waitFor(() => expect(next).toHaveTextContent("Vuelo AV-9478"))
+    expect(spokenText(next)).toContain("BOG → MDE")
+    expect(spokenText(next)).toContain(
+      "(Bogotá El Dorado → Medellín José María Córdova)"
+    )
+    const line = getSpokenLine(next, ["Mañana, 13:40 UTC", "1h 05m"])
+    expect(spokenText(line)).toBe(LINE_AV_9478)
+    expect(countDots(line), "la línea debe mostrar tres «·»").toBe(3)
+    expect(within(next).queryByText(/pendiente/i)).not.toBeInTheDocument()
+    expect(next).not.toHaveTextContent("Vuelo AV-9344")
+    expect(screen.getAllByRole("region", { name: BANNER })).toHaveLength(1)
+  })
+
+  it("AR-06: si el detalle estaba abierto, la asignación siguiente aparece con el detalle cerrado y su propio motivo", async () => {
     const user = userEvent.setup()
     renderInicio()
 
     const banner = await findBanner()
     await user.click(
-      within(banner).getByRole("button", { name: /^rechazar$/i })
+      within(banner).getByRole("button", { name: "Ver detalle completo" })
     )
+    // Ancla: el detalle de AV-9344 sí estaba abierto antes de pulsar «Enterado».
+    expect(
+      within(banner).getByRole("button", { name: "Ocultar detalle" })
+    ).toHaveAttribute("aria-expanded", "true")
 
-    const dialog = await screen.findByRole("alertdialog", {
-      name: "Rechazar Solicitud de Contingencia",
+    await acknowledge(user, banner)
+
+    const next = await screen.findByRole("region", { name: BANNER })
+    await waitFor(() => expect(next).toHaveTextContent("Vuelo AV-9478"))
+    const toggle = within(next).getByRole("button", {
+      name: "Ver detalle completo",
     })
-    expect(
-      within(dialog).getByRole("button", { name: "Cancelar" })
-    ).toBeInTheDocument()
-    expect(
-      within(dialog).getByRole("button", { name: "Confirmar Rechazo" })
-    ).toBeInTheDocument()
+    expect(toggle).toHaveAttribute("aria-expanded", "false")
+    const panel = document.getElementById(
+      toggle.getAttribute("aria-controls") ?? ""
+    )
+    expectHiddenOrAbsent(panel)
+
+    // Al abrirlo, el detalle es el de AV-9478, no el de AV-9344.
+    await user.click(toggle)
+    const opened = document.getElementById(
+      within(next)
+        .getByRole("button", { name: "Ocultar detalle" })
+        .getAttribute("aria-controls") ?? ""
+    )
+    expect(opened).toBeVisible()
+    expect(opened).toHaveTextContent(
+      "Aprobada por Supervisor Andrés Pardo (OCC Central)"
+    )
+    expect(opened).not.toHaveTextContent(/camila restrepo/i)
   })
 
-  it.each(DIALOGS)(
-    "HT-17: al abrir «$trigger», el foco queda dentro del diálogo",
-    async ({ trigger, title }) => {
-      const user = userEvent.setup()
-      renderInicio()
-
-      const banner = await findBanner()
-      await user.click(
-        within(banner).getByRole("button", {
-          name: new RegExp(`^${trigger}$`, "i"),
-        })
-      )
-
-      const dialog = await screen.findByRole("alertdialog", { name: title })
-      await waitFor(() =>
-        expect(dialog).toContainElement(document.activeElement as HTMLElement)
-      )
-    }
-  )
-
-  it.each(DIALOGS)(
-    "HT-17: en «$trigger», «Cancelar» cierra sin cambios y devuelve el foco al botón",
-    async ({ trigger, title, message }) => {
-      const user = userEvent.setup()
-      renderInicio()
-
-      const banner = await findBanner()
-      const opener = within(banner).getByRole("button", {
-        name: new RegExp(`^${trigger}$`, "i"),
-      })
-      await user.click(opener)
-      const dialog = await screen.findByRole("alertdialog", { name: title })
-
-      await user.click(within(dialog).getByRole("button", { name: "Cancelar" }))
-
-      await waitFor(() =>
-        expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
-      )
-      await waitFor(() => expect(opener).toHaveFocus())
-      expect(opener).toBeEnabled()
-      expect(banner).not.toHaveTextContent(message)
-    }
-  )
-
-  it.each(DIALOGS)(
-    "HT-17: en «$trigger», Escape cierra sin cambios y devuelve el foco al botón",
-    async ({ trigger, title, message }) => {
-      const user = userEvent.setup()
-      renderInicio()
-
-      const banner = await findBanner()
-      const opener = within(banner).getByRole("button", {
-        name: new RegExp(`^${trigger}$`, "i"),
-      })
-      await user.click(opener)
-      await screen.findByRole("alertdialog", { name: title })
-
-      await user.keyboard("{Escape}")
-
-      await waitFor(() =>
-        expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
-      )
-      await waitFor(() => expect(opener).toHaveFocus())
-      expect(opener).toBeEnabled()
-      expect(banner).not.toHaveTextContent(message)
-    }
-  )
-
-  // Abre el diálogo de «trigger», confirma y espera a que se cierre.
-  const confirmDecision = async ({
-    trigger,
-    title,
-    confirm,
-  }: (typeof DIALOGS)[number]) => {
+  it("AR-06: tras «Enterado», el foco queda en el chip «Vuelo AV-9478»", async () => {
     const user = userEvent.setup()
     renderInicio()
 
     const banner = await findBanner()
-    await user.click(
-      within(banner).getByRole("button", {
-        name: new RegExp(`^${trigger}$`, "i"),
-      })
-    )
-    const dialog = await screen.findByRole("alertdialog", { name: title })
+    await acknowledge(user, banner)
 
-    await user.click(within(dialog).getByRole("button", { name: confirm }))
+    const chip = await screen.findByText("Vuelo AV-9478")
+    await waitFor(() => expect(chip).toHaveFocus())
+  })
+
+  it("AR-07: tras «Enterado» en las dos asignaciones, la región desaparece y el foco pasa a main#contenido, no a body", async () => {
+    const user = userEvent.setup()
+    renderInicio()
+
+    const banner = await findBanner()
+    await acknowledge(user, banner)
+    const next = await screen.findByRole("region", { name: BANNER })
+    await waitFor(() => expect(next).toHaveTextContent("Vuelo AV-9478"))
+
+    await acknowledge(user, next)
 
     await waitFor(() =>
-      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole("region", { name: BANNER })
+      ).not.toBeInTheDocument()
     )
-    return banner
-  }
-
-  it.each(DIALOGS)(
-    "SN-03: en «$trigger», «Cancelar» no muestra ningún toast",
-    async ({ trigger, title }) => {
-      const user = userEvent.setup()
-      renderInicio()
-
-      const banner = await findBanner()
-      await user.click(
-        within(banner).getByRole("button", {
-          name: new RegExp(`^${trigger}$`, "i"),
-        })
-      )
-      const dialog = await screen.findByRole("alertdialog", { name: title })
-      await user.click(within(dialog).getByRole("button", { name: "Cancelar" }))
-
-      await waitFor(() =>
-        expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
-      )
-      expect(queryAllToasts()).toHaveLength(0)
-    }
-  )
-
-  it.each(DIALOGS)(
-    "SN-03: al confirmar «$trigger», aparece un toast de éxito «$message»",
-    async (dialog) => {
-      const banner = await confirmDecision(dialog)
-
-      const toast = await findToast(dialog.message)
-      expect(toast).toHaveAttribute("data-type", "success")
-      expect(banner).not.toContainElement(toast)
-    }
-  )
-
-  it.each(DIALOGS)(
-    "SN-03 y HT-18: al confirmar «$trigger», «$message» sigue visible en el banner sin role=status ni tabIndex, y las acciones quedan deshabilitadas",
-    async (dialog) => {
-      const banner = await confirmDecision(dialog)
-
-      await waitFor(() => expect(banner).toHaveTextContent(dialog.message))
-      const result = within(banner).getByText(dialog.message)
-      expect(result).toBeVisible()
-      expect(result).not.toHaveAttribute("role")
-      expect(result).not.toHaveAttribute("tabindex")
-      // Ya cargado, el banner no tiene ningún role=status (ni el del resultado).
-      expect(within(banner).queryAllByRole("status")).toHaveLength(0)
-      expect(
-        within(banner).getByRole("button", { name: /^aceptar$/i })
-      ).toBeDisabled()
-      expect(
-        within(banner).getByRole("button", { name: /^rechazar$/i })
-      ).toBeDisabled()
-    }
-  )
-
-  it.each(DIALOGS)(
-    "SN-03 y HL-05: al cerrarse el diálogo de «$trigger», el foco pasa a «Ver detalle completo», que sigue habilitado",
-    async (dialog) => {
-      const banner = await confirmDecision(dialog)
-
-      const detail = within(banner).getByRole("button", {
-        name: "Ver detalle completo",
-      })
-      // Si volviera a Aceptar/Rechazar (deshabilitados) caería en body.
-      await waitFor(() => expect(detail).toHaveFocus())
-      expect(detail).toBeEnabled()
-    }
-  )
+    const main = screen.getByRole("main")
+    expect(main).toHaveAttribute("id", "contenido")
+    await waitFor(() => expect(main).toHaveFocus())
+    expect(document.activeElement).not.toBe(document.body)
+  })
 })
 
 describe("Inicio del tripulante: tarjetas", () => {

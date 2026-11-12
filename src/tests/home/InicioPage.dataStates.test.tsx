@@ -1,4 +1,6 @@
-import { screen, waitFor, within } from "@testing-library/react"
+import { focusManager } from "@tanstack/react-query"
+import { act, screen, waitFor, within } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { ROLES } from "@/App/types/auth.types"
@@ -6,6 +8,7 @@ import { PATHS } from "@/routes/paths"
 import { useAuthStore } from "@/stores/auth.store"
 
 import { renderRoute } from "../utils/renderRoute"
+import { findToast } from "../utils/toasts"
 
 // LG-08: el store arranca sin sesión, así que cada test pone la del tripulante.
 beforeEach(() => {
@@ -20,8 +23,10 @@ type DataFn = (...args: unknown[]) => unknown
 const homeData = vi.hoisted(() => ({
   calls: [] as string[],
   overrides: {} as Record<string, DataFn | undefined>,
-  // Nombres que exporta de verdad home.data.ts (HL-08).
+  // Nombres que exporta de verdad home.data.ts (HL-08, AR-01).
   exports: [] as string[],
+  // Funciones reales, para derivar overrides de los datos simulados (AR-01, AR-03, AR-07).
+  real: {} as Record<string, DataFn | undefined>,
 }))
 
 vi.mock("@/modules/home/data/home.data", async (importOriginal) => {
@@ -31,6 +36,7 @@ vi.mock("@/modules/home/data/home.data", async (importOriginal) => {
     Object.entries(actual).map(([name, value]) => {
       if (typeof value !== "function") return [name, value]
       const real = value as DataFn
+      homeData.real[name] = real
       return [
         name,
         (...args: unknown[]) => {
@@ -70,9 +76,21 @@ vi.mock(
 
 const DATA_FUNCTIONS = [
   "getCrewStatus",
-  "getUrgentReplacementRequest",
+  "getReplacementAssignments",
   "getNextFlight",
 ]
+
+type Assignment = Record<string, unknown>
+
+// Lista real de asignaciones (AV-9344 y AV-9478). Falla con un mensaje claro si la función no existe.
+const realAssignments = async () => {
+  const real = homeData.real.getReplacementAssignments
+  expect(
+    real,
+    "home.data.ts debe exportar getReplacementAssignments"
+  ).toBeTypeOf("function")
+  return (await (real as DataFn)()) as Assignment[]
+}
 
 const overrideAll = (fn: DataFn) => {
   for (const name of DATA_FUNCTIONS) homeData.overrides[name] = fn
@@ -86,12 +104,18 @@ afterEach(() => {
   certificationsData.overrides = {}
 })
 
-// Bloques con datos: WelcomeHeader, AssignmentStatus, ReplacementRequestBanner,
+// Bloques con datos: WelcomeHeader, AssignmentStatus, ReplacementAssignmentBanner,
 // NextFlightCard y CertificationsCard.
 const BLOCKS_WITH_DATA = 5
 
 const CERTIFICATIONS_LOADING = "Cargando certificaciones…"
 const CERTIFICATIONS_ERROR = "No se pudo cargar el resumen de certificaciones."
+
+const BANNER = "Asignación de reemplazo"
+const ASSIGNMENTS_LOADING = "Cargando asignaciones de reemplazo…"
+const ASSIGNMENTS_ERROR = "No se pudieron cargar las asignaciones de reemplazo."
+// «No se pudo cargar…» o, en el banner, «No se pudieron cargar…».
+const LOAD_ERROR = /^no se pud(o|ieron) cargar/i
 
 const normalize = (text: string | null) =>
   (text ?? "").replace(/\s+/g, " ").trim()
@@ -171,7 +195,7 @@ describe("Inicio del tripulante: carga, error y datos vacíos", () => {
         within(main)
           .queryAllByRole("alert")
           .filter((element) =>
-            /^no se pudo cargar/i.test(element.textContent?.trim() ?? "")
+            LOAD_ERROR.test(element.textContent?.trim() ?? "")
           )
       ).toHaveLength(BLOCKS_WITH_DATA)
     )
@@ -193,24 +217,6 @@ describe("Inicio del tripulante: carga, error y datos vacíos", () => {
     expect(
       screen.queryByRole("heading", { level: 2, name: "AV-8520" })
     ).not.toBeInTheDocument()
-  })
-
-  it("HT-13: si getUrgentReplacementRequest devuelve null, no existe la región «Solicitud de reemplazo urgente»", async () => {
-    homeData.overrides.getUrgentReplacementRequest = () => Promise.resolve(null)
-
-    renderRoute(PATHS.tripulante.inicio)
-
-    // Ancla positiva: el resto de la pantalla ya cargó y ningún bloque sigue cargando.
-    const main = await screen.findByRole("main")
-    await screen.findByRole("heading", { level: 2, name: "AV-8520" })
-    await waitFor(() =>
-      expect(statusesStartingWith(main, /^cargando/i)).toHaveLength(0)
-    )
-    expect(homeData.calls).toContain("getUrgentReplacementRequest")
-    expect(
-      screen.queryByRole("region", { name: /solicitud de reemplazo urgente/i })
-    ).not.toBeInTheDocument()
-    expect(screen.queryByText(/AV-9344/)).not.toBeInTheDocument()
   })
 
   it.each([
@@ -236,6 +242,174 @@ describe("Inicio del tripulante: carga, error y datos vacíos", () => {
       expect(within(region).queryAllByRole("radio")).toHaveLength(0)
     }
   )
+})
+
+// Spec asignacion-reemplazo-tripulante. AR-03 sustituye a HT-13.
+describe("Inicio del tripulante: asignaciones de reemplazo (datos)", () => {
+  it("AR-01: home.data.ts exporta getReplacementAssignments y ya no exporta getUrgentReplacementRequest", async () => {
+    renderRoute(PATHS.tripulante.inicio)
+
+    await waitForLoaded()
+
+    expect(homeData.exports).toContain("getReplacementAssignments")
+    expect(homeData.exports).not.toContain("getUrgentReplacementRequest")
+    expect(homeData.calls).toContain("getReplacementAssignments")
+    expect(homeData.calls).not.toContain("getUrgentReplacementRequest")
+  })
+
+  it("AR-01: getReplacementAssignments devuelve dos asignaciones, AV-9344 («Hoy», aprobada por la Supervisora Camila Restrepo) y luego AV-9478 («Mañana»), sin plazo ni solicitante", async () => {
+    renderRoute(PATHS.tripulante.inicio)
+    await waitForLoaded()
+
+    const assignments = await realAssignments()
+
+    expect(assignments.map((item) => item.flightNumber)).toEqual([
+      "AV-9344",
+      "AV-9478",
+    ])
+    expect(assignments[0]).toMatchObject({
+      dayLabel: "Hoy",
+      approvedBy: "Supervisora Camila Restrepo (OCC Central)",
+      departureUtc: "16:15",
+      departureLocal: "11:15",
+    })
+    expect(assignments[1]).toMatchObject({
+      dayLabel: "Mañana",
+      approvedBy: "Supervisor Andrés Pardo (OCC Central)",
+      departureUtc: "13:40",
+      departureLocal: "08:40",
+      estimatedDuration: "1h 05m",
+    })
+    for (const item of assignments) {
+      expect(item).not.toHaveProperty("timeRemaining")
+      expect(item).not.toHaveProperty("requestedBy")
+    }
+  })
+
+  it("AR-03: con una lista vacía, no existe la región «Asignación de reemplazo»", async () => {
+    homeData.overrides.getReplacementAssignments = () => Promise.resolve([])
+
+    renderRoute(PATHS.tripulante.inicio)
+
+    // Ancla positiva: el resto de la pantalla ya cargó y ningún bloque sigue cargando.
+    await waitForLoaded()
+    expect(homeData.calls).toContain("getReplacementAssignments")
+    expect(
+      screen.queryByRole("region", { name: BANNER })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole("heading", { level: 2, name: BANNER })
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText(/AV-9344/)).not.toBeInTheDocument()
+  })
+
+  it("AR-03: con una sola asignación, el banner muestra AV-9344 sin ningún texto «pendiente»", async () => {
+    homeData.overrides.getReplacementAssignments = async () =>
+      (await realAssignments()).slice(0, 1)
+
+    renderRoute(PATHS.tripulante.inicio)
+
+    const banner = await screen.findByRole("region", { name: BANNER })
+    await waitFor(() => expect(banner).toHaveTextContent("Vuelo AV-9344"))
+    expect(within(banner).queryByText(/pendiente/i)).not.toBeInTheDocument()
+    expect(banner).not.toHaveTextContent(/pendiente/i)
+  })
+
+  it("AR-02: con tres asignaciones, el contador dice «+2 pendientes»", async () => {
+    homeData.overrides.getReplacementAssignments = async () => {
+      const list = await realAssignments()
+      return [...list, { ...list[1], flightNumber: "AV-9500" }]
+    }
+
+    renderRoute(PATHS.tripulante.inicio)
+
+    const banner = await screen.findByRole("region", { name: BANNER })
+    await waitFor(() => expect(banner).toHaveTextContent("Vuelo AV-9344"))
+    expect(within(banner).getByText("+2 pendientes")).toBeInTheDocument()
+  })
+
+  it("AR-08: si una recarga falla tras haber cargado, el banner muestra solo el error, sin el chip del vuelo", async () => {
+    let call = 0
+    homeData.overrides.getReplacementAssignments = async () => {
+      call += 1
+      if (call === 1) return realAssignments()
+      throw new Error("fallo simulado")
+    }
+
+    renderRoute(PATHS.tripulante.inicio)
+
+    const banner = await screen.findByRole("region", { name: BANNER })
+    await waitFor(() => expect(banner).toHaveTextContent("Vuelo AV-9344"))
+
+    act(() => {
+      focusManager.setFocused(false)
+      focusManager.setFocused(true)
+    })
+    focusManager.setFocused(undefined)
+
+    const alert = await within(banner).findByRole("alert")
+    expect(alert).toHaveTextContent(ASSIGNMENTS_ERROR)
+    expect(banner).not.toHaveTextContent("Vuelo AV-9344")
+    expect(banner).not.toHaveTextContent(/pendiente/i)
+  })
+
+  it("AR-07: con una sola asignación, tras «Enterado» la región desaparece y el foco pasa a main#contenido, no a body", async () => {
+    homeData.overrides.getReplacementAssignments = async () =>
+      (await realAssignments()).slice(0, 1)
+    const user = userEvent.setup()
+
+    renderRoute(PATHS.tripulante.inicio)
+
+    const banner = await screen.findByRole("region", { name: BANNER })
+    await waitFor(() => expect(banner).toHaveTextContent("Vuelo AV-9344"))
+    await user.click(within(banner).getByRole("button", { name: "Enterado" }))
+
+    await findToast("Asignación del vuelo AV-9344 marcada como enterada")
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("region", { name: BANNER })
+      ).not.toBeInTheDocument()
+    )
+    expect(
+      screen.queryByRole("heading", { level: 2, name: BANNER })
+    ).not.toBeInTheDocument()
+    const main = screen.getByRole("main")
+    expect(main).toHaveAttribute("id", "contenido")
+    await waitFor(() => expect(main).toHaveFocus())
+    expect(document.activeElement).not.toBe(document.body)
+  })
+
+  it(`AR-08: mientras getReplacementAssignments no se resuelve, solo el banner muestra «${ASSIGNMENTS_LOADING}» en un role=status`, async () => {
+    homeData.overrides.getReplacementAssignments = () => new Promise(() => {})
+
+    renderRoute(PATHS.tripulante.inicio)
+
+    const main = await screen.findByRole("main")
+    await screen.findByRole("heading", { level: 2, name: "AV-8520" })
+    await screen.findByRole("heading", { level: 2, name: "Certificaciones" })
+    await waitFor(() =>
+      expect(
+        statusesStartingWith(main, /^cargando/i).map((element) =>
+          normalize(element.textContent)
+        )
+      ).toEqual([ASSIGNMENTS_LOADING])
+    )
+    expect(homeData.calls).toContain("getReplacementAssignments")
+  })
+
+  it(`AR-08: si getReplacementAssignments falla, solo el banner muestra «${ASSIGNMENTS_ERROR}» en un role=alert`, async () => {
+    homeData.overrides.getReplacementAssignments = () =>
+      Promise.reject(new Error("fallo simulado"))
+
+    renderRoute(PATHS.tripulante.inicio)
+
+    const alert = await screen.findByRole("alert")
+    expect(normalize(alert.textContent)).toBe(ASSIGNMENTS_ERROR)
+    await screen.findByRole("heading", { level: 2, name: "AV-8520" })
+    await screen.findByRole("heading", { level: 2, name: "Certificaciones" })
+    expect(screen.getAllByRole("alert")).toHaveLength(1)
+    expect(screen.queryByText(/AV-9344/)).not.toBeInTheDocument()
+  })
 })
 
 describe("Inicio del tripulante: datos de certificaciones (HL-08)", () => {

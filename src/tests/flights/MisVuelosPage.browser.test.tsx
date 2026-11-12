@@ -237,7 +237,7 @@ describe("Mis Vuelos: cambio de pestaña (MV-06)", () => {
     for (const article of within(activePanel()).getAllByRole("article")) {
       expect(article).toHaveTextContent("Completado")
       expect(article).not.toHaveTextContent("Programado Roster")
-      expect(article).not.toHaveTextContent("Reemplazo Aceptado")
+      expect(article).not.toHaveTextContent("Reemplazo Asignado")
     }
   })
 

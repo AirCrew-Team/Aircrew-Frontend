@@ -14,16 +14,17 @@ export interface Airport {
   name: string
 }
 
-export interface ReplacementRequestDetail {
+export interface ReplacementAssignmentDetail {
   label: string
   value: string
   note: string
 }
 
-export interface ReplacementRequest {
+// Asignación de reemplazo aprobada por el Supervisor: el tripulante solo la marca como «Enterado».
+export interface ReplacementAssignment {
   flightNumber: string
-  // Plazo fijo mientras no exista la cuenta regresiva, ej. "T-11:42".
-  timeRemaining: string
+  // Día relativo, ej. "Hoy" o "Mañana".
+  dayLabel: string
   origin: Airport
   destination: Airport
   // Horas "HH:MM".
@@ -33,9 +34,9 @@ export interface ReplacementRequest {
   position: string
   estimatedDuration: string
   reason: string
-  requestedBy: string
+  approvedBy: string
   compliance: string
-  details: ReplacementRequestDetail[]
+  details: ReplacementAssignmentDetail[]
 }
 
 export interface NextFlight {

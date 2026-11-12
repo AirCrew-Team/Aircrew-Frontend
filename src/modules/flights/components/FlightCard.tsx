@@ -17,7 +17,7 @@ import type {
 } from "@/modules/flights/types/flights.types"
 
 const STATUS_LABEL: Record<FlightStatus, string> = {
-  reemplazo: "Reemplazo Aceptado",
+  reemplazo: "Reemplazo Asignado",
   programado: "Programado Roster",
   completado: "Completado",
 }
