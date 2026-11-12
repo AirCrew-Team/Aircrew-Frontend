@@ -48,10 +48,3 @@ export interface NextFlight {
   gate: string
   flightRole: string
 }
-
-export interface CertificationsSummary {
-  status: string
-  validCount: number
-  nextExpiry: { name: string; inDays: number }
-  psychophysicalDeadline: string
-}

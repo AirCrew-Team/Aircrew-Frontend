@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   formatShortDate,
   getExpiryInfo,
-} from "@/modules/certifications/utils/expiry"
+} from "@/modules/shared/certifications/utils/expiry"
 
 // Spec certificaciones-tripulante, D3: «hoy» es la fecha local a medianoche, la hora del día no
 // cambia el resultado y los días son (vencimiento − hoy) en días enteros.

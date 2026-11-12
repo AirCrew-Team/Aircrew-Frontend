@@ -1,6 +1,6 @@
 import { Link } from "react-router"
 
-import { AbsenceIcon, ArrowRightIcon, PolicyIcon } from "@/App/utils/icons"
+import { AbsenceIcon, ArrowRightIcon } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
 import { PATHS } from "@/routes/paths"
@@ -57,15 +57,6 @@ const AbsenceCard = () => {
           <p className="leading-normal text-muted-foreground">
             Reporte oportuno por incapacidad médica, fatiga operacional o
             calamidad doméstica para activar relevos en cascada.
-          </p>
-          <p
-            className={cn(
-              typography.labelSm,
-              "flex items-center gap-1.5 text-brand-secondary"
-            )}
-          >
-            <PolicyIcon aria-hidden="true" className="size-4 shrink-0" />
-            Alineado con Política Safety &amp; SMS
           </p>
         </div>
       </div>

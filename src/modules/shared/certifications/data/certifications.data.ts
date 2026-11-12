@@ -1,7 +1,7 @@
 import type {
   Certification,
   RecurrentTraining,
-} from "@/modules/certifications/types/certifications.types"
+} from "@/modules/shared/certifications/types/certifications.types"
 
 // Datos simulados con la forma de las acciones reales: se moverán a App/actions cuando exista la API.
 // Las fechas son «hoy + N días» al llamar, en ISO local de solo día (nunca toISOString, que es UTC).

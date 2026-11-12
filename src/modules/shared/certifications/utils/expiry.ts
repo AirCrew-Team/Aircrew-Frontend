@@ -1,4 +1,4 @@
-import type { CertificationStatus } from "@/modules/certifications/types/certifications.types"
+import type { CertificationStatus } from "@/modules/shared/certifications/types/certifications.types"
 
 const DAY_MS = 86_400_000
 const WARNING_DAYS = 60

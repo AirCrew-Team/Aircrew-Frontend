@@ -19,11 +19,11 @@ import type {
   Certification,
   CertificationKind,
   CertificationStatus,
-} from "@/modules/certifications/types/certifications.types"
+} from "@/modules/shared/certifications/types/certifications.types"
 import {
   formatShortDate,
   getExpiryInfo,
-} from "@/modules/certifications/utils/expiry"
+} from "@/modules/shared/certifications/utils/expiry"
 
 const KIND_ICON: Record<CertificationKind, typeof PositionIcon> = {
   license: PositionIcon,

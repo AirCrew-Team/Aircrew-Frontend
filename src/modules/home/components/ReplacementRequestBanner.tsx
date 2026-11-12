@@ -5,12 +5,7 @@ import { toast } from "sonner"
 import {
   AcceptIcon,
   ArrowRightIcon,
-  ClockIcon,
   CloseIcon,
-  DurationIcon,
-  FlightIcon,
-  PositionIcon,
-  ReasonIcon,
   WarningIcon,
 } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
@@ -27,6 +22,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import DotSeparator from "@/modules/home/components/DotSeparator"
 import { getUrgentReplacementRequest } from "@/modules/home/data/home.data"
 import type { ReplacementRequest } from "@/modules/home/types/home.types"
 
@@ -98,16 +94,22 @@ const ReplacementRequestBanner = () => {
         className="absolute inset-y-0 left-0 w-2 bg-destructive"
       />
       <div className="flex flex-wrap items-center gap-2">
-        <h2
+        {/* El plazo va en el distintivo, fuera del h2, para que el nombre del título no cambie. */}
+        <div
           className={cn(
             typography.labelSm,
             "inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded-sm bg-destructive/10 px-3 py-1 font-bold tracking-wider text-destructive uppercase"
           )}
         >
           <WarningIcon aria-hidden="true" className="size-4 shrink-0" />
-          <span id={titleId}>Solicitud de reemplazo urgente</span>
-          {request ? <span>• {request.timeRemaining} restantes</span> : null}
-        </h2>
+          <h2 id={titleId}>Solicitud de reemplazo urgente</h2>
+          {request ? (
+            <>
+              <DotSeparator />
+              <span>{request.timeRemaining} restantes</span>
+            </>
+          ) : null}
+        </div>
         {request ? (
           <span
             className={cn(
@@ -143,109 +145,57 @@ const ReplacementRequestBanner = () => {
                 resolved && "opacity-80"
               )}
             >
-              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-1">
-                <p className="flex flex-wrap items-center gap-2">
-                  <span
-                    className={cn(
-                      typography.headlineMd,
-                      "font-bold text-brand-primary"
-                    )}
-                  >
-                    {request.origin.code}
-                  </span>
-                  <ArrowRightIcon
-                    aria-hidden="true"
-                    className="size-5 shrink-0 text-brand-secondary"
-                  />
-                  <span
-                    className={cn(
-                      typography.headlineMd,
-                      "font-bold text-brand-primary"
-                    )}
-                  >
-                    {request.destination.code}
-                  </span>
-                  <span
-                    className={cn(typography.bodySm, "text-muted-foreground")}
-                  >
-                    ({request.origin.name} → {request.destination.name})
-                  </span>
-                </p>
-                <p
+              <p className="flex flex-wrap items-center gap-2 pt-1">
+                <span
                   className={cn(
-                    typography.labelMd,
-                    "flex items-center gap-1.5 rounded-sm bg-brand-neutral px-2.5 py-1 text-foreground"
+                    typography.headlineMd,
+                    "font-bold text-brand-primary"
                   )}
                 >
-                  <ClockIcon
-                    aria-hidden="true"
-                    className="size-4 shrink-0 text-brand-secondary"
-                  />
-                  <span>
-                    STD:{" "}
-                    <strong className="font-semibold text-brand-primary">
-                      {request.departureUtc} UTC
-                    </strong>{" "}
-                    ({request.departureLocal} Local)
-                  </span>
-                </p>
-              </div>
-
-              <ul
-                className={cn(
-                  typography.bodySm,
-                  "grid grid-cols-1 gap-x-4 gap-y-2 pt-1 text-foreground sm:grid-cols-2 md:grid-cols-3"
-                )}
-              >
-                <li className="flex items-center gap-1.5">
-                  <FlightIcon
-                    aria-hidden="true"
-                    className="size-4 shrink-0 text-muted-foreground"
-                  />
-                  <span>
-                    Equipo: <strong>{request.aircraft}</strong>
-                  </span>
-                </li>
-                <li className="flex items-center gap-1.5">
-                  <PositionIcon
-                    aria-hidden="true"
-                    className="size-4 shrink-0 text-muted-foreground"
-                  />
-                  <span>
-                    Posición: <strong>{request.position}</strong>
-                  </span>
-                </li>
-                <li className="flex items-center gap-1.5">
-                  <DurationIcon
-                    aria-hidden="true"
-                    className="size-4 shrink-0 text-muted-foreground"
-                  />
-                  <span>
-                    Duración est.: <strong>{request.estimatedDuration}</strong>
-                  </span>
-                </li>
-              </ul>
-
+                  {request.origin.code}
+                </span>
+                <span
+                  className={cn(
+                    typography.headlineMd,
+                    "font-bold text-brand-secondary"
+                  )}
+                >
+                  →
+                </span>
+                <span
+                  className={cn(
+                    typography.headlineMd,
+                    "font-bold text-brand-primary"
+                  )}
+                >
+                  {request.destination.code}
+                </span>
+                <span
+                  className={cn(typography.bodySm, "text-muted-foreground")}
+                >
+                  ({request.origin.name} → {request.destination.name})
+                </span>
+              </p>
+              {/* Una sola línea: el lector oye las comas sr-only de DotSeparator. */}
               <p
                 className={cn(
                   typography.bodySm,
-                  "mt-1 flex items-start gap-2 rounded-md bg-muted p-2 text-muted-foreground"
+                  "flex flex-wrap items-center gap-x-2 gap-y-1 text-foreground"
                 )}
               >
-                <ReasonIcon
-                  aria-hidden="true"
-                  className="size-4.5 shrink-0 text-muted-foreground"
-                />
                 <span>
-                  <strong className="text-foreground">
-                    Motivo de asignación:
+                  Sale{" "}
+                  <strong className="font-semibold text-brand-primary">
+                    {request.departureUtc} UTC
                   </strong>{" "}
-                  {request.reason} Solicitado y validado en sistema por{" "}
-                  <span className="font-medium text-brand-primary">
-                    {request.requestedBy}
-                  </span>
-                  . {request.compliance}
+                  ({request.departureLocal} local)
                 </span>
+                <DotSeparator />
+                <span>{request.aircraft}</span>
+                <DotSeparator />
+                <span>{request.position}</span>
+                <DotSeparator />
+                <span>{request.estimatedDuration}</span>
               </p>
             </div>
 
@@ -277,7 +227,7 @@ const ReplacementRequestBanner = () => {
                       <item.Icon aria-hidden="true" className="size-4.5" />
                       {item.trigger}
                     </AlertDialogTrigger>
-                    {/* Al confirmar, los botones quedan deshabilitados: el foco pasa a «Ver Detalle». */}
+                    {/* Al confirmar, los botones quedan deshabilitados: el foco pasa a «Ver detalle completo». */}
                     <AlertDialogContent
                       finalFocus={decision ? detailButtonRef : true}
                     >
@@ -331,9 +281,7 @@ const ReplacementRequestBanner = () => {
                   "h-auto min-h-11 gap-1 self-center px-1 text-center whitespace-normal text-brand-secondary hover:text-brand-secondary-hover focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-brand-tertiary focus-visible:ring-offset-2 focus-visible:ring-offset-card lg:min-h-8 lg:self-end"
                 )}
               >
-                {detailOpen
-                  ? "Ocultar Detalle de la Solicitud"
-                  : "Ver Detalle Completo de la Solicitud"}
+                {detailOpen ? "Ocultar detalle" : "Ver detalle completo"}
                 <ArrowRightIcon aria-hidden="true" />
               </Button>
             </div>
@@ -362,6 +310,19 @@ const ReplacementRequestBanner = () => {
                 "grid grid-cols-1 gap-4 text-foreground md:grid-cols-3"
               )}
             >
+              <div className="flex flex-col gap-1">
+                <dt
+                  className={cn(
+                    typography.labelSm,
+                    "text-muted-foreground uppercase"
+                  )}
+                >
+                  Motivo
+                </dt>
+                <dd className="font-medium">
+                  {`${request.reason} Solicita ${request.requestedBy}. ${request.compliance}`}
+                </dd>
+              </div>
               {request.details.map((detail) => (
                 <div key={detail.label} className="flex flex-col gap-1">
                   <dt

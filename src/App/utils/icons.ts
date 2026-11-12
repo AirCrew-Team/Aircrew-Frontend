@@ -32,7 +32,6 @@ export {
   Mail as MailIcon,
   MapPinHouse as HomePinIcon,
   Medal as RankIcon,
-  Megaphone as ReasonIcon,
   Menu as MenuIcon,
   OctagonAlert as CriticalAlertIcon,
   Phone as PhoneIcon,
@@ -54,5 +53,4 @@ export {
   Timer as DurationIcon,
   TriangleAlert as WarningIcon,
   X as CloseIcon,
-  Zap as PolicyIcon,
 } from "lucide-react"

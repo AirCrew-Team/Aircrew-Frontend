@@ -7,14 +7,14 @@ import { useAuthStore } from "@/stores/auth.store"
 
 import { renderRoute } from "../utils/renderRoute"
 
-// AvailabilitySelector se sustituye por un bloque que cuenta sus renders.
+// AssignmentStatus se sustituye por un bloque que cuenta sus renders.
 // Si el tic del reloj volviera a renderizar la página o un contenedor común, la cuenta subiría.
-const availability = vi.hoisted(() => ({ renders: 0 }))
+const assignment = vi.hoisted(() => ({ renders: 0 }))
 
-vi.mock("@/modules/home/components/AvailabilitySelector", () => ({
+vi.mock("@/modules/home/components/AssignmentStatus", () => ({
   default: () => {
-    availability.renders += 1
-    return <p>Selector de disponibilidad (simulado)</p>
+    assignment.renders += 1
+    return <p>Estado de asignación (simulado)</p>
   },
 }))
 
@@ -25,11 +25,11 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers()
-  availability.renders = 0
+  assignment.renders = 0
 })
 
 describe("Inicio del tripulante: aislamiento del reloj", () => {
-  it("HT-08: durante 3 tics del reloj, el bloque hermano AvailabilitySelector no vuelve a renderizarse", async () => {
+  it("HT-08: durante 3 tics del reloj, el bloque hermano AssignmentStatus no vuelve a renderizarse", async () => {
     // shouldAdvanceTime: los temporizadores falsos también avanzan con el tiempo real,
     // así TanStack Query, React y los findBy de Testing Library siguen funcionando.
     vi.useFakeTimers({ shouldAdvanceTime: true })
@@ -37,7 +37,7 @@ describe("Inicio del tripulante: aislamiento del reloj", () => {
 
     renderRoute(PATHS.tripulante.inicio)
 
-    await screen.findByText("Selector de disponibilidad (simulado)")
+    await screen.findByText("Estado de asignación (simulado)")
     const main = await screen.findByRole("main")
     // La pantalla termina de cargar: tarjetas con datos y sin bloques en «Cargando».
     await screen.findByRole("heading", { level: 2, name: "AV-8520" })
@@ -52,7 +52,7 @@ describe("Inicio del tripulante: aislamiento del reloj", () => {
 
     const time = main.querySelector("time") as HTMLTimeElement
     const timeBefore = time.textContent
-    const rendersBefore = availability.renders
+    const rendersBefore = assignment.renders
     expect(rendersBefore).toBeGreaterThan(0)
 
     await act(async () => {
@@ -61,6 +61,6 @@ describe("Inicio del tripulante: aislamiento del reloj", () => {
 
     // El reloj sí avanzó: el test no pasa por un reloj detenido.
     expect(main.querySelector("time")?.textContent).not.toBe(timeBefore)
-    expect(availability.renders).toBe(rendersBefore)
+    expect(assignment.renders).toBe(rendersBefore)
   })
 })

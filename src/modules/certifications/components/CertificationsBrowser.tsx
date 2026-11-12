@@ -7,8 +7,8 @@ import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
 import CertificationItem from "@/modules/certifications/components/CertificationItem"
 import { LICENSE_COLUMNS_CLASS } from "@/modules/certifications/components/columns"
-import { getCertifications } from "@/modules/certifications/data/certifications.data"
-import type { Certification } from "@/modules/certifications/types/certifications.types"
+import { getCertifications } from "@/modules/shared/certifications/data/certifications.data"
+import type { Certification } from "@/modules/shared/certifications/types/certifications.types"
 
 const COLUMN_HEADERS = [
   "Certificación / Licencia",
