@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 
 import { CertificationIcon } from "@/App/utils/icons"
-import AdminModuleCard from "@/modules/adminHome/components/AdminModuleCard"
+import ModuleCard from "@/modules/shared/opsHome/components/ModuleCard"
 import { getCertificationsRenewals } from "@/modules/adminHome/data/adminHome.data"
 import { PATHS } from "@/routes/paths"
 
@@ -15,7 +15,7 @@ const CertificationsOverviewCard = () => {
   })
 
   return (
-    <AdminModuleCard
+    <ModuleCard
       icon={CertificationIcon}
       accent="muted"
       title="Certificaciones y Licencias"

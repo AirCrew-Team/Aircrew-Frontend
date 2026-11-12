@@ -2,9 +2,9 @@ import AdminWelcomeHeader from "@/modules/adminHome/components/AdminWelcomeHeade
 import AirportStatusHero from "@/modules/adminHome/components/AirportStatusHero"
 import CertificationsOverviewCard from "@/modules/adminHome/components/CertificationsOverviewCard"
 import FleetCard from "@/modules/adminHome/components/FleetCard"
-import OpsDeckFooter from "@/modules/adminHome/components/OpsDeckFooter"
 import StandbySummary from "@/modules/adminHome/components/StandbySummary"
 import UsersCard from "@/modules/adminHome/components/UsersCard"
+import OpsDeckFooter from "@/modules/shared/opsHome/components/OpsDeckFooter"
 
 // Inicio del super admin (/admin). Como toda página, solo ordena los módulos:
 // cada sección pide sus propios datos y maneja su carga y su error.

@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils"
 // Versión simulada, como en la referencia; se tomará del despliegue cuando exista.
 const APP_VERSION = "v2.4.8-PROD"
 
-// Pie del Inicio del admin: identificación de la consola y versión.
+// Pie del Inicio (admin y supervisor): identificación de la consola y versión.
 // Estático: no pide datos. flex-wrap: en móvil la versión baja de línea si no cabe.
 const OpsDeckFooter = () => (
   <footer

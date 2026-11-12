@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 
 import { PositionIcon } from "@/App/utils/icons"
-import AdminModuleCard from "@/modules/adminHome/components/AdminModuleCard"
+import ModuleCard from "@/modules/shared/opsHome/components/ModuleCard"
 import { getUsersSummary } from "@/modules/adminHome/data/adminHome.data"
 import { PATHS } from "@/routes/paths"
 
@@ -15,7 +15,7 @@ const UsersCard = () => {
 
   return (
     // La etiqueta y el dato del pie solo se pasan cuando ya hay datos.
-    <AdminModuleCard
+    <ModuleCard
       icon={PositionIcon}
       accent="secondary"
       title="Gestión de Usuarios"

@@ -14,7 +14,7 @@ const ACCENT_CLASS: Record<Accent, string> = {
   muted: "border-t-brand-border-strong",
 }
 
-interface AdminModuleCardProps {
+interface ModuleCardProps {
   // Ícono de la esquina (de App/utils/icons).
   icon: ComponentType<SVGProps<SVGSVGElement>>
   title: string
@@ -35,10 +35,10 @@ interface AdminModuleCardProps {
   alert?: boolean
 }
 
-// Tarjeta de acceso a un módulo del admin. Solo presenta: no pide datos.
-// UsersCard, FleetCard y CertificationsOverviewCard hacen su consulta y le pasan el resultado,
-// así las tres comparten el mismo diseño sin repetir el marcado.
-const AdminModuleCard = ({
+// Tarjeta de acceso a un módulo del Inicio (admin y supervisor). Solo presenta: no pide datos.
+// Cada tarjeta de la página hace su consulta y le pasa el resultado,
+// así todas comparten el mismo diseño sin repetir el marcado.
+const ModuleCard = ({
   icon: Icon,
   title,
   description,
@@ -51,7 +51,7 @@ const AdminModuleCard = ({
   badge,
   metric,
   alert = false,
-}: AdminModuleCardProps) => {
+}: ModuleCardProps) => {
   const titleId = useId()
 
   return (
@@ -151,4 +151,4 @@ const AdminModuleCard = ({
   )
 }
 
-export default AdminModuleCard
+export default ModuleCard
