@@ -29,6 +29,7 @@ export const ROUTE_CASES: RouteCase[] = [
     path: PATHS.tripulante.certificaciones,
     role: ROLES.TRIPULANTE,
     section: "Certificaciones",
+    heading: "Certificaciones y Licencias",
   },
   {
     path: PATHS.tripulante.reportarAusencia,
