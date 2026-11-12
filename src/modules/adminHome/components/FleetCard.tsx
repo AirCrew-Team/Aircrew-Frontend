@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 
 import { FlightIcon } from "@/App/utils/icons"
-import AdminModuleCard from "@/modules/adminHome/components/AdminModuleCard"
+import ModuleCard from "@/modules/shared/opsHome/components/ModuleCard"
 import { getFleetSummary } from "@/modules/adminHome/data/adminHome.data"
 import { PATHS } from "@/routes/paths"
 
@@ -15,7 +15,7 @@ const FleetCard = () => {
 
   return (
     // La etiqueta y el dato del pie solo se pasan cuando ya hay datos.
-    <AdminModuleCard
+    <ModuleCard
       icon={FlightIcon}
       accent="primary"
       title="Flota de Aeronaves"

@@ -37,7 +37,12 @@ export const ROUTE_CASES: RouteCase[] = [
     section: "Reportar Ausencia",
     heading: "Reportar Novedad de Ausencia",
   },
-  { path: PATHS.superVisor.inicio, role: ROLES.SUPER_VISOR, section: "Inicio" },
+  {
+    path: PATHS.superVisor.inicio,
+    role: ROLES.SUPER_VISOR,
+    section: "Inicio",
+    heading: "Camila Restrepo, Bienvenida a AirCrew",
+  },
   {
     path: PATHS.superVisor.solicitudesReemplazo,
     role: ROLES.SUPER_VISOR,
