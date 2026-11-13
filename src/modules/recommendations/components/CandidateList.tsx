@@ -39,24 +39,27 @@ const CandidateList = ({
   const chosen =
     candidates?.find((candidate) => candidate.id === chosenId) ??
     candidates?.at(0)
+  const isEmpty = candidates?.length === 0
 
   return (
     <section aria-labelledby={titleId} className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2
           id={titleId}
-          className={cn(typography.headlineSm, "font-bold text-brand-primary")}
+          className={cn(typography.headlineMd, "text-brand-primary")}
         >
           Candidatos sugeridos por la IA
         </h2>
-        <p
-          className={cn(
-            typography.labelSm,
-            "rounded-full bg-brand-neutral px-2.5 py-1 text-muted-foreground"
-          )}
-        >
-          Ordenados por afinidad
-        </p>
+        {isEmpty ? null : (
+          <p
+            className={cn(
+              typography.labelSm,
+              "rounded-full bg-brand-neutral px-2.5 py-1 text-muted-foreground"
+            )}
+          >
+            Ordenados por afinidad
+          </p>
+        )}
       </div>
 
       {isPending ? (
@@ -72,6 +75,12 @@ const CandidateList = ({
         </p>
       ) : (
         <>
+          {/* Estado persistente, sin región viva: no es carga ni error. */}
+          {isEmpty ? (
+            <p className={cn(typography.bodyMd, "text-muted-foreground")}>
+              La IA no encontró candidatos para esta solicitud.
+            </p>
+          ) : null}
           {candidates.map((candidate) => (
             <CandidateCard
               key={candidate.id}

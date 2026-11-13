@@ -34,7 +34,7 @@ const initialsOf = (fullName: string) => {
 }
 
 // Tarjeta de un candidato. El elegido se despliega con la llegada, el contacto
-// y «Confirmar asignación»; los demás solo muestran «Elegir».
+// y «Confirmar asignación»; los demás solo muestran «Elegir» sin pulsar.
 const CandidateCard = ({
   candidate,
   request,
@@ -119,8 +119,11 @@ const CandidateCard = ({
             a rampa
           </span>
         </p>
+        {/* Toggle con nombre fijo «Elegir» (APG): el estado va en aria-pressed y en el
+            ícono; la descripción dice de qué candidato es. */}
         <Button
           aria-pressed={chosen}
+          aria-describedby={titleId}
           onClick={onChoose}
           className={cn(
             typography.labelLg,
@@ -131,7 +134,7 @@ const CandidateCard = ({
             focusRing
           )}
         >
-          {chosen ? "Elegido" : "Elegir"}
+          Elegir
           {chosen ? (
             <ConfirmedIcon aria-hidden="true" className="size-4" />
           ) : null}

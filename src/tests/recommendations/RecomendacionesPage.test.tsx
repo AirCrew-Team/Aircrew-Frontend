@@ -97,15 +97,21 @@ const EXPANDED = {
   },
 } as const
 
-// El candidato elegido: «Elegido» pulsado y desplegado con su dl y «Confirmar asignación».
+// El botón de elegir conserva su nombre «Elegir» (APG: un toggle no cambia de nombre); el
+// estado va en aria-pressed y la descripción accesible dice de qué candidato es.
+const expectChooseButton = (article: HTMLElement, pressed: boolean) => {
+  const button = within(article).getByRole("button", { name: "Elegir" })
+  expect(button).toHaveAttribute("aria-pressed", String(pressed))
+  expect(button).toHaveAccessibleDescription(
+    within(article).getByRole("heading", { level: 3 }).textContent ?? ""
+  )
+  expect(within(article).queryByText("Elegido")).not.toBeInTheDocument()
+}
+
+// El candidato elegido: «Elegir» pulsado y desplegado con su dl y «Confirmar asignación».
 const expectChosen = (article: HTMLElement, name: keyof typeof EXPANDED) => {
   const expected = EXPANDED[name]
-  expect(
-    within(article).getByRole("button", { name: "Elegido" })
-  ).toHaveAttribute("aria-pressed", "true")
-  expect(
-    within(article).queryByRole("button", { name: "Elegir" })
-  ).not.toBeInTheDocument()
+  expectChooseButton(article, true)
   expect(
     normalize(ddFor(article, "Llegada estimada a rampa").textContent)
   ).toBe(expected.ramp)
@@ -123,12 +129,7 @@ const expectChosen = (article: HTMLElement, name: keyof typeof EXPANDED) => {
 
 // Un candidato no elegido: «Elegir» sin pulsar y sin el desplegable (ausente o con hidden).
 const expectNotChosen = (article: HTMLElement) => {
-  expect(
-    within(article).getByRole("button", { name: "Elegir" })
-  ).toHaveAttribute("aria-pressed", "false")
-  expect(
-    within(article).queryByRole("button", { name: "Elegido" })
-  ).not.toBeInTheDocument()
+  expectChooseButton(article, false)
   expect(visibleDls(article), "sin dl visible").toHaveLength(0)
   expect(
     within(article).queryByRole("link", { name: /^Llamar a/ })
@@ -396,7 +397,7 @@ describe("Recomendaciones: elegir candidato y cambiar de solicitud (RS-05)", () 
       expect(
         within(
           screen.getByRole("article", { name: "Mateo Morales" })
-        ).getByRole("button", { name: "Elegido" })
+        ).getByRole("button", { name: "Elegir", pressed: true })
       ).toBeInTheDocument()
     )
 

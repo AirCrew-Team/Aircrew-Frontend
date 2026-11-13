@@ -166,6 +166,28 @@ describe("Recomendaciones: estados de los candidatos (RS-10)", () => {
       "AV-9344"
     )
   })
+
+  // Pendiente menor de la spec: con la API real la IA puede no devolver candidatos.
+  it("RS-13 sin candidatos se ve «La IA no encontró candidatos para esta solicitud.» (sin región viva) y se pueden pedir nuevas sugerencias", async () => {
+    data.overrides.getRecommendedCandidates = () => Promise.resolve([])
+
+    const { main } = await renderPage()
+
+    await expectFullQueue()
+    const panel = activePanel()
+    expect(
+      await within(panel).findByText(
+        "La IA no encontró candidatos para esta solicitud."
+      )
+    ).not.toHaveAttribute("role")
+    expect(within(panel).queryAllByRole("article")).toHaveLength(0)
+    expect(within(panel).queryByText("Ordenados por afinidad")).toBeNull()
+    expect(
+      within(panel).getByRole("button", { name: "Pedir nuevas sugerencias" })
+    ).toBeInTheDocument()
+    expect(within(main).queryAllByRole("status")).toHaveLength(0)
+    expect(within(main).queryAllByRole("alert")).toHaveLength(0)
+  })
 })
 
 describe("Recomendaciones: cola de una sola solicitud (RS-09)", () => {

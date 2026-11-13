@@ -31,7 +31,7 @@ const RequestQueue = ({
     >
       <h2
         id={titleId}
-        className={cn(typography.headlineSm, "font-bold text-brand-primary")}
+        className={cn(typography.headlineMd, "text-brand-primary")}
       >
         Pendientes ({requests.length})
       </h2>
