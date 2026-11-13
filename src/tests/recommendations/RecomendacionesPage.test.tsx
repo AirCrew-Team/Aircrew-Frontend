@@ -430,7 +430,9 @@ describe("Recomendaciones: diálogo de confirmación (RS-06)", () => {
     const { dialog } = await openConfirm()
 
     expect(dialog).toHaveAccessibleDescription(
-      "¿Asignar a Juan Pablo Navarro como Copiloto A320 del vuelo AV-9344? Se le notificará de inmediato."
+      expect.stringContaining(
+        "¿Asignar a Juan Pablo Navarro como Copiloto A320 del vuelo AV-9344? Se le notificará de inmediato."
+      )
     )
     expect(
       within(dialog).getByRole("button", { name: "Cancelar" })
@@ -454,8 +456,36 @@ describe("Recomendaciones: diálogo de confirmación (RS-06)", () => {
     expect(
       await screen.findByRole("alertdialog", { name: "Confirmar asignación" })
     ).toHaveAccessibleDescription(
-      "¿Asignar a Mateo Morales como Copiloto A320 del vuelo AV-9344? Se le notificará de inmediato."
+      expect.stringContaining(
+        "¿Asignar a Mateo Morales como Copiloto A320 del vuelo AV-9344? Se le notificará de inmediato."
+      )
     )
+  })
+
+  // No repudio (documento del proyecto §12): la confirmación resume el tripulante, el vuelo
+  // y los criterios que cumple; los criterios forman parte de la descripción del diálogo.
+  it("RS-14 el diálogo lista los criterios verificados del candidato y los incluye en su descripción", async () => {
+    const { dialog } = await openConfirm()
+
+    const criteria = within(dialog).getByRole("list", {
+      name: "Criterios verificados",
+    })
+    expect(
+      within(criteria)
+        .getAllByRole("listitem")
+        .map((item) => item.textContent)
+    ).toEqual([
+      "Certificación A320",
+      "FDP: +6h disponibles",
+      "Descanso cumplido",
+    ])
+    for (const check of [
+      "Certificación A320",
+      "FDP: +6h disponibles",
+      "Descanso cumplido",
+    ]) {
+      expect(dialog).toHaveAccessibleDescription(expect.stringContaining(check))
+    }
   })
 
   it("RS-06 «Cancelar» cierra el diálogo sin cambios", async () => {

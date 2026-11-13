@@ -209,6 +209,7 @@ const CandidateCard = ({
             candidateName={candidate.fullName}
             position={request.position}
             flightNumber={request.flightNumber}
+            checks={candidate.checks}
             onAssign={onAssign}
           />
         </div>

@@ -1,4 +1,6 @@
-import { AcceptIcon } from "@/App/utils/icons"
+import { useId } from "react"
+
+import { AcceptIcon, ConfirmedIcon } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
 import {
   AlertDialog,
@@ -18,6 +20,8 @@ interface ConfirmAssignmentDialogProps {
   candidateName: string
   position: string
   flightNumber: string
+  // Criterios que cumple el candidato: la confirmación los resume (no repudio).
+  checks: string[]
   // Al asignar, la solicitud sale de la cola y la lista (con este diálogo) se desmonta.
   onAssign: () => void
 }
@@ -30,8 +34,11 @@ const ConfirmAssignmentDialog = ({
   candidateName,
   position,
   flightNumber,
+  checks,
   onAssign,
 }: ConfirmAssignmentDialogProps) => {
+  const criteriaId = useId()
+
   return (
     <AlertDialog>
       <AlertDialogTrigger
@@ -53,9 +60,40 @@ const ConfirmAssignmentDialog = ({
           <AlertDialogTitle className="text-brand-primary">
             Confirmar asignación
           </AlertDialogTitle>
-          <AlertDialogDescription>
-            ¿Asignar a {candidateName} como {position} del vuelo {flightNumber}?
-            Se le notificará de inmediato.
+          {/* La descripción es un div para incluir la lista: el lector la anuncia completa al abrir. */}
+          <AlertDialogDescription
+            render={<div />}
+            className="flex flex-col gap-3"
+          >
+            <p>
+              ¿Asignar a {candidateName} como {position} del vuelo{" "}
+              {flightNumber}? Se le notificará de inmediato.
+            </p>
+            <div className="flex flex-col gap-1.5 rounded-md bg-muted px-3 py-2.5 text-left">
+              <p
+                id={criteriaId}
+                className={cn(
+                  typography.labelSm,
+                  "text-muted-foreground uppercase"
+                )}
+              >
+                Criterios verificados
+              </p>
+              <ul
+                aria-labelledby={criteriaId}
+                className="flex flex-col gap-1 text-foreground"
+              >
+                {checks.map((check) => (
+                  <li key={check} className="flex items-center gap-2">
+                    <ConfirmedIcon
+                      aria-hidden="true"
+                      className="size-4 shrink-0 text-brand-secondary"
+                    />
+                    {check}
+                  </li>
+                ))}
+              </ul>
+            </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
