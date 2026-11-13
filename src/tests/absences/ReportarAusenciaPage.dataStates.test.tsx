@@ -169,7 +169,7 @@ describe("Reportar Ausencia: error de envío (RA-12)", () => {
     expect(scope.getByRole("button", { name: SUBMIT })).toHaveFocus()
     expect(
       within(main).queryByText(
-        "Aviso enviado a despacho para el vuelo AV-8520."
+        "Aviso enviado al supervisor para el vuelo AV-8520."
       )
     ).toBeNull()
   })
