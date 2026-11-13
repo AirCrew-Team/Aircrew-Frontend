@@ -78,7 +78,7 @@ const CandidateList = ({
           {/* Estado persistente, sin región viva: no es carga ni error. */}
           {isEmpty ? (
             <p className={cn(typography.bodyMd, "text-muted-foreground")}>
-              La IA no encontró candidatos para esta solicitud.
+              Ningún tripulante cumple los requisitos para esta solicitud.
             </p>
           ) : null}
           {candidates.map((candidate) => (

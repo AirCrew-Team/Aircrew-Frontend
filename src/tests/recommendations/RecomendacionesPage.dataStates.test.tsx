@@ -168,7 +168,7 @@ describe("Recomendaciones: estados de los candidatos (RS-10)", () => {
   })
 
   // Pendiente menor de la spec: con la API real la IA puede no devolver candidatos.
-  it("RS-13 sin candidatos se ve «La IA no encontró candidatos para esta solicitud.» (sin región viva) y se pueden pedir nuevas sugerencias", async () => {
+  it("RS-13 sin candidatos se ve «Ningún tripulante cumple los requisitos para esta solicitud.» (sin región viva) y se pueden pedir nuevas sugerencias", async () => {
     data.overrides.getRecommendedCandidates = () => Promise.resolve([])
 
     const { main } = await renderPage()
@@ -177,7 +177,7 @@ describe("Recomendaciones: estados de los candidatos (RS-10)", () => {
     const panel = activePanel()
     expect(
       await within(panel).findByText(
-        "La IA no encontró candidatos para esta solicitud."
+        "Ningún tripulante cumple los requisitos para esta solicitud."
       )
     ).not.toHaveAttribute("role")
     expect(within(panel).queryAllByRole("article")).toHaveLength(0)
