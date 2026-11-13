@@ -112,13 +112,13 @@ describe("Inicio del supervisor: foto del turno (IS-04)", () => {
 
 const CARDS = [
   {
-    title: "Solicitudes de Reemplazo",
+    title: "Recomendaciones",
     description:
       "Sugerencias de reemplazo propuestas por la IA, pendientes de tu aprobación.",
     badge: "5 por aprobar",
     metricLabel: "Tasa de resolución",
     metricValue: "85.7% Resuelto",
-    link: "Revisar Solicitudes",
+    link: "Revisar Recomendaciones",
     path: PATHS.superVisor.solicitudesReemplazo,
   },
   {
@@ -143,7 +143,7 @@ const CARDS = [
 ]
 
 describe("Inicio del supervisor: tarjetas (IS-05)", () => {
-  it("IS-05 las 3 tarjetas son article, en orden: Solicitudes de Reemplazo, Ausencias, Tripulación", async () => {
+  it("IS-05 las 3 tarjetas son article, en orden: Recomendaciones, Ausencias, Tripulación", async () => {
     await renderHome()
 
     await screen.findByRole("heading", { level: 2, name: CARDS[0].title })
@@ -208,13 +208,13 @@ describe("Inicio del supervisor: sin franja de guardia (IS-06)", () => {
 })
 
 describe("Inicio del supervisor: navbar y h1 (IS-09)", () => {
-  it("IS-09 el navbar del supervisor tiene Inicio, Solicitudes de Reemplazo, Tripulación y Ausencias", async () => {
+  it("IS-09 el navbar del supervisor tiene Inicio, Recomendaciones, Tripulación y Ausencias", async () => {
     await renderHome()
 
     const nav = screen.getAllByRole("navigation")[0]
     for (const label of [
       "Inicio",
-      "Solicitudes de Reemplazo",
+      "Recomendaciones",
       "Tripulación",
       "Ausencias",
     ]) {

@@ -18,10 +18,10 @@ const ReplacementRequestsCard = () => {
     <ModuleCard
       icon={SyncIcon}
       accent="secondary"
-      title="Solicitudes de Reemplazo"
+      title="Recomendaciones"
       description="Sugerencias de reemplazo propuestas por la IA, pendientes de tu aprobación."
       link={{
-        label: "Revisar Solicitudes",
+        label: "Revisar Recomendaciones",
         to: PATHS.superVisor.solicitudesReemplazo,
       }}
       isPending={isPending}

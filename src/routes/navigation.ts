@@ -14,7 +14,7 @@ export const NAV_ITEMS_BY_ROLE: Record<Role, NavItem[]> = {
   [ROLES.SUPER_VISOR]: [
     { label: "Inicio", to: PATHS.superVisor.inicio, end: true },
     {
-      label: "Solicitudes de Reemplazo",
+      label: "Recomendaciones",
       to: PATHS.superVisor.solicitudesReemplazo,
     },
     { label: "Tripulación", to: PATHS.superVisor.tripulacion },

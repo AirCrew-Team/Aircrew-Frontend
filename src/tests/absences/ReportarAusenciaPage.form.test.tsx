@@ -66,10 +66,10 @@ const ERROR = {
   size: "El archivo supera el máximo de 10 MB.",
 } as const
 
-const SUCCESS_TITLE = "Aviso enviado a despacho"
+const SUCCESS_TITLE = "Aviso enviado al supervisor"
 const SUCCESS_DESCRIPTION =
-  "Tu posición en el vuelo AV-8520 quedó liberada para asignar un tripulante en guardia standby."
-const SENT_TEXT = "Aviso enviado a despacho para el vuelo AV-8520."
+  "Se buscará el mejor reemplazo para tu posición en el vuelo AV-8520 y el supervisor lo aprobará."
+const SENT_TEXT = "Aviso enviado al supervisor para el vuelo AV-8520."
 const NOTES = "Fiebre alta desde la madrugada."
 
 const MAX_BYTES = 10 * 1024 * 1024

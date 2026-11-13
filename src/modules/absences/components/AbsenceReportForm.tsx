@@ -69,8 +69,8 @@ const AbsenceReportForm = () => {
   const mutation = useMutation({
     mutationFn: submitAbsenceReport,
     onSuccess: (receipt) => {
-      toast.success("Aviso enviado a despacho", {
-        description: `Tu posición en el vuelo ${receipt.flightNumber} quedó liberada para asignar un tripulante en guardia standby.`,
+      toast.success("Aviso enviado al supervisor", {
+        description: `Se buscará el mejor reemplazo para tu posición en el vuelo ${receipt.flightNumber} y el supervisor lo aprobará.`,
       })
     },
   })
@@ -346,7 +346,8 @@ const AbsenceReportForm = () => {
               "text-center text-brand-primary sm:text-left"
             )}
           >
-            Aviso enviado a despacho para el vuelo {mutation.data.flightNumber}.
+            Aviso enviado al supervisor para el vuelo{" "}
+            {mutation.data.flightNumber}.
           </p>
           <Link
             ref={focusOnMount}
