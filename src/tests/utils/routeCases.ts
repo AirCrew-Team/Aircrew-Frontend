@@ -101,6 +101,6 @@ export const ROUTE_CASES: RouteCase[] = [
     path: PATHS.configuracion,
     role: ROLES.SUPER_ADMIN,
     section: "Configuración",
-    heading: "Mi perfil y ajustes",
+    heading: "Mi Perfil y Configuración",
   },
 ]

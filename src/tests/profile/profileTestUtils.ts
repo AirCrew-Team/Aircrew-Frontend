@@ -11,7 +11,9 @@ import { findToast, queryToast } from "../utils/toasts"
 // Se usa el literal para que, en rojo, los tests lleguen a la 404 y no a una ruta indefinida.
 export const CONFIGURACION_PATH = "/configuracion"
 
-export const NON_CREW_ROLES = [ROLES.SUPER_VISOR, ROLES.SUPER_ADMIN] as const
+// El super admin tiene su propia pantalla («Mi Perfil y Configuración», módulo
+// operatorProfile), probada en src/tests/operatorProfile.
+export const NON_CREW_ROLES = [ROLES.SUPER_VISOR] as const
 
 // Último h2 del formulario de cada rol: sirve de ancla de "ya cargó".
 export const SECURITY_HEADING: Record<Role, string> = {
