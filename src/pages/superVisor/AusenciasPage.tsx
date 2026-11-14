@@ -1,11 +1,13 @@
-import { typography } from "@/App/utils/typography"
-import { cn } from "@/lib/utils"
+import AbsenceTrackingBoard from "@/modules/absenceTracking/components/AbsenceTrackingBoard"
+import AbsenceTrackingHeader from "@/modules/absenceTracking/components/AbsenceTrackingHeader"
 
+// Seguimiento de ausencias del supervisor (/supervisor/ausencias). Solo compone.
 const AusenciasPage = () => {
   return (
-    <h1 className={cn(typography.headlineLg, "text-brand-primary")}>
-      Ausencias
-    </h1>
+    <div className="flex flex-col gap-6">
+      <AbsenceTrackingHeader />
+      <AbsenceTrackingBoard />
+    </div>
   )
 }
 
