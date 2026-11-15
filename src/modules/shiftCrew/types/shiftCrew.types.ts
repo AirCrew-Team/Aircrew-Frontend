@@ -1,0 +1,46 @@
+// Tripulación del turno del Supervisor (spec docs/specs/tripulacion-supervisor.md).
+
+export type CrewStatus =
+  "guardia" | "en_vuelo" | "programado" | "descanso" | "ausente"
+
+export interface FlightRef {
+  flightNumber: string // «AV-4021»
+  origin: string // «BOG»
+  destination: string // «MAD»
+}
+
+interface CrewMemberBase {
+  id: string
+  fullName: string
+  position: string // «Comandante», «Primer Oficial», «Jefe de Cabina», «Tripulante de Cabina»
+  phone: string
+  radioChannel: string
+  expiringCertification: { name: string; daysLeft: number } | null
+}
+
+export type CrewMember =
+  | (CrewMemberBase & {
+      status: "guardia"
+      location: string
+      minutesToRamp: number
+      guardUntilUtc: string
+      // null = disponible para reemplazos; si no, el motivo de regla.
+      replacementBlocker: string | null
+    })
+  | (CrewMemberBase & {
+      status: "en_vuelo"
+      flight: FlightRef
+      arrivalUtc: string
+    })
+  | (CrewMemberBase & {
+      status: "programado"
+      flight: FlightRef
+      reportUtc: string
+    })
+  | (CrewMemberBase & { status: "descanso"; restUntilUtc: string })
+  | (CrewMemberBase & { status: "ausente"; flight: FlightRef; reason: string })
+
+export interface ShiftCrew {
+  base: { code: string; name: string } // { code: "BOG", name: "Base Eldorado" }
+  members: CrewMember[]
+}

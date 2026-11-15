@@ -1,11 +1,13 @@
-import { typography } from "@/App/utils/typography"
-import { cn } from "@/lib/utils"
+import ShiftCrewBoard from "@/modules/shiftCrew/components/ShiftCrewBoard"
+import ShiftCrewHeader from "@/modules/shiftCrew/components/ShiftCrewHeader"
 
+// Tripulación del turno del supervisor (/supervisor/tripulacion). Solo compone.
 const TripulacionPage = () => {
   return (
-    <h1 className={cn(typography.headlineLg, "text-brand-primary")}>
-      Tripulación
-    </h1>
+    <div className="flex flex-col gap-6">
+      <ShiftCrewHeader />
+      <ShiftCrewBoard />
+    </div>
   )
 }
 

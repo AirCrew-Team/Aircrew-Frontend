@@ -7,6 +7,7 @@ import {
   PhoneIcon,
   RadioChannelIcon,
 } from "@/App/utils/icons"
+import { initialsOf } from "@/App/utils/text"
 import { typography } from "@/App/utils/typography"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -26,12 +27,6 @@ interface CandidateCardProps {
 
 const focusRing =
   "focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-brand-tertiary focus-visible:ring-offset-2 focus-visible:ring-offset-card"
-
-// Iniciales del nombre y del último apellido (ej. «Juan Pablo Navarro» → «JN»).
-const initialsOf = (fullName: string) => {
-  const words = fullName.split(" ")
-  return `${words[0]?.[0] ?? ""}${words.length > 1 ? (words.at(-1)?.[0] ?? "") : ""}`
-}
 
 // Tarjeta de un candidato. El elegido se despliega con la llegada, el contacto
 // y «Confirmar asignación»; los demás solo muestran «Elegir» sin pulsar.
