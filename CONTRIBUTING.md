@@ -19,9 +19,10 @@ pnpm typecheck
 pnpm lint
 pnpm test:run
 pnpm build
+pnpm test:e2e
 ```
 
-El CI ejecuta el escaneo de secretos (Gitleaks), el lint y el build en cada push y pull request a `main` y `develop`.
+El CI ejecuta el escaneo de secretos (Gitleaks), el lint, las pruebas unitarias, el build y las pruebas E2E con Playwright en cada push y pull request a `main` y `develop`.
 
 ## Commits
 
@@ -43,7 +44,8 @@ docs: redesign README
 
 ## Pruebas
 
-- Las pruebas van en `src/tests/` con Vitest y Testing Library.
+- Las pruebas unitarias van en `src/tests/` con Vitest y Testing Library.
+- Los flujos completos en navegador real van en `e2e/` con Playwright. Úsalos solo para lo que jsdom no puede comprobar (layout, imágenes, animaciones) y para los flujos críticos; no repitas lo que ya cubren las unitarias.
 - En la lógica (rutas por rol, hooks, utilidades, estados), escribe primero la prueba que falla y después el código.
 - En los componentes, prueba el comportamiento que importa (qué se ve según el rol y las interacciones), sin snapshots masivos.
 

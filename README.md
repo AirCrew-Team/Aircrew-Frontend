@@ -55,7 +55,7 @@ Cuando un tripulante no puede volar, encontrar un reemplazo suele depender de ll
 | Interfaz | ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS_4-06B6D4?logo=tailwindcss&logoColor=white) ![shadcn/ui](https://img.shields.io/badge/shadcn%2Fui-000000?logo=shadcnui&logoColor=white) ![Lucide](https://img.shields.io/badge/Lucide-F56565?logo=lucide&logoColor=white) |
 | Estado y datos | ![TanStack Query](https://img.shields.io/badge/TanStack_Query_5-FF4154?logo=reactquery&logoColor=white) ![Zustand](https://img.shields.io/badge/Zustand_5-443E38) ![Axios](https://img.shields.io/badge/Axios-5A29E4?logo=axios&logoColor=white) |
 | Formularios | ![React Hook Form](https://img.shields.io/badge/React_Hook_Form-EC5990?logo=reacthookform&logoColor=white) ![Zod](https://img.shields.io/badge/Zod_4-3E67B1?logo=zod&logoColor=white) |
-| Pruebas y calidad | ![Vitest](https://img.shields.io/badge/Vitest_5-6E9F18?logo=vitest&logoColor=white) ![Testing Library](https://img.shields.io/badge/Testing_Library-E33332?logo=testinglibrary&logoColor=white) ![ESLint](https://img.shields.io/badge/ESLint-4B32C3?logo=eslint&logoColor=white) ![Prettier](https://img.shields.io/badge/Prettier-F7B93E?logo=prettier&logoColor=black) |
+| Pruebas y calidad | ![Vitest](https://img.shields.io/badge/Vitest_5-6E9F18?logo=vitest&logoColor=white) ![Testing Library](https://img.shields.io/badge/Testing_Library-E33332?logo=testinglibrary&logoColor=white) ![Playwright](https://img.shields.io/badge/Playwright-2EAD33?logo=playwright&logoColor=white) ![ESLint](https://img.shields.io/badge/ESLint-4B32C3?logo=eslint&logoColor=white) ![Prettier](https://img.shields.io/badge/Prettier-F7B93E?logo=prettier&logoColor=black) |
 
 ## Inicio rápido
 
@@ -140,7 +140,8 @@ src/
 ├── routes/         # Rutas, navegación y protección por rol
 ├── service/        # Cliente HTTP configurado con la URL del gateway
 ├── stores/         # Estado del cliente con Zustand (sesión)
-└── tests/          # Pruebas automatizadas y su configuración
+└── tests/          # Pruebas unitarias y de componentes (Vitest) y su configuración
+e2e/                # Pruebas de extremo a extremo (Playwright) y sus ayudas
 docs/
 ├── adr/            # Decisiones de arquitectura
 └── assets/         # Imágenes del README
@@ -154,7 +155,14 @@ Las decisiones de diseño están documentadas en los ADR:
 
 ## Pruebas
 
-Las pruebas usan Vitest y Testing Library sobre jsdom, y viven en `src/tests/`.
+El proyecto tiene dos niveles de pruebas, y el CI ejecuta los dos en cada push y pull request.
+
+| Nivel | Herramienta | Dónde | Qué cubre |
+| --- | --- | --- | --- |
+| Unitarias y de componentes | Vitest + Testing Library (jsdom) | `src/tests/` | Lógica, rutas por rol, estados de carga y error, formularios e interacciones de cada pantalla |
+| De extremo a extremo (E2E) | Playwright (Chromium) | `e2e/` | Flujos completos en un navegador real, contra el build de producción, en escritorio y en un móvil emulado |
+
+### Unitarias
 
 ```bash
 pnpm test:run    # ejecuta todas las pruebas una vez
@@ -166,6 +174,36 @@ pnpm lint        # ESLint
 > [!TIP]
 > `pnpm test:run` oculta la consola de las pruebas que pasan. Para ver los avisos de React o React Router, usa `pnpm exec vitest run --silent=false`.
 
+### De extremo a extremo (Playwright)
+
+Prueban lo que jsdom no puede ver: el layout real, las vistas previas de imágenes, las animaciones y el foco, además de los flujos críticos de cada rol:
+
+- login por rol, credenciales incorrectas y protección de rutas;
+- aprobar un reemplazo (supervisor) y reportar una ausencia (tripulante);
+- el scroll de Ausencias, que muestra exactamente 2 tarjetas completas por columna;
+- filtros y búsqueda de Tripulación;
+- foto de perfil y cambio de contraseña en Configuración;
+- el menú del navbar en móvil;
+- una revisión automática de accesibilidad (WCAG 2.1 AA) con axe en las pantallas principales.
+
+La primera vez, descarga el navegador:
+
+```bash
+pnpm exec playwright install chromium
+```
+
+Después:
+
+```bash
+pnpm test:e2e                          # compila la app, la sirve y ejecuta todas las pruebas
+pnpm test:e2e:ui                       # modo interactivo para ver y depurar cada paso
+pnpm exec playwright test --project=movil   # solo las pruebas del móvil emulado
+pnpm exec playwright show-report       # abre el reporte HTML de la última ejecución
+```
+
+> [!NOTE]
+> Playwright compila la app (`pnpm build`) y la sirve con `vite preview` en el puerto 4173 antes de probar; no hace falta tener `pnpm dev` abierto. Si una prueba falla, el reporte guarda la captura, el video y la traza del fallo. En el CI se sube como artefacto `playwright-report`.
+
 ## Hoja de ruta
 
 - [x] Login con cuentas de prueba y recuperación de contraseña
@@ -174,7 +212,7 @@ pnpm lint        # ESLint
 - [x] Administrador: Inicio, Usuarios, Certificaciones y Configuración
 - [ ] Administrador: Reportes y Aeronaves
 - [ ] Conectar con el API gateway (capa `App/actions` y cliente HTTP)
-- [ ] Ejecutar las pruebas en el CI (hoy corre el escaneo de secretos, el lint y el build)
+- [x] Ejecutar las pruebas unitarias y E2E en el CI
 
 ## Contribuir
 
