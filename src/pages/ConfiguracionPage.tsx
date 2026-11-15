@@ -4,9 +4,13 @@ import IdentityCard from "@/modules/profile/components/IdentityCard"
 import MedicalCertificateNotice from "@/modules/profile/components/MedicalCertificateNotice"
 import ProfileForm from "@/modules/profile/components/ProfileForm"
 import ProfileHeader from "@/modules/profile/components/ProfileHeader"
+import OperatorProfileHeader from "@/modules/operatorProfile/components/OperatorProfileHeader"
+import OperatorSettingsForm from "@/modules/operatorProfile/components/OperatorSettingsForm"
 import { useAuthStore } from "@/stores/auth.store"
 
-// Configuración, común a los tres roles: el tripulante ve además sus bloques propios.
+// Configuración (/configuracion):
+// - Tripulante y supervisor: la pantalla del módulo profile (el tripulante ve además sus bloques propios).
+// - Super admin: «Mi Perfil y Configuración» (módulo operatorProfile).
 const ConfiguracionPage = () => {
   const user = useAuthStore((state) => state.user)
 
@@ -14,6 +18,15 @@ const ConfiguracionPage = () => {
   if (!user) return null
 
   const isCrew = user.role === ROLES.TRIPULANTE
+
+  if (user.role === ROLES.SUPER_ADMIN) {
+    return (
+      <div className="flex flex-col gap-6">
+        <OperatorProfileHeader userId={user.id} />
+        <OperatorSettingsForm userId={user.id} />
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-6">

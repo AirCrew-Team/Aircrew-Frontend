@@ -69,7 +69,7 @@ describe("Configuración: ruta y protección", () => {
 })
 
 describe("Configuración: identidad desde el store", () => {
-  it.each(Object.values(ROLES))(
+  it.each([ROLES.TRIPULANTE, ROLES.SUPER_VISOR])(
     "CP-06: con un %s, la tarjeta de identidad muestra el nombre completo (h2) y el cargo del store",
     async (role) => {
       const { fullName, position } = NAME_BY_ROLE[role]
@@ -380,7 +380,7 @@ describe("Configuración: bloques de superVisor y superAdmin", () => {
 })
 
 describe("Configuración: estructura accesible y disposición", () => {
-  it.each(Object.values(ROLES))(
+  it.each([ROLES.TRIPULANTE, ROLES.SUPER_VISOR])(
     "CP-25: con un %s, hay un único h1 en la página",
     async (role) => {
       renderConfiguracion(role)
@@ -390,7 +390,7 @@ describe("Configuración: estructura accesible y disposición", () => {
     }
   )
 
-  it.each(Object.values(ROLES))(
+  it.each([ROLES.TRIPULANTE, ROLES.SUPER_VISOR])(
     "CP-25: con un %s, todos los íconos SVG del contenido llevan aria-hidden",
     async (role) => {
       renderConfiguracion(role)

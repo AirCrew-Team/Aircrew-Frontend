@@ -71,7 +71,7 @@ const replaceValue = async (
 }
 
 describe("Configuración: campos de contacto", () => {
-  it.each(Object.values(ROLES))(
+  it.each([ROLES.TRIPULANTE, ROLES.SUPER_VISOR])(
     "CP-15: con un %s, los tres campos se encuentran por su label; el correo es readOnly y celular y zona tienen aria-required",
     async (role) => {
       const { phone, email, zone } = await setup(role)
@@ -97,7 +97,7 @@ describe("Configuración: campos de contacto", () => {
 })
 
 describe("Configuración: validación al guardar", () => {
-  it.each(Object.values(ROLES))(
+  it.each([ROLES.TRIPULANTE, ROLES.SUPER_VISOR])(
     "CP-16: con un %s, el celular vacío muestra «Ingresa el celular de emergencias.», marca aria-invalid, enlaza el mensaje, enfoca el campo y no guarda",
     async (role) => {
       const { user, phone, save } = await setup(role)
@@ -190,7 +190,7 @@ describe("Configuración: validación al guardar", () => {
 })
 
 describe("Configuración: confirmación de guardado con toast (SN-01 y SN-02)", () => {
-  it.each(Object.values(ROLES))(
+  it.each([ROLES.TRIPULANTE, ROLES.SUPER_VISOR])(
     "SN-01: con un %s, al guardar un formulario válido aparece un toast de éxito «Perfil actualizado con éxito» con su descripción",
     async (role) => {
       const { user, save } = await setup(role)
@@ -359,7 +359,7 @@ describe("Configuración: interruptores de notificaciones (tripulante)", () => {
 })
 
 describe("Configuración: botones «Próximamente»", () => {
-  it.each(Object.values(ROLES))(
+  it.each([ROLES.TRIPULANTE, ROLES.SUPER_VISOR])(
     "CP-22: con un %s, los tres botones tienen aria-disabled, type=button, el texto «Próximamente» y un nombre que termina en «, próximamente»",
     async (role) => {
       const { main } = await setup(role)
