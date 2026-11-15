@@ -1,15 +1,12 @@
 import { ROLES } from "@/App/types/auth.types"
-import FdpUsageCard from "@/modules/profile/components/FdpUsageCard"
-import IdentityCard from "@/modules/profile/components/IdentityCard"
-import MedicalCertificateNotice from "@/modules/profile/components/MedicalCertificateNotice"
-import ProfileForm from "@/modules/profile/components/ProfileForm"
 import ProfileHeader from "@/modules/profile/components/ProfileHeader"
+import ProfileSettings from "@/modules/profile/components/ProfileSettings"
 import OperatorProfileHeader from "@/modules/operatorProfile/components/OperatorProfileHeader"
 import OperatorSettingsForm from "@/modules/operatorProfile/components/OperatorSettingsForm"
 import { useAuthStore } from "@/stores/auth.store"
 
 // Configuración (/configuracion):
-// - Tripulante y supervisor: la pantalla del módulo profile (el tripulante ve además sus bloques propios).
+// - Tripulante y supervisor: la pantalla del módulo profile (cada uno con sus bloques propios).
 // - Super admin: «Mi Perfil y Configuración» (módulo operatorProfile).
 const ConfiguracionPage = () => {
   const user = useAuthStore((state) => state.user)
@@ -31,20 +28,7 @@ const ConfiguracionPage = () => {
   return (
     <div className="flex flex-col gap-6">
       <ProfileHeader isCrew={isCrew} />
-      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-3">
-        <div className="flex min-w-0 flex-col gap-4">
-          <IdentityCard user={user} isCrew={isCrew} />
-          {isCrew ? (
-            <>
-              <FdpUsageCard userId={user.id} />
-              <MedicalCertificateNotice userId={user.id} />
-            </>
-          ) : null}
-        </div>
-        <div className="min-w-0 lg:col-span-2">
-          <ProfileForm userId={user.id} isCrew={isCrew} />
-        </div>
-      </div>
+      <ProfileSettings user={user} isCrew={isCrew} />
     </div>
   )
 }

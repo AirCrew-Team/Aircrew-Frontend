@@ -5,7 +5,7 @@ import type {
 
 // Datos simulados con la forma de las acciones reales: se moverán a App/actions cuando exista la API.
 // Las fechas son «hoy + N días» al llamar, en ISO local de solo día (nunca toISOString, que es UTC).
-const daysFromToday = (days: number) => {
+export const daysFromToday = (days: number) => {
   const now = new Date()
   const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() + days)
   const month = String(date.getMonth() + 1).padStart(2, "0")

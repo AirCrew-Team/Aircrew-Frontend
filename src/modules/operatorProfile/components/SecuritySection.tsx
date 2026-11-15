@@ -3,10 +3,11 @@ import { useId } from "react"
 import { LockIcon } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
-import ChangePasswordPanel from "@/modules/operatorProfile/components/ChangePasswordPanel"
 import { sectionClass } from "@/modules/operatorProfile/components/formStyles"
 import SectionTitle from "@/modules/operatorProfile/components/SectionTitle"
+import { changePassword } from "@/modules/operatorProfile/data/operatorProfile.data"
 import type { OperatorProfile } from "@/modules/operatorProfile/types/operatorProfile.types"
+import ChangePasswordPanel from "@/modules/shared/password/components/ChangePasswordPanel"
 
 // «Último cambio: hace 42 días»; «hoy» si se acaba de cambiar.
 const lastChangeText = (days: number) =>
@@ -41,7 +42,10 @@ const SecuritySection = ({ userId, profile }: SecuritySectionProps) => {
         }
       />
 
-      <ChangePasswordPanel userId={userId} />
+      <ChangePasswordPanel
+        changePassword={(input) => changePassword(userId, input)}
+        profileQueryKey={["operatorProfile"]}
+      />
     </section>
   )
 }

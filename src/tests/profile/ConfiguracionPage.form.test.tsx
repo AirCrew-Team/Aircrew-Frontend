@@ -38,16 +38,15 @@ const ERROR = {
   zoneRequired: "Ingresa la zona de residencia.",
 }
 
-const COMING_SOON_BUTTONS = [
-  "Actualizar Foto, próximamente",
-  "Cambiar Contraseña, próximamente",
-  "Configurar YubiKey, próximamente",
-]
+// Spec configuracion-tripulante-supervisor: ya no queda ningún botón «Próximamente» (CP-22).
+// «Configurar YubiKey» sale, «Cambiar Contraseña» pasa a ser el panel real (CS-02 y CS-16) y
+// «Actualizar Foto» pasa a ser «Subir Foto» y «Quitar foto de perfil»
+// (ConfiguracionPage.photo.test.tsx, CF-01, que comprueba que no queda ninguno).
 
 const setup = async (role: Role = ROLES.TRIPULANTE) => {
   const user = userEvent.setup()
   const router = renderConfiguracion(role)
-  const main = await findLoadedMain(role)
+  const main = await findLoadedMain()
   const form = within(main)
   return {
     user,
@@ -355,72 +354,5 @@ describe("Configuración: interruptores de notificaciones (tripulante)", () => {
 
     await waitFor(() => expect(gates).toBeChecked())
     expect(urgent).not.toBeChecked()
-  })
-})
-
-describe("Configuración: botones «Próximamente»", () => {
-  it.each([ROLES.TRIPULANTE, ROLES.SUPER_VISOR])(
-    "CP-22: con un %s, los tres botones tienen aria-disabled, type=button, el texto «Próximamente» y un nombre que termina en «, próximamente»",
-    async (role) => {
-      const { main } = await setup(role)
-
-      for (const name of COMING_SOON_BUTTONS) {
-        const button = within(main).getByRole("button", { name })
-        expect(button, name).toHaveAttribute("aria-disabled", "true")
-        expect(button, name).toHaveAttribute("type", "button")
-        expect(button, name).toHaveTextContent(/Próximamente/i)
-        expect(button, name).not.toBeDisabled()
-      }
-    }
-  )
-
-  it("CP-22: pulsarlos con el ratón o el teclado no navega, no envía el formulario ni muestra la confirmación", async () => {
-    const { user, router, main, phone } = await setup()
-
-    // Con un celular vacío, un envío accidental mostraría el error de validación.
-    await user.clear(phone)
-
-    for (const name of COMING_SOON_BUTTONS) {
-      const button = within(main).getByRole("button", { name })
-      await user.click(button)
-      button.focus()
-      await user.keyboard("{Enter}")
-      await user.keyboard(" ")
-    }
-
-    expect(router.state.location.pathname).toBe(CONFIGURACION_PATH)
-    expect(querySuccessToast()).toBeNull()
-    expect(screen.queryByText(ERROR.phoneRequired)).not.toBeInTheDocument()
-    expect(phone).not.toHaveAttribute("aria-invalid", "true")
-  })
-
-  it("CP-22: con el formulario válido, pulsarlos no muestra la confirmación de guardado", async () => {
-    const { user, main } = await setup()
-
-    for (const name of COMING_SOON_BUTTONS) {
-      await user.click(within(main).getByRole("button", { name }))
-    }
-
-    expect(querySuccessToast()).toBeNull()
-  })
-
-  it("CP-22: los tres botones siguen siendo alcanzables con el tabulador", async () => {
-    const { user, main } = await setup()
-    const targets = COMING_SOON_BUTTONS.map((name) =>
-      within(main).getByRole("button", { name })
-    )
-    const reached = new Set<Element>()
-
-    for (let i = 0; i < 80 && reached.size < targets.length; i++) {
-      await user.tab()
-      const active = document.activeElement
-      if (active && targets.includes(active as HTMLElement)) reached.add(active)
-    }
-
-    for (const target of targets) {
-      expect(reached.has(target), target.getAttribute("aria-label") ?? "").toBe(
-        true
-      )
-    }
   })
 })

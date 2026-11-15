@@ -1,20 +1,10 @@
-import { useEffect, useId, useMemo, useRef } from "react"
+import { useEffect, useMemo } from "react"
 
-import {
-  CameraIcon,
-  CertificationIcon,
-  DeleteIcon,
-  DepartureIcon,
-  UploadIcon,
-} from "@/App/utils/icons"
+import { CameraIcon, CertificationIcon, DepartureIcon } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
 import type { OperatorProfile } from "@/modules/operatorProfile/types/operatorProfile.types"
-
-// Foto de perfil: imagen PNG, JPG o WEBP de hasta 2 MB.
-const ACCEPTED_PHOTO = ".png,.jpg,.jpeg,.webp"
-const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp"]
-const MAX_PHOTO_BYTES = 2 * 1024 * 1024
+import PhotoUploadControls from "@/modules/shared/photo/PhotoUploadControls"
 
 // «Admin AirCrew» → «AA»: iniciales cuando no hay foto.
 const initialsOf = (fullName: string) =>
@@ -48,9 +38,6 @@ const OperatorProfileCard = ({
   onPhotoChange,
   onPhotoError,
 }: OperatorProfileCardProps) => {
-  const id = useId()
-  const inputRef = useRef<HTMLInputElement>(null)
-
   // Vista previa de la foto nueva desde la memoria del navegador. Se libera al cambiarla
   // o al salir, para no dejar la imagen ocupando memoria.
   const previewUrl = useMemo(
@@ -67,21 +54,6 @@ const OperatorProfileCard = ({
     [previewUrl]
   )
   const shownPhoto = photo === undefined ? profile.photoUrl : previewUrl
-
-  // Revisa la foto elegida: formato y tamaño.
-  const onFileChange = (file: File | undefined) => {
-    if (!file) return
-    if (!ACCEPTED_TYPES.includes(file.type)) {
-      onPhotoError("Formato no válido. Sube una imagen PNG, JPG o WEBP.")
-    } else if (file.size > MAX_PHOTO_BYTES) {
-      onPhotoError("La foto supera los 2 MB.")
-    } else {
-      onPhotoError(null)
-      onPhotoChange(file)
-    }
-    // Permite volver a elegir el mismo archivo después de quitarlo.
-    if (inputRef.current) inputRef.current.value = ""
-  }
 
   const facts = [
     { label: "ID Operativo", value: profile.employeeCode },
@@ -144,50 +116,12 @@ const OperatorProfileCard = ({
         </p>
       </div>
 
-      {/* Subir foto (la etiqueta funciona como botón) y quitarla. */}
-      <div className="flex flex-col gap-1">
-        <div className="flex gap-2 rounded-lg bg-muted p-2">
-          <label
-            className={cn(
-              typography.labelMd,
-              "inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-md bg-card font-semibold text-brand-primary transition-colors hover:bg-brand-neutral has-focus-visible:ring-2 has-focus-visible:ring-brand-tertiary lg:min-h-9"
-            )}
-          >
-            <UploadIcon aria-hidden="true" className="size-4" />
-            Subir Foto
-            <input
-              ref={inputRef}
-              type="file"
-              accept={ACCEPTED_PHOTO}
-              aria-describedby={photoError ? `${id}-photo-error` : undefined}
-              className="sr-only"
-              onChange={(event) => onFileChange(event.target.files?.[0])}
-            />
-          </label>
-          <button
-            type="button"
-            aria-label="Quitar foto de perfil"
-            title="Quitar foto"
-            disabled={!shownPhoto}
-            onClick={() => {
-              onPhotoError(null)
-              onPhotoChange(null)
-            }}
-            className="inline-flex size-11 shrink-0 items-center justify-center rounded-md bg-card text-destructive transition-colors hover:bg-destructive/10 focus-visible:ring-2 focus-visible:ring-brand-tertiary focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-40 lg:size-9"
-          >
-            <DeleteIcon aria-hidden="true" className="size-4" />
-          </button>
-        </div>
-        {photoError ? (
-          <p
-            id={`${id}-photo-error`}
-            role="alert"
-            className={cn(typography.bodySm, "text-destructive")}
-          >
-            {photoError}
-          </p>
-        ) : null}
-      </div>
+      <PhotoUploadControls
+        hasPhoto={Boolean(shownPhoto)}
+        error={photoError}
+        onPhotoChange={onPhotoChange}
+        onPhotoError={onPhotoError}
+      />
 
       {/* Datos de solo lectura de la cuenta. */}
       <dl className="flex flex-col gap-2">

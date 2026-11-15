@@ -15,12 +15,8 @@ export const CONFIGURACION_PATH = "/configuracion"
 // operatorProfile), probada en src/tests/operatorProfile.
 export const NON_CREW_ROLES = [ROLES.SUPER_VISOR] as const
 
-// Último h2 del formulario de cada rol: sirve de ancla de "ya cargó".
-export const SECURITY_HEADING: Record<Role, string> = {
-  [ROLES.TRIPULANTE]: "4. Seguridad y Credenciales",
-  [ROLES.SUPER_VISOR]: "2. Seguridad y Credenciales",
-  [ROLES.SUPER_ADMIN]: "2. Seguridad y Credenciales",
-}
+// h2 de Seguridad, igual para el tripulante y el supervisor (spec configuracion-tripulante-supervisor).
+export const SECURITY_HEADING = "4. Seguridad y Contraseña"
 
 export const FIELD = {
   phone: "Celular de Emergencias / Guardias",
@@ -56,16 +52,29 @@ export const alertsWithText = (container: HTMLElement, text: string) =>
     .queryAllByRole("alert")
     .filter((element) => element.textContent?.trim() === text)
 
-// Espera a que la página termine de cargar: el formulario está montado y nada sigue "Cargando…".
-export const findLoadedMain = async (role: Role) => {
+// Espera a que la página termine de cargar: el formulario está montado («Guardar Cambios»,
+// común a los dos roles) y nada sigue "Cargando…". No depende de ningún texto nuevo de la
+// spec, para que el rojo falle en la aserción de cada test y no en esta espera.
+export const findLoadedMain = async () => {
   const main = await screen.findByRole("main")
-  await within(main).findByRole("heading", {
-    level: 2,
-    name: SECURITY_HEADING[role],
-  })
+  await within(main).findByRole("button", { name: "Guardar Cambios" })
   await waitFor(() => expect(loadingStatuses(main)).toHaveLength(0))
   return main
 }
+
+// <section> de un bloque, a partir de su h2 (I1 es el nombre completo; F1 a F4, su título).
+export const getSectionByHeading = (container: HTMLElement, name: string) => {
+  const heading = within(container).getByRole("heading", { level: 2, name })
+  const section = heading.closest("section")
+  expect(section, `«${name}» debe ir dentro de una <section>`).not.toBeNull()
+  return section as HTMLElement
+}
+
+// Statuses de carga cuyo texto es exactamente `text`.
+export const statusesWithText = (container: HTMLElement, text: string) =>
+  loadingStatuses(container).filter(
+    (element) => element.textContent?.trim() === text
+  )
 
 // SN-01: la confirmación de guardado es un toast de sonner, no un role=status del formulario.
 export const querySuccessToast = () => queryToast(SUCCESS_TITLE)

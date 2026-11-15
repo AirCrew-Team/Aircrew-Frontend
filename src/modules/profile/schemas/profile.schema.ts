@@ -17,10 +17,15 @@ export const profileSchema = z.object({
   residenceZone: z
     .string()
     .check(z.trim(), z.minLength(1, "Ingresa la zona de residencia.")),
-  // Interruptores de F3: solo los registra el formulario del tripulante.
+  // Interruptores de F3 del tripulante: solo los registra su formulario.
   urgentReplacement: z.optional(z.boolean()),
   gateChanges: z.optional(z.boolean()),
   certificationExpiry: z.optional(z.boolean()),
+  // Interruptores de F3 del supervisor: solo los registra su formulario.
+  newAbsences: z.optional(z.boolean()),
+  aiProposalsReady: z.optional(z.boolean()),
+  noCandidates: z.optional(z.boolean()),
+  confirmationExpired: z.optional(z.boolean()),
 })
 
 export type ProfileFormValues = z.infer<typeof profileSchema>
