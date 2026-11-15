@@ -15,12 +15,9 @@ test("E2E-06 en «Por aprobar (7)» se ven completas las 2 primeras tarjetas, la
   await goToSection(page, "Ausencias", "Ausencias")
   await waitForLoaded(page)
 
-  // Chromium nombra la columna «Por aprobar ( 7 )»: los paréntesis sr-only (absolutos)
-  // suman espacios, a diferencia de jsdom («Por aprobar (7)» en los tests de Vitest).
-  // Se acepta cualquiera de los dos; la diferencia está reportada aparte.
   const columna = page
     .getByRole("main")
-    .getByRole("region", { name: /^Por aprobar \( ?7 ?\)$/ })
+    .getByRole("region", { name: "Por aprobar (7)", exact: true })
   const lista = columna.getByRole("list")
   await expect(lista.getByRole("listitem")).toHaveCount(5)
 

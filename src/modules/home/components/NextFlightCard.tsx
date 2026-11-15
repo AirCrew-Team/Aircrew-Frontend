@@ -104,7 +104,8 @@ const NextFlightCard = () => {
                   "inline-flex min-h-11 w-full cursor-not-allowed items-center justify-between gap-2 rounded-md bg-muted px-4 py-2.5 font-semibold text-muted-foreground/80 focus-visible:ring-2 focus-visible:ring-brand-tertiary focus-visible:ring-offset-2 focus-visible:ring-offset-card focus-visible:outline-hidden lg:min-h-9"
                 )}
               >
-                <span>Ver Briefing Operacional</span>
+                {/* El espacio evita que el texto visible se lea pegado («…OperacionalPróximamente»). */}
+                <span>Ver Briefing Operacional</span>{" "}
                 <span className="flex items-center gap-1 font-medium">
                   Próximamente
                   <ArrowRightIcon

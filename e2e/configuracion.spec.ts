@@ -13,6 +13,11 @@ const INICIALES: Record<Exclude<Rol, "admin">, string> = {
   tripulante: "JP",
   supervisor: "CR",
 }
+// lastPasswordChangeDays de profile.data, antes de cambiar la contraseña.
+const ULTIMO_CAMBIO: Record<Exclude<Rol, "admin">, string> = {
+  tripulante: "Último cambio: hace 42 días",
+  supervisor: "Último cambio: hace 18 días",
+}
 
 const ERROR_FORMATO = "Formato no válido. Sube una imagen PNG, JPG o WEBP."
 const PERFIL_GUARDADO = "Perfil actualizado con éxito"
@@ -102,8 +107,11 @@ test.describe("E2E-08 Foto de perfil", () => {
 })
 
 test.describe("E2E-09 Contraseña", () => {
-  const abrirPanel = async (page: Page) => {
-    const main = await openConfiguracion(page, "tripulante")
+  const abrirPanel = async (
+    page: Page,
+    rol: Exclude<Rol, "admin"> = "tripulante"
+  ) => {
+    const main = await openConfiguracion(page, rol)
     await main.getByRole("button", { name: "Cambiar contraseña" }).click()
     const panel = main.getByRole("group", { name: "Cambiar contraseña" })
     await expect(panel).toBeVisible()
@@ -154,9 +162,12 @@ test.describe("E2E-09 Contraseña", () => {
 
   // Contraseña actual correcta (MOCK_CURRENT_PASSWORD de profile.data) y una nueva que
   // cumple las 5 reglas y es distinta de la actual.
-  const cambiarContrasena = async (page: Page) => {
-    const { main, panel } = await abrirPanel(page)
-    await expect(main.getByText("Último cambio: hace 42 días")).toBeVisible()
+  const cambiarContrasena = async (
+    page: Page,
+    rol: Exclude<Rol, "admin"> = "tripulante"
+  ) => {
+    const { main, panel } = await abrirPanel(page, rol)
+    await expect(main.getByText(ULTIMO_CAMBIO[rol])).toBeVisible()
     await panel
       .getByLabel("Contraseña Actual", { exact: true })
       .fill("AirCrew2026!")
@@ -184,23 +195,39 @@ test.describe("E2E-09 Contraseña", () => {
     await expect(main.getByText("Último cambio: hoy")).toBeVisible()
   })
 
-  // BUG (CS-16, spec configuracion-tripulante-supervisor): en Chromium el foco queda en
-  // <body> tras cambiar la contraseña, no en «Cambiar contraseña». En jsdom pasa.
-  // Causa: ChangePasswordPanel.close() hace setOpen(false) y, en el mismo tick,
-  // requestAnimationFrame(() => openButtonRef.current?.focus()). Desde onSuccess de
-  // useMutation (fuera de un evento de React) el render va en una tarea aparte y el rAF
-  // llega antes: openButtonRef.current aún es null y no se llama a focus(). Además, el botón
-  // «Actualizar contraseña» enfocado pasa a disabled mientras se envía y Chromium lo
-  // desenfoca. Comprobado con un diagnóstico temporal: el orden fue «raf» y luego el montaje
-  // del botón, sin ninguna llamada a focus().
-  test.fixme("E2E-09 (CS-16) tras cambiar la contraseña, el foco vuelve a «Cambiar contraseña»", async ({
-    page,
-  }) => {
-    const { main } = await cambiarContrasena(page)
+  // FX-01 (spec fix-e2e-hallazgos) y CS-16 (spec configuracion-tripulante-supervisor): en
+  // un navegador real el foco vuelve a «Cambiar contraseña» al cerrar el panel, tanto tras
+  // el éxito (cierre desde onSuccess, fuera de un evento de React) como con «Cancelar».
+  // jsdom no detectaba el fallo del éxito.
+  for (const rol of ["tripulante", "supervisor"] as const) {
+    test(`E2E-09 (CS-16, FX-01) con ${rol}: tras cambiar la contraseña, el foco vuelve a «Cambiar contraseña»`, async ({
+      page,
+    }) => {
+      const { main, panel } = await cambiarContrasena(page, rol)
 
-    await expect(main.getByText("Último cambio: hoy")).toBeVisible()
-    await expect(
-      main.getByRole("button", { name: "Cambiar contraseña" })
-    ).toBeFocused()
-  })
+      await expect(main.getByText("Último cambio: hoy")).toBeVisible()
+      await expect(panel).toBeHidden()
+      await expect(
+        main.getByRole("button", { name: "Cambiar contraseña" })
+      ).toBeFocused()
+    })
+
+    test(`E2E-09 (FX-01) con ${rol}: tras «Cancelar», el panel se cierra y el foco vuelve a «Cambiar contraseña»`, async ({
+      page,
+    }) => {
+      const { main, panel } = await abrirPanel(page, rol)
+      await panel
+        .getByLabel("Contraseña Actual", { exact: true })
+        .fill("a-medias")
+
+      await panel.getByRole("button", { name: "Cancelar" }).click()
+
+      await expect(panel).toBeHidden()
+      await expect(
+        main.getByRole("button", { name: "Cambiar contraseña" })
+      ).toBeFocused()
+      // Cancelar no cambia la contraseña.
+      await expect(main.getByText(ULTIMO_CAMBIO[rol])).toBeVisible()
+    })
+  }
 })

@@ -157,3 +157,13 @@
     @apply font-heading;
     }
 }
+
+/* Toasts con richColors (sonner) en tema claro: textos más oscuros para llegar al 4,5:1 de
+   WCAG 1.4.3 sobre sus fondos. El verde de sonner daba 4,25:1 (lo detectó axe en las E2E).
+   :root sube la especificidad sobre la regla de sonner, que se inyecta sin capa. */
+:root [data-sonner-toaster][data-sonner-theme="light"] {
+  --success-text: hsl(140 100% 22%);
+  --info-text: hsl(210 92% 35%);
+  --warning-text: hsl(31 92% 30%);
+  --error-text: hsl(360 100% 40%);
+}

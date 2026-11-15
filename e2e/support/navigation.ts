@@ -20,13 +20,18 @@ export async function goToSection(page: Page, label: string, h1: string) {
   await expect(page.getByRole("heading", { level: 1, name: h1 })).toBeVisible()
 }
 
+// Botón del perfil del navbar, por su nombre exacto (aria-label, igual en todos los anchos).
+export const profileButton = (page: Page, rol: Rol) => {
+  const { displayName, position } = CUENTAS[rol]
+  return page.getByRole("button", {
+    name: `Menú de perfil de ${displayName} ${position}`,
+    exact: true,
+  })
+}
+
 // Abre el menú de perfil del navbar.
 export async function openProfileMenu(page: Page, rol: Rol) {
-  await page
-    .getByRole("button", {
-      name: `Menú de perfil de ${CUENTAS[rol].displayName}`,
-    })
-    .click()
+  await profileButton(page, rol).click()
 }
 
 // Va a /configuracion desde el menú de perfil.

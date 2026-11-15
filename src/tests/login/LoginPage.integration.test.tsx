@@ -121,7 +121,7 @@ describe("LG-02 a LG-04: iniciar sesión con las cuentas demo", () => {
     // El <header> del Login también cuenta como banner: se espera antes a salir de /login.
     await waitForPath(router, PATHS.tripulante.inicio)
     const trigger = await screen.findByRole("button", {
-      name: "Menú de perfil de Juan Pablo",
+      name: "Menú de perfil de Juan Pablo Primer Oficial #2287",
     })
     expect(
       trigger.closest("header"),
