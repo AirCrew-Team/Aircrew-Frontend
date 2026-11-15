@@ -3,66 +3,119 @@ import { useQuery } from "@tanstack/react-query"
 
 import {
   CalendarIcon,
+  ClockIcon,
   DepartureIcon,
   FlightIcon,
   GaugeIcon,
   LockIcon,
   LogbookIcon,
   PositionIcon,
+  RadioChannelIcon,
   RankIcon,
+  SupervisorIcon,
   VerifiedIcon,
 } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
-import { getCrewProfile } from "@/modules/profile/data/profile.data"
+import {
+  getCrewProfile,
+  getSupervisorProfile,
+} from "@/modules/profile/data/profile.data"
 
 interface EmploymentSectionProps {
   userId: string
+  isCrew: boolean
 }
 
-// F2 (tripulante, solo lectura): información laboral registrada por RRHH.
-const EmploymentSection = ({ userId }: EmploymentSectionProps) => {
+// F2 (solo lectura): información laboral registrada por RRHH. El tripulante ve su
+// escalafón y su flota; el supervisor, su base, su área y su turno.
+const EmploymentSection = ({ userId, isCrew }: EmploymentSectionProps) => {
   const titleId = useId()
   const fieldId = useId()
-  const { data, isPending, isError } = useQuery({
+  const crew = useQuery({
     queryKey: ["profile", "crew", userId],
     queryFn: () => getCrewProfile(userId),
+    enabled: isCrew,
+  })
+  const supervisor = useQuery({
+    queryKey: ["profile", "supervisor", userId],
+    queryFn: () => getSupervisorProfile(userId),
+    enabled: !isCrew,
   })
 
-  const fields = data
+  const { isPending, isError } = isCrew ? crew : supervisor
+
+  const crewFields = crew.data
     ? [
         {
           label: "Base Principal",
-          value: data.employment.base,
+          value: crew.data.employment.base,
           Icon: DepartureIcon,
         },
         {
           label: "Cargo Oficial / Escalafón",
-          value: data.employment.officialPosition,
+          value: crew.data.employment.officialPosition,
           Icon: RankIcon,
         },
         {
           label: "Flota Autorizada",
-          value: data.employment.authorizedFleet,
+          value: crew.data.employment.authorizedFleet,
           Icon: FlightIcon,
         },
         {
           label: "Fecha de Ingreso",
-          value: data.employment.hireDate,
+          value: crew.data.employment.hireDate,
           Icon: CalendarIcon,
         },
         {
           label: "Horas Totales de Vuelo",
-          value: data.employment.totalHours,
+          value: crew.data.employment.totalHours,
           Icon: LogbookIcon,
         },
         {
           label: "Límite Mensual FDP",
-          value: data.employment.fdpLimit,
+          value: crew.data.employment.fdpLimit,
           Icon: GaugeIcon,
         },
       ]
     : []
+
+  const supervisorFields = supervisor.data
+    ? [
+        {
+          label: "Base Asignada",
+          value: supervisor.data.employment.base,
+          Icon: DepartureIcon,
+        },
+        {
+          label: "Cargo Oficial",
+          value: supervisor.data.employment.officialPosition,
+          Icon: RankIcon,
+        },
+        {
+          label: "Área",
+          value: supervisor.data.employment.area,
+          Icon: SupervisorIcon,
+        },
+        {
+          label: "Turno Asignado",
+          value: supervisor.data.employment.shift,
+          Icon: ClockIcon,
+        },
+        {
+          label: "Fecha de Ingreso",
+          value: supervisor.data.employment.hireDate,
+          Icon: CalendarIcon,
+        },
+        {
+          label: "Canal de Radio",
+          value: supervisor.data.employment.radioChannel,
+          Icon: RadioChannelIcon,
+        },
+      ]
+    : []
+
+  const fields = isCrew ? crewFields : supervisorFields
 
   return (
     <section
@@ -81,7 +134,9 @@ const EmploymentSection = ({ userId }: EmploymentSectionProps) => {
               "min-w-0 font-bold text-brand-primary"
             )}
           >
-            2. Información Laboral y Escalafón (Solo Lectura - Registrada)
+            {isCrew
+              ? "2. Información Laboral y Escalafón (Solo Lectura - Registrada)"
+              : "2. Información Laboral y Turno (Solo Lectura - Registrada)"}
           </h2>
         </div>
         <p
@@ -100,16 +155,18 @@ const EmploymentSection = ({ userId }: EmploymentSectionProps) => {
           role="status"
           className={cn(typography.bodySm, "text-muted-foreground")}
         >
-          Cargando datos de vuelo…
+          {isCrew ? "Cargando datos de vuelo…" : "Cargando datos del turno…"}
         </p>
       ) : isError ? (
         <p role="alert" className={cn(typography.bodySm, "text-destructive")}>
-          No se pudieron cargar los datos de vuelo.
+          {isCrew
+            ? "No se pudieron cargar los datos de vuelo."
+            : "No se pudieron cargar los datos del turno."}
         </p>
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           {fields.map(({ label, value, Icon }, index) => (
-            // group: el último campo (límite FDP) va en azul, como la referencia.
+            // group: el último campo (límite FDP o canal de radio) va en azul, como la referencia.
             <div key={label} className="group flex min-w-0 flex-col gap-1">
               <label
                 htmlFor={`${fieldId}-${index}`}

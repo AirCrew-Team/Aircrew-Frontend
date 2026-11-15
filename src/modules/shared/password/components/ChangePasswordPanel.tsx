@@ -1,6 +1,10 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import {
+  useMutation,
+  useQueryClient,
+  type QueryKey,
+} from "@tanstack/react-query"
 import { useForm, useWatch } from "react-hook-form"
 import { toast } from "sonner"
 
@@ -12,15 +16,13 @@ import {
   controlClass,
   errorClass,
   fieldLabelClass,
-} from "@/modules/operatorProfile/components/formStyles"
-import {
-  ProfileFieldError,
-  changePassword,
-} from "@/modules/operatorProfile/data/operatorProfile.data"
+} from "@/modules/shared/password/components/formStyles"
+import { CurrentPasswordError } from "@/modules/shared/password/CurrentPasswordError"
 import {
   changePasswordSchema,
   type ChangePasswordFormValues,
-} from "@/modules/operatorProfile/schemas/changePassword.schema"
+} from "@/modules/shared/password/schemas/changePassword.schema"
+import type { ChangePasswordInput } from "@/modules/shared/password/types/password.types"
 
 type PasswordName = keyof ChangePasswordFormValues
 
@@ -64,7 +66,10 @@ const buttonClass = cn(
 )
 
 interface ChangePasswordPanelProps {
-  userId: string
+  // Función de datos de cada módulo, ya con el id del usuario.
+  changePassword: (input: ChangePasswordInput) => Promise<void>
+  // Consulta del perfil que se invalida al cambiarla (muestra el último cambio).
+  profileQueryKey: QueryKey
 }
 
 // Cambio de contraseña, separado del resto del perfil: se abre con «Cambiar contraseña»,
@@ -73,7 +78,10 @@ interface ChangePasswordPanelProps {
 // guarda en texto, solo cifrada; el ojo de cada campo deja ver lo que se escribe.
 // Va dentro del formulario del perfil (HTML no permite un form dentro de otro), así que
 // sus botones son type="button" y Enter en sus campos envía solo la contraseña.
-const ChangePasswordPanel = ({ userId }: ChangePasswordPanelProps) => {
+const ChangePasswordPanel = ({
+  changePassword,
+  profileQueryKey,
+}: ChangePasswordPanelProps) => {
   const id = useId()
   const queryClient = useQueryClient()
   const openButtonRef = useRef<HTMLButtonElement>(null)
@@ -118,13 +126,13 @@ const ChangePasswordPanel = ({ userId }: ChangePasswordPanelProps) => {
 
   const mutation = useMutation({
     mutationFn: (values: ChangePasswordFormValues) =>
-      changePassword(userId, {
+      changePassword({
         currentPassword: values.currentPassword,
         newPassword: values.newPassword,
       }),
     onSuccess: () => {
       // Refresca el perfil: el último cambio pasa a «hoy».
-      queryClient.invalidateQueries({ queryKey: ["operatorProfile"] })
+      queryClient.invalidateQueries({ queryKey: profileQueryKey })
       toast.success("Contraseña actualizada", {
         description: "Usa la nueva contraseña en tu próximo inicio de sesión.",
       })
@@ -133,10 +141,7 @@ const ChangePasswordPanel = ({ userId }: ChangePasswordPanelProps) => {
     },
     onError: (error) => {
       // Contraseña actual incorrecta: se marca en su campo y se enfoca.
-      if (
-        error instanceof ProfileFieldError &&
-        error.field === "currentPassword"
-      ) {
+      if (error instanceof CurrentPasswordError) {
         setError(
           "currentPassword",
           { message: error.message },
@@ -152,12 +157,13 @@ const ChangePasswordPanel = ({ userId }: ChangePasswordPanelProps) => {
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Enter") {
       event.preventDefault()
-      submit()
+      // Mientras se envía, Enter no repite el cambio (los botones ya están deshabilitados).
+      if (!mutation.isPending) submit()
     }
   }
 
   const genericError =
-    mutation.isError && !(mutation.error instanceof ProfileFieldError)
+    mutation.isError && !(mutation.error instanceof CurrentPasswordError)
 
   // Cerrado: la contraseña oculta, el último cambio y el botón para cambiarla.
   if (!open) {
@@ -220,7 +226,9 @@ const ChangePasswordPanel = ({ userId }: ChangePasswordPanelProps) => {
             onToggle={() =>
               setVisible((current) => ({ ...current, [name]: !current[name] }))
             }
-            className="absolute top-1/2 right-1 size-11 -translate-y-1/2 text-muted-foreground lg:size-9"
+            // Sin animación: el botón base anima todo y, al pulsarlo, su translate-y-px
+            // pisaba el centrado (-translate-y-1/2) y hacía saltar el ojo.
+            className="absolute top-1/2 right-1 size-11 -translate-y-1/2 text-muted-foreground transition-none active:not-aria-[haspopup]:-translate-y-1/2 lg:size-9"
           />
         </div>
         {message ? (

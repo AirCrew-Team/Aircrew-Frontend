@@ -2,21 +2,25 @@ import { useId } from "react"
 import type { UseFormRegister } from "react-hook-form"
 
 import {
+  AbsenceIcon,
+  AddUserIcon,
+  DurationIcon,
   ExpiryReminderIcon,
   NotificationsActiveIcon,
   RouteIcon,
   UrgentAlertIcon,
+  WarningIcon,
 } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
 import type { ProfileFormValues } from "@/modules/profile/schemas/profile.schema"
 
-const SWITCHES = [
+const CREW_SWITCHES = [
   {
     name: "urgentReplacement",
     title: "Alertas de Reemplazo Urgente",
     description:
-      "Envío inmediato por SMS de alta prioridad y notificación Push sonora cuando Control Operativo (OCC) active tu llamada de guardia domiciliaria.",
+      "Aviso inmediato por SMS y notificación Push sonora cuando el Supervisor te asigne un reemplazo, para que lo confirmes dentro del plazo.",
     Icon: UrgentAlertIcon,
   },
   {
@@ -35,15 +39,52 @@ const SWITCHES = [
   },
 ] as const
 
+// Avisos del flujo de reemplazos que recibe el supervisor durante su turno.
+const SUPERVISOR_SWITCHES = [
+  {
+    name: "newAbsences",
+    title: "Nuevas Ausencias en tu Base",
+    description:
+      "Aviso inmediato cuando un tripulante de tu base reporta una ausencia durante tu turno.",
+    Icon: AbsenceIcon,
+  },
+  {
+    name: "aiProposalsReady",
+    title: "Propuestas de la IA Listas",
+    description:
+      "Aviso cuando la IA termina de proponer candidatos para una solicitud y espera tu aprobación en Recomendaciones.",
+    Icon: AddUserIcon,
+  },
+  {
+    name: "noCandidates",
+    title: "Solicitudes sin Candidatos",
+    description:
+      "Aviso cuando las reglas dejan una solicitud sin nadie apto y necesitas gestionarla a mano.",
+    Icon: WarningIcon,
+  },
+  {
+    name: "confirmationExpired",
+    title: "Plazos de Confirmación Vencidos",
+    description:
+      "Aviso cuando un tripulante aprobado no confirma a tiempo y la solicitud pasa a la siguiente opción.",
+    Icon: DurationIcon,
+  },
+] as const
+
 interface NotificationsSectionProps {
+  isCrew: boolean
   register: UseFormRegister<ProfileFormValues>
 }
 
-// F3 (tripulante): interruptores de notificaciones. Toda la fila es clicable (label),
+// F3: interruptores de notificaciones de cada rol. Toda la fila es clicable (label),
 // pero el nombre accesible del switch es solo el título (aria-labelledby).
-const NotificationsSection = ({ register }: NotificationsSectionProps) => {
+const NotificationsSection = ({
+  isCrew,
+  register,
+}: NotificationsSectionProps) => {
   const titleId = useId()
   const baseId = useId()
+  const switches = isCrew ? CREW_SWITCHES : SUPERVISOR_SWITCHES
 
   return (
     <section
@@ -62,16 +103,18 @@ const NotificationsSection = ({ register }: NotificationsSectionProps) => {
               "min-w-0 font-bold text-brand-primary"
             )}
           >
-            3. Notificaciones Operativas y Guardias
+            {isCrew
+              ? "3. Notificaciones Operativas y Guardias"
+              : "3. Notificaciones del Flujo de Reemplazos"}
           </h2>
         </div>
         <p className={cn(typography.labelSm, "shrink-0 text-muted-foreground")}>
-          Canales en Tiempo Real
+          {isCrew ? "Canales en Tiempo Real" : "Durante tu turno"}
         </p>
       </div>
 
       <div className="flex flex-col gap-4">
-        {SWITCHES.map(({ name, title, description, Icon }) => (
+        {switches.map(({ name, title, description, Icon }) => (
           <label
             key={name}
             className="group flex cursor-pointer items-start justify-between gap-4 rounded-lg p-2 transition-colors hover:bg-background motion-reduce:transition-none"

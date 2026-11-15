@@ -1,9 +1,10 @@
 import type {
-  ChangePasswordInput,
   OperatorProfile,
   ResidenceOption,
   UpdateOperatorProfileInput,
 } from "@/modules/operatorProfile/types/operatorProfile.types"
+import { CurrentPasswordError } from "@/modules/shared/password/CurrentPasswordError"
+import type { ChangePasswordInput } from "@/modules/shared/password/types/password.types"
 
 // Datos simulados con la forma de las acciones reales: se moverán a App/actions cuando
 // exista la API. Contexto: Delta Air Lines, datos de EE. UU. (hubs de Delta, +1, FAA).
@@ -95,10 +96,10 @@ export const getResidenceOptions = (): Promise<ResidenceOption[]> =>
     { code: "SEA", label: "Estados Unidos · Seattle, WA (Base SEA)" },
   ])
 
-// Error de un campo concreto (ej. contraseña actual incorrecta): el formulario lo
+// Error de un campo concreto (ej. correo ya registrado): el formulario lo
 // muestra debajo de ese campo. Con la API corresponderá a un 4xx del backend.
 export class ProfileFieldError extends Error {
-  field: "currentPassword" | "email"
+  field: "email"
 
   constructor(field: ProfileFieldError["field"], message: string) {
     super(message)
@@ -147,10 +148,7 @@ export const changePassword = (
       if (!profile) return reject(new Error(`Perfil ${userId} no encontrado`))
       if (input.currentPassword !== MOCK_CURRENT_PASSWORD) {
         return reject(
-          new ProfileFieldError(
-            "currentPassword",
-            "La contraseña actual no es correcta."
-          )
+          new CurrentPasswordError("La contraseña actual no es correcta.")
         )
       }
       profile.security.lastPasswordChangeDays = 0

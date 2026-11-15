@@ -1,24 +1,23 @@
 import { useId } from "react"
 
-import { KeyIcon, SecurityIcon } from "@/App/utils/icons"
+import { SecurityIcon } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
+import { changePassword } from "@/modules/profile/data/profile.data"
 import type { UserProfile } from "@/modules/profile/types/profile.types"
+import ChangePasswordPanel from "@/modules/shared/password/components/ChangePasswordPanel"
+
+// «Último cambio: hace 42 días»; «hoy» si se acaba de cambiar.
+const lastChangeText = (days: number) =>
+  days === 0 ? "hoy" : `hace ${days} ${days === 1 ? "día" : "días"}`
 
 interface SecuritySectionProps {
-  // Número del h2 según los bloques que ve el rol.
-  number: number
+  userId: string
   security: UserProfile["security"]
 }
 
-// Estilo atenuado de NextFlightCard, con borde: van sobre la caja tintada, no sobre blanco.
-const comingSoonButton = cn(
-  typography.labelMd,
-  "inline-flex min-h-11 cursor-not-allowed items-center justify-between gap-3 rounded-md border border-brand-border bg-muted px-4 py-2.5 text-left font-semibold text-muted-foreground/80 shadow-xs focus-visible:ring-2 focus-visible:ring-brand-tertiary focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-hidden lg:min-h-9"
-)
-
-// F4 (común): seguridad y credenciales. Las acciones aún no existen ("Próximamente").
-const SecuritySection = ({ number, security }: SecuritySectionProps) => {
+// F4 (común): la contraseña, con el panel compartido y su propio botón (aparte del perfil).
+const SecuritySection = ({ userId, security }: SecuritySectionProps) => {
   const titleId = useId()
 
   return (
@@ -38,7 +37,7 @@ const SecuritySection = ({ number, security }: SecuritySectionProps) => {
               "min-w-0 font-bold text-brand-primary"
             )}
           >
-            {number}. Seguridad y Credenciales
+            4. Seguridad y Contraseña
           </h2>
         </div>
         <p
@@ -47,66 +46,19 @@ const SecuritySection = ({ number, security }: SecuritySectionProps) => {
             "shrink-0 rounded-sm bg-brand-border px-2 py-0.5 text-brand-secondary-hover uppercase"
           )}
         >
-          FIDO2 activo
+          Último cambio: {lastChangeText(security.lastPasswordChangeDays)}
         </p>
       </div>
 
-      {/* Botones en fila desde sm; en xl van en columna junto al texto, porque "Próximamente" los alarga. */}
-      <div className="flex flex-col gap-4 rounded-md border border-brand-neutral bg-background p-4 xl:flex-row xl:items-center xl:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
-          <span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-sm border border-brand-border bg-card text-brand-secondary">
-            <KeyIcon aria-hidden="true" className="size-6" />
-          </span>
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <h3
-              className={cn(typography.labelLg, "font-bold text-brand-primary")}
-            >
-              Autenticación Multifactor y Llave FÍSICA
-            </h3>
-            <p className={cn(typography.bodySm, "text-muted-foreground")}>
-              Llave de seguridad {security.securityKey} registrada para acceso a
-              sistemas de plan de vuelo y despacho operacional.
-            </p>
-            <p
-              className={cn(
-                typography.labelSm,
-                "flex flex-wrap items-center gap-x-2 gap-y-0.5 pt-1.5 text-muted-foreground"
-              )}
-            >
-              <span>
-                Último cambio de clave: hace {security.lastPasswordChangeDays}{" "}
-                días
-              </span>
-              <span aria-hidden="true">•</span>
-              <span className="font-medium text-brand-secondary">
-                {security.hardwareSynced
-                  ? "Hardware 2FA sincronizado"
-                  : "Hardware 2FA sin sincronizar"}
-              </span>
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row xl:shrink-0 xl:flex-col">
-          <button
-            type="button"
-            aria-disabled="true"
-            aria-label="Cambiar Contraseña, próximamente"
-            className={comingSoonButton}
-          >
-            Cambiar Contraseña
-            <span className="font-medium">Próximamente</span>
-          </button>
-          <button
-            type="button"
-            aria-disabled="true"
-            aria-label="Configurar YubiKey, próximamente"
-            className={comingSoonButton}
-          >
-            Configurar YubiKey
-            <span className="font-medium">Próximamente</span>
-          </button>
-        </div>
-      </div>
+      <p className={cn(typography.bodySm, "text-muted-foreground")}>
+        Tu contraseña protege el acceso a tus vuelos, tus ausencias y tus datos
+        de contacto.
+      </p>
+
+      <ChangePasswordPanel
+        changePassword={(input) => changePassword(userId, input)}
+        profileQueryKey={["profile", userId]}
+      />
     </section>
   )
 }
