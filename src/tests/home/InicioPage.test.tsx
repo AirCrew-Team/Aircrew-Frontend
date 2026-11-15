@@ -748,13 +748,18 @@ describe("Inicio del tripulante: tarjetas", () => {
 // CP-07 (spec configuracion-perfil, D1 = A): con el nombre completo en el store,
 // el navbar y el saludo del Inicio siguen mostrando el nombre corto.
 describe("CP-07: el navbar y el Inicio no cambian con el nombre completo", () => {
-  it("CP-07: con el tripulante simulado, el botón se llama «Menú de perfil de Juan Pablo» y muestra las iniciales «JP»", async () => {
+  // Las iniciales del avatar se pintan con CSS desde data-initials (WCAG 2.5.3, spec
+  // fix-e2e-hallazgos): no son texto del DOM, así que se leen del atributo.
+  const avatarOf = (trigger: HTMLElement) =>
+    trigger.querySelector("[data-initials]")
+
+  it("CP-07: con el tripulante simulado, el botón se llama «Menú de perfil de Juan Pablo Primer Oficial #2287» y su avatar lleva las iniciales «JP»", async () => {
     renderInicio()
 
     const trigger = await screen.findByRole("button", {
-      name: "Menú de perfil de Juan Pablo",
+      name: "Menú de perfil de Juan Pablo Primer Oficial #2287",
     })
-    expect(within(trigger).getByText("JP")).toBeInTheDocument()
+    expect(avatarOf(trigger)).toHaveAttribute("data-initials", "JP")
   })
 
   it("CP-07: con el tripulante simulado, el h1 del Inicio sigue siendo «Juan Pablo, Bienvenido a AirCrew»", async () => {
@@ -779,8 +784,8 @@ describe("CP-07: el navbar y el Inicio no cambian con el nombre completo", () =>
     renderInicio()
 
     const trigger = await screen.findByRole("button", {
-      name: "Menú de perfil de Ana María",
+      name: "Menú de perfil de Ana María Primer Oficial #2287",
     })
-    expect(within(trigger).getByText("AM")).toBeInTheDocument()
+    expect(avatarOf(trigger)).toHaveAttribute("data-initials", "AM")
   })
 })

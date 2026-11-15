@@ -50,7 +50,8 @@ const ProfileMenu = ({ user }: ProfileMenuProps) => {
       }}
     >
       <DropdownMenuTrigger
-        aria-label={`Menú de perfil de ${user.displayName}`}
+        // WCAG 2.5.3: desde xl se ve «{displayName} {position}» y el nombre lo contiene.
+        aria-label={`Menú de perfil de ${user.displayName} ${user.position}`}
         className={cn(barButton, "group gap-2.5 py-1.5 pr-2 pl-1 lg:py-1")}
       >
         {user.avatarUrl ? (
@@ -60,15 +61,17 @@ const ProfileMenu = ({ user }: ProfileMenuProps) => {
             className="size-8 rounded-full object-cover"
           />
         ) : (
+          // Las iniciales van como contenido CSS, no como texto del DOM: axe cuenta como
+          // texto visible del botón todo lo que se ve (aunque sea aria-hidden), y con «JP»
+          // ningún nombre que empiece por «Menú de perfil de …» lo contendría (WCAG 2.5.3).
           <span
             aria-hidden="true"
+            data-initials={getInitials(user.displayName)}
             className={cn(
               typography.navLabel,
-              "flex size-8 items-center justify-center rounded-full bg-brand-secondary font-bold tracking-wide text-white shadow-sm"
+              "flex size-8 items-center justify-center rounded-full bg-brand-secondary font-bold tracking-wide text-white shadow-sm before:content-[attr(data-initials)]"
             )}
-          >
-            {getInitials(user.displayName)}
-          </span>
+          />
         )}
         <span className="hidden max-w-40 min-w-0 flex-col text-left xl:flex">
           <span
@@ -78,7 +81,8 @@ const ProfileMenu = ({ user }: ProfileMenuProps) => {
             )}
           >
             {user.displayName}
-          </span>
+          </span>{" "}
+          {/* El espacio separa nombre y cargo en el texto visible (no se pinta en flex). */}
           <span
             className={cn(
               typography.labelSm,

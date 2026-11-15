@@ -10,8 +10,10 @@ type Cuenta = {
   inicio: string
   // h1 del Inicio: «{displayName del store}, {saludo}».
   h1: string
-  // Nombre corto del navbar (botón «Menú de perfil de …»).
+  // Nombre corto del navbar y cargo (position del store): el botón del perfil se llama
+  // «Menú de perfil de {displayName} {position}».
   displayName: string
+  position: string
   // ROLE_LABELS del Login, en el toast «Bienvenido a AirCrew, {rol}.».
   rolLabel: string
   // Nombre completo del perfil (Configuración).
@@ -25,6 +27,7 @@ export const CUENTAS: Record<Rol, Cuenta> = {
     inicio: "/tripulante",
     h1: "Juan Pablo, Bienvenido a AirCrew",
     displayName: "Juan Pablo",
+    position: "Primer Oficial #2287",
     rolLabel: "Tripulante",
     fullName: "Juan Pablo Navarro",
   },
@@ -34,6 +37,7 @@ export const CUENTAS: Record<Rol, Cuenta> = {
     inicio: "/supervisor",
     h1: "Camila Restrepo, Bienvenida a AirCrew",
     displayName: "Camila Restrepo",
+    position: "Supervisora OCC",
     rolLabel: "Supervisor",
     fullName: "Camila Restrepo",
   },
@@ -43,6 +47,7 @@ export const CUENTAS: Record<Rol, Cuenta> = {
     inicio: "/admin",
     h1: "Admin AirCrew, Bienvenido a AirCrew",
     displayName: "Admin AirCrew",
+    position: "Super Administrador",
     rolLabel: "Administrador",
     fullName: "Admin AirCrew",
   },
@@ -67,13 +72,5 @@ export async function loginAs(page: Page, rol: Rol) {
   await expect(
     page.getByRole("heading", { level: 1, name: cuenta.h1 })
   ).toBeVisible()
-  // El toast de bienvenida (top-right, 4,5 s) tapa el botón del perfil y, en móvil, todo
-  // el navbar. Si el ratón queda encima, sonner pausa el temporizador y el toast no se va:
-  // se espera a que desaparezca antes de seguir, con el ratón aún en «Iniciar sesión».
-  const bienvenida = page.getByText(
-    `Bienvenido a AirCrew, ${cuenta.rolLabel}.`,
-    { exact: true }
-  )
-  await expect(bienvenida).toBeVisible()
-  await expect(bienvenida).toBeHidden({ timeout: 10_000 })
+  // No se espera a que se vaya el toast de bienvenida: sale debajo del navbar (FX-03).
 }

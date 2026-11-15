@@ -10,7 +10,8 @@ const NavbarBrand = () => {
   return (
     <Link
       to="/"
-      aria-label={`${BRAND.name}, ir al inicio`}
+      // WCAG 2.5.3: el nombre contiene el texto visible («AirCrew CREW OPS»).
+      aria-label={`${BRAND.name} ${BRAND.tagline}, ir al inicio`}
       className={cn("flex shrink-0 items-center gap-3 rounded-md", focusRing)}
     >
       <img
@@ -28,7 +29,8 @@ const NavbarBrand = () => {
           )}
         >
           {BRAND.name}
-        </span>
+        </span>{" "}
+        {/* El espacio separa las dos líneas en el texto visible (no se pinta en flex). */}
         <span
           className={cn(
             typography.labelSm,

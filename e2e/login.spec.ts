@@ -5,6 +5,7 @@ import {
   navigateInApp,
   openMainNav,
   openProfileMenu,
+  profileButton,
 } from "./support/navigation.ts"
 
 // Spec e2e-playwright: E2E-01 (login por rol, en móvil), E2E-02 (credenciales incorrectas)
@@ -34,6 +35,40 @@ test.describe("E2E-01 Login por rol", () => {
       ).toBeVisible()
     })
   }
+})
+
+// FX-03 (spec fix-e2e-hallazgos): el toast de bienvenida sale debajo del navbar. Antes
+// tapaba el botón del perfil (y en móvil todo el navbar) durante sus 4,5 s, y el clic
+// esperaba a que se fuera. El clic tiene un plazo corto y el toast debe seguir a la vista
+// después: si lo tapara, el clic agotaría el plazo o solo saldría tras irse el toast.
+test("E2E-01 (FX-03) justo después de entrar, el botón del perfil se puede pulsar con el toast de bienvenida a la vista, sin solaparse con el navbar @movil", async ({
+  page,
+}) => {
+  const cuenta = CUENTAS.tripulante
+  await loginAs(page, "tripulante")
+  const bienvenida = page
+    .getByRole("region", { name: /Notificaciones/ })
+    .getByRole("listitem")
+    .filter({ hasText: `Bienvenido a AirCrew, ${cuenta.rolLabel}.` })
+  const navbar = page.getByRole("banner")
+  await expect(bienvenida).toBeVisible()
+
+  // Las cajas no se cortan en vertical: el toast empieza bajo el borde inferior del navbar.
+  // toPass: sonner lo hace entrar deslizándose desde arriba.
+  await expect(async () => {
+    const toastBox = await bienvenida.boundingBox()
+    const navbarBox = await navbar.boundingBox()
+    expect(toastBox, "caja del toast").not.toBeNull()
+    expect(navbarBox, "caja del navbar").not.toBeNull()
+    expect(toastBox!.y).toBeGreaterThanOrEqual(navbarBox!.y + navbarBox!.height)
+  }).toPass({ timeout: 2_000 })
+
+  await profileButton(page, "tripulante").click({ timeout: 1_500 })
+
+  await expect(
+    page.getByRole("menuitem", { name: "Configuración" })
+  ).toBeVisible()
+  await expect(bienvenida).toBeVisible()
 })
 
 test("E2E-02 con una contraseña errónea aparece el error del Login y se sigue en /login", async ({

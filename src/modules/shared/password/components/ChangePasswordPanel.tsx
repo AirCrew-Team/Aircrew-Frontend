@@ -85,6 +85,8 @@ const ChangePasswordPanel = ({
   const id = useId()
   const queryClient = useQueryClient()
   const openButtonRef = useRef<HTMLButtonElement>(null)
+  // Al cerrar el panel (no en la carga inicial) el foco vuelve a «Cambiar contraseña».
+  const returnFocusRef = useRef(false)
   const [open, setOpen] = useState(false)
   // Qué contraseñas se ven en texto plano (ojo de cada campo).
   const [visible, setVisible] = useState<Record<PasswordName, boolean>>({
@@ -108,11 +110,18 @@ const ChangePasswordPanel = ({
   const strength = strengthOf(newPassword)
 
   // Al abrir, el foco pasa a «Contraseña Actual», el primer campo que hay que llenar.
+  // Al cerrar, el efecto corre con «Cambiar contraseña» ya montado y le devuelve el foco
+  // (también cuando se cierra desde onSuccess, fuera de un evento de React).
   useEffect(() => {
-    if (open) document.getElementById(`${id}-currentPassword`)?.focus()
+    if (open) {
+      document.getElementById(`${id}-currentPassword`)?.focus()
+    } else if (returnFocusRef.current) {
+      returnFocusRef.current = false
+      openButtonRef.current?.focus()
+    }
   }, [open, id])
 
-  // Cierra el panel, limpia lo escrito y devuelve el foco a «Cambiar contraseña».
+  // Cierra el panel y limpia lo escrito; el efecto de arriba devuelve el foco.
   const close = () => {
     reset(EMPTY)
     setVisible({
@@ -120,8 +129,8 @@ const ChangePasswordPanel = ({
       newPassword: false,
       confirmPassword: false,
     })
+    returnFocusRef.current = true
     setOpen(false)
-    requestAnimationFrame(() => openButtonRef.current?.focus())
   }
 
   const mutation = useMutation({

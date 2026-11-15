@@ -73,7 +73,9 @@ const TrackingColumn = ({
       aria-labelledby={titleId}
       className="flex min-w-0 flex-col gap-3 rounded-xl bg-brand-neutral p-3"
     >
-      {/* Nombre accesible «{título} ({n})»: los paréntesis solo para el lector. */}
+      {/* Nombre accesible «{título} ({n})»: «({n})» entero solo para el lector y el número
+          visible oculto a él. Con los paréntesis en dos sr-only aparte, Chromium leía
+          «( 7 )» (añade espacios alrededor de cada elemento absoluto). */}
       <h2
         id={titleId}
         className={cn(
@@ -85,16 +87,15 @@ const TrackingColumn = ({
           aria-hidden="true"
           className={cn("size-2.5 shrink-0 rounded-full", dotClassName)}
         />
-        {title}{" "}
+        {title} <span className="sr-only">({absences.length})</span>
         <span
+          aria-hidden="true"
           className={cn(
             typography.labelSm,
             "ml-auto shrink-0 rounded-sm bg-brand-border-strong px-2 py-0.5 text-brand-primary tabular-nums"
           )}
         >
-          <span className="sr-only">(</span>
           {absences.length}
-          <span className="sr-only">)</span>
         </span>
       </h2>
 
