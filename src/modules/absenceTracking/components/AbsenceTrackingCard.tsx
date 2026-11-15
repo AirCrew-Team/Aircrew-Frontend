@@ -9,6 +9,7 @@ import {
   CriticalAlertIcon,
   RecalculatingIcon,
 } from "@/App/utils/icons"
+import { initialsOf } from "@/App/utils/text"
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
 import type { TrackedAbsence } from "@/modules/absenceTracking/types/absenceTracking.types"
@@ -20,12 +21,6 @@ interface AbsenceTrackingCardProps {
 
 const focusRing =
   "focus-visible:ring-2 focus-visible:ring-brand-tertiary focus-visible:ring-offset-2 focus-visible:ring-offset-card focus-visible:outline-hidden"
-
-// Iniciales del nombre y del último apellido (ej. «Laura Gómez» → «LG»), como en CandidateCard.
-const initialsOf = (fullName: string) => {
-  const words = fullName.split(" ")
-  return `${words[0]?.[0] ?? ""}${words.length > 1 ? (words.at(-1)?.[0] ?? "") : ""}`
-}
 
 // Etiqueta de estado: siempre con texto (el color solo acompaña).
 const statusChip = (absence: TrackedAbsence) => {

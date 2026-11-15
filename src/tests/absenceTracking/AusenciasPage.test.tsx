@@ -669,7 +669,7 @@ describe("Ausencias: límite de tarjetas por columna (AS-20, AS-22)", () => {
       const region = column(main, title, count)
       expect(
         within(region).queryByRole("button", {
-          name: /^(Ver d+ más|Mostrar menos) de /,
+          name: /^(Ver \d+ más|Mostrar menos) de /,
         })
       ).toBeNull()
       expect(region).not.toHaveTextContent("Mostrando")

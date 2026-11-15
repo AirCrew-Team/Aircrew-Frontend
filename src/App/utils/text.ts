@@ -5,3 +5,9 @@ export const normalizeForSearch = (text: string) =>
     .replace(/\p{Diacritic}/gu, "")
     .toLowerCase()
     .replace(/\s+/g, " ")
+
+// Iniciales del primer nombre y del último apellido (ej. «Juan Pablo Navarro» → «JN»).
+export const initialsOf = (fullName: string) => {
+  const words = fullName.split(" ")
+  return `${words[0]?.[0] ?? ""}${words.length > 1 ? (words.at(-1)?.[0] ?? "") : ""}`
+}
