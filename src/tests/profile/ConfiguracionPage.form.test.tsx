@@ -1,0 +1,358 @@
+import { screen, waitFor, within } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
+import { describe, expect, it } from "vitest"
+
+import { ROLES, type Role } from "@/App/types/auth.types"
+
+import { queryAllToasts, toastDescription } from "../utils/toasts"
+import {
+  CONFIGURACION_PATH,
+  FIELD,
+  findLoadedMain,
+  findSuccessToast,
+  querySuccessToast,
+  renderConfiguracion,
+  SUCCESS_DETAIL,
+  SUCCESS_TITLE,
+  successStatusesIn,
+  SWITCH,
+} from "./profileTestUtils"
+
+// Formulario visual (react-hook-form + zod) con los datos simulados reales de profile.data.ts.
+// SN-01 (spec login-integracion, ampliación del 2026-10-30): la confirmación de guardado es
+// un toast de sonner; el role=status del formulario y el estado «saved» desaparecen.
+
+const INITIAL = {
+  phone: "+57 310 445 8899",
+  email: "jp.navarro@aircrew-ops.com",
+  zone: "Zona Fontibón - Salitre, Bogotá",
+}
+
+const PHONE_HELP =
+  "Línea directa registrada para activación de tripulación de reserva."
+
+const ERROR = {
+  phoneRequired: "Ingresa el celular de emergencias.",
+  phoneFormat:
+    "Formato no válido. Usa solo números, espacios y un + inicial, por ejemplo +57 300 000 0000.",
+  zoneRequired: "Ingresa la zona de residencia.",
+}
+
+// Spec configuracion-tripulante-supervisor: ya no queda ningún botón «Próximamente» (CP-22).
+// «Configurar YubiKey» sale, «Cambiar Contraseña» pasa a ser el panel real (CS-02 y CS-16) y
+// «Actualizar Foto» pasa a ser «Subir Foto» y «Quitar foto de perfil»
+// (ConfiguracionPage.photo.test.tsx, CF-01, que comprueba que no queda ninguno).
+
+const setup = async (role: Role = ROLES.TRIPULANTE) => {
+  const user = userEvent.setup()
+  const router = renderConfiguracion(role)
+  const main = await findLoadedMain()
+  const form = within(main)
+  return {
+    user,
+    router,
+    main,
+    phone: form.getByRole("textbox", { name: FIELD.phone }),
+    email: form.getByRole("textbox", { name: FIELD.email }),
+    zone: form.getByRole("textbox", { name: FIELD.zone }),
+    save: form.getByRole("button", { name: "Guardar Cambios" }),
+    cancel: form.getByRole("button", { name: "Cancelar" }),
+  }
+}
+
+const replaceValue = async (
+  user: ReturnType<typeof userEvent.setup>,
+  field: HTMLElement,
+  value: string
+) => {
+  await user.clear(field)
+  if (value) await user.type(field, value)
+}
+
+describe("Configuración: campos de contacto", () => {
+  it.each([ROLES.TRIPULANTE, ROLES.SUPER_VISOR])(
+    "CP-15: con un %s, los tres campos se encuentran por su label; el correo es readOnly y celular y zona tienen aria-required",
+    async (role) => {
+      const { phone, email, zone } = await setup(role)
+
+      expect(email).toHaveAttribute("readonly")
+      expect(phone).toHaveAttribute("aria-required", "true")
+      expect(zone).toHaveAttribute("aria-required", "true")
+      expect(phone).not.toHaveAttribute("readonly")
+      expect(zone).not.toHaveAttribute("readonly")
+      expect(phone).not.toHaveValue("")
+      expect(email).not.toHaveValue("")
+      expect(zone).not.toHaveValue("")
+    }
+  )
+
+  it("CP-15: los valores iniciales del tripulante son los simulados de la referencia", async () => {
+    const { phone, email, zone } = await setup()
+
+    expect(phone).toHaveValue(INITIAL.phone)
+    expect(email).toHaveValue(INITIAL.email)
+    expect(zone).toHaveValue(INITIAL.zone)
+  })
+})
+
+describe("Configuración: validación al guardar", () => {
+  it.each([ROLES.TRIPULANTE, ROLES.SUPER_VISOR])(
+    "CP-16: con un %s, el celular vacío muestra «Ingresa el celular de emergencias.», marca aria-invalid, enlaza el mensaje, enfoca el campo y no guarda",
+    async (role) => {
+      const { user, phone, save } = await setup(role)
+
+      await user.clear(phone)
+      await user.click(save)
+
+      expect(await screen.findByText(ERROR.phoneRequired)).toBeInTheDocument()
+      expect(phone).toHaveAttribute("aria-invalid", "true")
+      expect(phone).toHaveAccessibleDescription(
+        expect.stringContaining(ERROR.phoneRequired)
+      )
+      await waitFor(() => expect(phone).toHaveFocus())
+      expect(querySuccessToast()).toBeNull()
+    }
+  )
+
+  it("CP-16: en el tripulante, el aria-describedby del celular con error incluye el mensaje y el texto de ayuda", async () => {
+    const { user, phone, save } = await setup()
+
+    expect(phone).toHaveAccessibleDescription(
+      expect.stringContaining(PHONE_HELP)
+    )
+
+    await user.clear(phone)
+    await user.click(save)
+
+    await screen.findByText(ERROR.phoneRequired)
+    expect(phone).toHaveAccessibleDescription(
+      expect.stringContaining(ERROR.phoneRequired)
+    )
+    expect(phone).toHaveAccessibleDescription(
+      expect.stringContaining(PHONE_HELP)
+    )
+  })
+
+  it("CP-16: un celular con solo espacios cuenta como vacío (se recortan los extremos)", async () => {
+    const { user, phone, save } = await setup()
+
+    await replaceValue(user, phone, "   ")
+    await user.click(save)
+
+    expect(await screen.findByText(ERROR.phoneRequired)).toBeInTheDocument()
+    expect(phone).toHaveAttribute("aria-invalid", "true")
+    expect(querySuccessToast()).toBeNull()
+  })
+
+  it("CP-17: el celular «abc» muestra el mensaje de formato no válido", async () => {
+    const { user, phone, save } = await setup()
+
+    await replaceValue(user, phone, "abc")
+    await user.click(save)
+
+    expect(await screen.findByText(ERROR.phoneFormat)).toBeInTheDocument()
+    expect(phone).toHaveAttribute("aria-invalid", "true")
+    await waitFor(() => expect(phone).toHaveFocus())
+    expect(querySuccessToast()).toBeNull()
+  })
+
+  it("CP-17: el celular «+57 300 000 0000» es válido y se guarda", async () => {
+    const { user, phone, save } = await setup()
+
+    await replaceValue(user, phone, "+57 300 000 0000")
+    await user.click(save)
+
+    await findSuccessToast()
+    expect(screen.queryByText(ERROR.phoneFormat)).not.toBeInTheDocument()
+    expect(screen.queryByText(ERROR.phoneRequired)).not.toBeInTheDocument()
+    expect(phone).not.toHaveAttribute("aria-invalid", "true")
+    expect(phone).toHaveValue("+57 300 000 0000")
+  })
+
+  it("CP-18: con celular y zona vacíos, se muestran los dos mensajes y el foco va al celular", async () => {
+    const { user, phone, zone, save } = await setup()
+
+    await user.clear(phone)
+    await user.clear(zone)
+    await user.click(save)
+
+    expect(await screen.findByText(ERROR.phoneRequired)).toBeInTheDocument()
+    expect(screen.getByText(ERROR.zoneRequired)).toBeInTheDocument()
+    expect(phone).toHaveAttribute("aria-invalid", "true")
+    expect(zone).toHaveAttribute("aria-invalid", "true")
+    expect(zone).toHaveAccessibleDescription(
+      expect.stringContaining(ERROR.zoneRequired)
+    )
+    await waitFor(() => expect(phone).toHaveFocus())
+    expect(querySuccessToast()).toBeNull()
+  })
+})
+
+describe("Configuración: confirmación de guardado con toast (SN-01 y SN-02)", () => {
+  it.each([ROLES.TRIPULANTE, ROLES.SUPER_VISOR])(
+    "SN-01: con un %s, al guardar un formulario válido aparece un toast de éxito «Perfil actualizado con éxito» con su descripción",
+    async (role) => {
+      const { user, save } = await setup(role)
+
+      expect(querySuccessToast()).toBeNull()
+      await user.click(save)
+
+      const toast = await findSuccessToast()
+      expect(toast).toHaveAttribute("data-type", "success")
+      expect(toastDescription(toast)).toBe(SUCCESS_DETAIL)
+    }
+  )
+
+  it("SN-01 y CP-19: tras el toast, los valores editados se mantienen y la confirmación ya no está en ningún role=status de main", async () => {
+    const { user, main, phone, zone, save } = await setup()
+
+    await replaceValue(user, phone, "+57 300 123 4567")
+    await replaceValue(user, zone, "Zona Chapinero, Bogotá")
+    await user.click(save)
+
+    const toast = await findSuccessToast()
+    expect(main).not.toContainElement(toast)
+    expect(successStatusesIn(main)).toHaveLength(0)
+    expect(within(main).queryByText(SUCCESS_TITLE)).toBeNull()
+    expect(phone).toHaveValue("+57 300 123 4567")
+    expect(zone).toHaveValue("Zona Chapinero, Bogotá")
+  })
+
+  it("SN-01: al guardar, el foco no se mueve de «Guardar Cambios»", async () => {
+    const { user, save } = await setup()
+
+    await user.click(save)
+
+    await findSuccessToast()
+    expect(save).toHaveFocus()
+  })
+
+  it("SN-02: con errores de validación no aparece ningún toast y el error sigue en línea; al corregir y guardar, sí aparece", async () => {
+    const { user, phone, save } = await setup()
+
+    await user.clear(phone)
+    await user.click(save)
+
+    expect(await screen.findByText(ERROR.phoneRequired)).toBeInTheDocument()
+    expect(phone).toHaveAttribute("aria-invalid", "true")
+    expect(queryAllToasts()).toHaveLength(0)
+
+    // Ancla: el Toaster está montado, así que la ausencia anterior no es un falso verde.
+    await user.type(phone, "+57 300 000 0000")
+    await user.click(save)
+    await findSuccessToast()
+  })
+})
+
+describe("Configuración: guardar y cancelar", () => {
+  it("CP-19: guardar no navega: la ruta sigue siendo /configuracion", async () => {
+    const { user, router, save } = await setup()
+
+    await user.click(save)
+
+    await findSuccessToast()
+    expect(router.state.location.pathname).toBe(CONFIGURACION_PATH)
+  })
+
+  it("CP-20: «Cancelar» sin haber guardado devuelve los campos a los valores iniciales", async () => {
+    const { user, phone, zone, cancel } = await setup()
+
+    await replaceValue(user, phone, "+57 300 123 4567")
+    await replaceValue(user, zone, "Zona Chapinero, Bogotá")
+    await user.click(cancel)
+
+    await waitFor(() => expect(phone).toHaveValue(INITIAL.phone))
+    expect(zone).toHaveValue(INITIAL.zone)
+  })
+
+  it("CP-20: «Cancelar» después de guardar devuelve los campos a lo último guardado", async () => {
+    const { user, phone, zone, save, cancel } = await setup()
+
+    await replaceValue(user, phone, "+57 300 123 4567")
+    await replaceValue(user, zone, "Zona Chapinero, Bogotá")
+    await user.click(save)
+    await findSuccessToast()
+
+    await replaceValue(user, phone, "+57 311 999 0000")
+    await replaceValue(user, zone, "Zona Suba, Bogotá")
+    await user.click(cancel)
+
+    await waitFor(() => expect(phone).toHaveValue("+57 300 123 4567"))
+    expect(zone).toHaveValue("Zona Chapinero, Bogotá")
+  })
+
+  it("CP-20: «Cancelar» quita los mensajes de error y aria-invalid", async () => {
+    const { user, phone, zone, save, cancel } = await setup()
+
+    await user.clear(phone)
+    await user.clear(zone)
+    await user.click(save)
+    await screen.findByText(ERROR.phoneRequired)
+
+    await user.click(cancel)
+
+    await waitFor(() =>
+      expect(screen.queryByText(ERROR.phoneRequired)).not.toBeInTheDocument()
+    )
+    expect(screen.queryByText(ERROR.zoneRequired)).not.toBeInTheDocument()
+    expect(phone).not.toHaveAttribute("aria-invalid", "true")
+    expect(zone).not.toHaveAttribute("aria-invalid", "true")
+    expect(phone).toHaveValue(INITIAL.phone)
+    expect(zone).toHaveValue(INITIAL.zone)
+  })
+})
+
+describe("Configuración: interruptores de notificaciones (tripulante)", () => {
+  it("CP-21: los tres interruptores son role=switch con su título como nombre y empiezan activados", async () => {
+    const { main } = await setup()
+
+    for (const name of Object.values(SWITCH)) {
+      expect(
+        within(main).getByRole("switch", { name }),
+        `interruptor «${name}»`
+      ).toBeChecked()
+    }
+  })
+
+  it("CP-21: al pulsar un interruptor cambia su estado", async () => {
+    const { user, main } = await setup()
+
+    for (const name of Object.values(SWITCH)) {
+      const toggle = within(main).getByRole("switch", { name })
+      await user.click(toggle)
+      expect(toggle, `interruptor «${name}»`).not.toBeChecked()
+      await user.click(toggle)
+      expect(toggle, `interruptor «${name}»`).toBeChecked()
+    }
+  })
+
+  it("CP-21: «Cancelar» sin guardar devuelve los interruptores al estado inicial", async () => {
+    const { user, main, cancel } = await setup()
+    const urgent = within(main).getByRole("switch", { name: SWITCH.urgent })
+    const gates = within(main).getByRole("switch", { name: SWITCH.gates })
+
+    await user.click(urgent)
+    await user.click(gates)
+    await user.click(cancel)
+
+    await waitFor(() => expect(urgent).toBeChecked())
+    expect(gates).toBeChecked()
+  })
+
+  it("CP-21: los interruptores se guardan con «Guardar Cambios» y «Cancelar» vuelve a lo guardado", async () => {
+    const { user, main, save, cancel } = await setup()
+    const urgent = within(main).getByRole("switch", { name: SWITCH.urgent })
+    const gates = within(main).getByRole("switch", { name: SWITCH.gates })
+
+    await user.click(urgent)
+    await user.click(save)
+    await findSuccessToast()
+    expect(urgent).not.toBeChecked()
+
+    await user.click(gates)
+    await user.click(cancel)
+
+    await waitFor(() => expect(gates).toBeChecked())
+    expect(urgent).not.toBeChecked()
+  })
+})
