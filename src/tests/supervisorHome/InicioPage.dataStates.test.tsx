@@ -9,6 +9,8 @@ import { renderRoute } from "../utils/renderRoute"
 
 // Inicio del supervisor (spec docs/specs/inicio-supervisor.md): estados de carga y error
 // aislados por bloque (IS-07) y separación de los datos del admin (IS-08).
+// PG-14 (spec programacion-supervisor.md): la tarjeta «Programación» y su consulta, con
+// flightAssignment.data.ts sustituido (registro propio, separado del de supervisorHome).
 
 beforeEach(() => {
   useAuthStore.getState().setMockRole(ROLES.SUPER_VISOR)
@@ -22,8 +24,31 @@ type DataFn = (...args: unknown[]) => unknown
 const data = vi.hoisted(() => ({
   supervisorCalls: [] as string[],
   adminCalls: [] as string[],
+  assignmentCalls: [] as string[],
   overrides: {} as Record<string, DataFn | undefined>,
 }))
+
+// Datos de Programación (compartidos con la página /supervisor/programacion). Mismo
+// envoltorio: los overrides van por nombre de función (no chocan con los de supervisorHome).
+vi.mock(
+  "@/modules/shared/flightAssignment/data/flightAssignment.data",
+  async (importOriginal) => {
+    const actual = await importOriginal<Record<string, unknown>>()
+    return Object.fromEntries(
+      Object.entries(actual).map(([name, value]) => {
+        if (typeof value !== "function") return [name, value]
+        const real = value as DataFn
+        return [
+          name,
+          (...args: unknown[]) => {
+            data.assignmentCalls.push(name)
+            return (data.overrides[name] ?? real)(...args)
+          },
+        ]
+      })
+    )
+  }
+)
 
 vi.mock(
   "@/modules/supervisorHome/data/supervisorHome.data",
@@ -65,6 +90,7 @@ vi.mock("@/modules/adminHome/data/adminHome.data", async (importOriginal) => {
 afterEach(() => {
   data.supervisorCalls = []
   data.adminCalls = []
+  data.assignmentCalls = []
   data.overrides = {}
 })
 
@@ -78,9 +104,17 @@ const renderHome = async () => {
   return router
 }
 
-// Las 5 funciones del contrato, con los textos de su bloque y un dato que solo aparece
-// cuando ese bloque tiene datos (sirve para comprobar que los demás bloques siguen).
+// Las 5 funciones del contrato de supervisorHome, más getScheduleDays de Programación (PG-14),
+// con los textos de su bloque y un dato que solo aparece cuando ese bloque tiene datos (sirve
+// para comprobar que los demás bloques siguen).
 const BLOCKS = [
+  {
+    fn: "getScheduleDays",
+    block: "Programación",
+    loading: "Cargando programación…",
+    error: "No se pudo cargar la programación.",
+    shown: () => screen.findByText("10 por completar"),
+  },
   {
     fn: "getSupervisionCenter",
     block: "bienvenida",
@@ -149,6 +183,10 @@ describe("Inicio del supervisor: estados de datos (IS-07)", () => {
         "Cargando estado del turno…",
       ],
       [
+        screen.getByRole("article", { name: "Programación" }),
+        "Cargando programación…",
+      ],
+      [
         screen.getByRole("article", { name: "Recomendaciones" }),
         "Cargando solicitudes de reemplazo…",
       ],
@@ -185,6 +223,7 @@ describe("Inicio del supervisor: estados de datos (IS-07)", () => {
   )
 
   it.each([
+    { fn: "getScheduleDays", link: "Ver Programación" },
     { fn: "getReplacementRequestsSummary", link: "Revisar Recomendaciones" },
     { fn: "getAbsencesSummary", link: "Gestionar Ausencias" },
     { fn: "getCrewSummary", link: "Ver Tripulación" },
@@ -209,9 +248,46 @@ describe("Inicio del supervisor: datos propios (IS-08)", () => {
     for (const { shown } of BLOCKS) expect(await shown()).toBeInTheDocument()
     await waitFor(() =>
       expect(new Set(data.supervisorCalls)).toEqual(
-        new Set(BLOCKS.map((block) => block.fn))
+        new Set(
+          BLOCKS.map((block) => block.fn).filter(
+            (fn) => fn !== "getScheduleDays"
+          )
+        )
       )
     )
     expect(data.adminCalls).toEqual([])
+  })
+})
+
+describe("Inicio del supervisor: datos de Programación (PG-14)", () => {
+  it("PG-14 la tarjeta «Programación» pide getScheduleDays de flightAssignment.data y nada más de ese módulo", async () => {
+    await renderHome()
+
+    // Ancla positiva: la tarjeta ya muestra su dato.
+    const card = await screen.findByRole("article", { name: "Programación" })
+    expect(
+      await within(card).findByText("10 por completar")
+    ).toBeInTheDocument()
+    expect(new Set(data.assignmentCalls)).toEqual(new Set(["getScheduleDays"]))
+  })
+
+  it("PG-14 si getScheduleDays falla, solo la tarjeta «Programación» muestra su alert y el título, la descripción y el enlace siguen", async () => {
+    data.overrides.getScheduleDays = fail
+
+    await renderHome()
+
+    const card = await screen.findByRole("article", { name: "Programación" })
+    expect(
+      await within(card).findByText("No se pudo cargar la programación.")
+    ).toHaveAttribute("role", "alert")
+    expect(
+      within(card).getByText(
+        "Asignación de tripulaciones a los vuelos de los próximos 7 días."
+      )
+    ).toBeInTheDocument()
+    expect(
+      within(card).getByRole("link", { name: "Ver Programación" })
+    ).toBeInTheDocument()
+    expect(within(card).queryByText(/por completar$/)).toBeNull()
   })
 })

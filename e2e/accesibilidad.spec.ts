@@ -7,6 +7,7 @@ import {
   goToSection,
   waitForLoaded,
 } from "./support/navigation.ts"
+import { openAV4021 } from "./support/programacion.ts"
 
 // E2E-11: sin violaciones critical ni serious de WCAG 2.1 A/AA en cada pantalla, ya cargada.
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]
@@ -61,6 +62,28 @@ const pantallas: {
     nombre: "Tripulación",
     rol: "supervisor",
     abrir: (page) => goToSection(page, "Tripulación", "Tripulación"),
+  },
+  {
+    // PG-16: con AV-4021 abierto (hoy + 5) y los candidatos del Primer Oficial desplegados,
+    // también los que no cumplen.
+    nombre: "Programación",
+    rol: "supervisor",
+    abrir: async (page) => {
+      const { panel } = await openAV4021(page)
+      await panel
+        .getByRole("button", { name: "Asignar Primer Oficial", exact: true })
+        .click()
+      await expect(
+        panel.getByText("3 cumplen las reglas", { exact: true })
+      ).toBeVisible()
+      // El total depende del pool (la spec fija a 3 de ellos), como en Vitest (PG-05).
+      await panel
+        .getByRole("button", { name: /^No cumplen las reglas \(\d+\)$/ })
+        .click()
+      await expect(
+        panel.getByText("Tomás Rincón — Ausente ese día", { exact: true })
+      ).toBeVisible()
+    },
   },
   {
     nombre: "Reportar Ausencia",

@@ -12,6 +12,7 @@ export const PATHS = {
   },
   superVisor: {
     inicio: "/supervisor",
+    programacion: "/supervisor/programacion",
     solicitudesReemplazo: "/supervisor/solicitudes-reemplazo",
     tripulacion: "/supervisor/tripulacion",
     ausencias: "/supervisor/ausencias",
