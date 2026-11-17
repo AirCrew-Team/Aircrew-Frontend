@@ -7,7 +7,7 @@
 Interfaz web para gestionar tripulaciones aéreas: tripulantes, supervisores y administradores coordinan vuelos, ausencias y reemplazos desde una sola aplicación.
 
 [![CI](https://github.com/AirCrew-Team/Aircrew-Frontend/actions/workflows/ci.yml/badge.svg)](https://github.com/AirCrew-Team/Aircrew-Frontend/actions/workflows/ci.yml)
-![Versión](https://img.shields.io/badge/versión-0.0.1-0b3a66)
+![Versión](https://img.shields.io/badge/versión-0.1.0-0b3a66)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)
