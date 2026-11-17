@@ -1,6 +1,7 @@
 import OpsDeckFooter from "@/modules/shared/opsHome/components/OpsDeckFooter"
 import AbsencesCard from "@/modules/supervisorHome/components/AbsencesCard"
 import CrewCard from "@/modules/supervisorHome/components/CrewCard"
+import ProgramacionCard from "@/modules/supervisorHome/components/ProgramacionCard"
 import ReplacementRequestsCard from "@/modules/supervisorHome/components/ReplacementRequestsCard"
 import ShiftStatusHero from "@/modules/supervisorHome/components/ShiftStatusHero"
 import SupervisorWelcomeHeader from "@/modules/supervisorHome/components/SupervisorWelcomeHeader"
@@ -16,10 +17,10 @@ const InicioPage = () => {
       {/* 2. Estado del turno sobre la foto. */}
       <ShiftStatusHero />
 
-      {/* 3. Accesos a los módulos del supervisor (misma rejilla que el Inicio del admin).
-          Móvil: 1 columna. Tablet: 2 columnas, y la última tarjeta ocupa la fila
-          completa para no quedar sola a media pantalla. Escritorio: 3 columnas. */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 md:[&>:last-child]:col-span-2 lg:[&>:last-child]:col-span-1">
+      {/* 3. Accesos a los módulos del supervisor, en el orden del menú.
+          Móvil: 1 columna. Tablet: 2 columnas. Escritorio: 4 columnas. */}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+        <ProgramacionCard />
         <ReplacementRequestsCard />
         <AbsencesCard />
         <CrewCard />

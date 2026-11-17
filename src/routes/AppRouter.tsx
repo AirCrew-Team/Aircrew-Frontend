@@ -12,6 +12,7 @@ import ReportesPage from "@/pages/superAdmin/ReportesPage"
 import UsuariosPage from "@/pages/superAdmin/UsuariosPage"
 import AusenciasPage from "@/pages/superVisor/AusenciasPage"
 import SuperVisorInicioPage from "@/pages/superVisor/InicioPage"
+import ProgramacionPage from "@/pages/superVisor/ProgramacionPage"
 import SolicitudesReemplazoPage from "@/pages/superVisor/SolicitudesReemplazoPage"
 import TripulacionPage from "@/pages/superVisor/TripulacionPage"
 import CertificacionesPage from "@/pages/tripulante/CertificacionesPage"
@@ -61,6 +62,10 @@ export const routes: RouteObject[] = [
         element: <MainLayout />,
         children: [
           { path: PATHS.superVisor.inicio, element: <SuperVisorInicioPage /> },
+          {
+            path: PATHS.superVisor.programacion,
+            element: <ProgramacionPage />,
+          },
           {
             path: PATHS.superVisor.solicitudesReemplazo,
             element: <SolicitudesReemplazoPage />,

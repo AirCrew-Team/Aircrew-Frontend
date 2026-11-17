@@ -10,6 +10,8 @@ import { renderRoute } from "../utils/renderRoute"
 
 // Inicio del supervisor (spec docs/specs/inicio-supervisor.md, criterios IS-03…IS-06 e IS-09):
 // contenido con los datos simulados reales de supervisorHome.data.ts.
+// PG-14 (spec programacion-supervisor.md): la tarjeta «Programación», primera de 4, con los
+// datos reales de modules/shared/flightAssignment.
 
 beforeEach(() => {
   useAuthStore.getState().setMockRole(ROLES.SUPER_VISOR)
@@ -110,7 +112,19 @@ describe("Inicio del supervisor: foto del turno (IS-04)", () => {
   })
 })
 
+// PG-14 (spec programacion-supervisor): «Programación» es la PRIMERA tarjeta, como en el menú.
+// Con los datos simulados hay 10 vuelos por completar de 38 en los próximos 7 días.
 const CARDS = [
+  {
+    title: "Programación",
+    description:
+      "Asignación de tripulaciones a los vuelos de los próximos 7 días.",
+    badge: "10 por completar",
+    metricLabel: "Vuelos por completar",
+    metricValue: "10 de 38",
+    link: "Ver Programación",
+    path: PATHS.superVisor.programacion,
+  },
   {
     title: "Recomendaciones",
     description:
@@ -143,7 +157,7 @@ const CARDS = [
 ]
 
 describe("Inicio del supervisor: tarjetas (IS-05)", () => {
-  it("IS-05 las 3 tarjetas son article, en orden: Recomendaciones, Ausencias, Tripulación", async () => {
+  it("IS-05 / PG-14 las 4 tarjetas son article, en orden: Programación, Recomendaciones, Ausencias, Tripulación", async () => {
     await renderHome()
 
     await screen.findByRole("heading", { level: 2, name: CARDS[0].title })
@@ -208,18 +222,25 @@ describe("Inicio del supervisor: sin franja de guardia (IS-06)", () => {
 })
 
 describe("Inicio del supervisor: navbar y h1 (IS-09)", () => {
-  it("IS-09 el navbar del supervisor tiene Inicio, Recomendaciones, Tripulación y Ausencias", async () => {
+  it("IS-09 / PG-01 el navbar del supervisor tiene Inicio, Programación, Recomendaciones, Tripulación y Ausencias, en ese orden", async () => {
     await renderHome()
 
     const nav = screen.getAllByRole("navigation")[0]
-    for (const label of [
+    const labels = [
       "Inicio",
+      "Programación",
       "Recomendaciones",
       "Tripulación",
       "Ausencias",
-    ]) {
+    ]
+    for (const label of labels) {
       expect(within(nav).getByRole("link", { name: label })).toBeInTheDocument()
     }
+    const order = within(nav)
+      .getAllByRole("link")
+      .map((link) => link.textContent?.trim())
+      .filter((label) => labels.includes(label ?? ""))
+    expect(order).toEqual(labels)
     for (const adminLabel of ["Usuarios", "Aeronaves", "Certificaciones"]) {
       expect(
         within(nav).queryByRole("link", { name: adminLabel })

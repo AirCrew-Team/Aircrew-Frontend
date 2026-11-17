@@ -10,7 +10,7 @@ export interface RouteCase {
   heading?: string
 }
 
-// Las 13 rutas protegidas por rol de la spec (CA-01), cada una con el rol que puede verla,
+// Las 14 rutas protegidas por rol de la spec (CA-01), cada una con el rol que puede verla,
 // y la ruta común /configuracion una vez por rol (CP-01).
 export const ROUTE_CASES: RouteCase[] = [
   {
@@ -42,6 +42,11 @@ export const ROUTE_CASES: RouteCase[] = [
     role: ROLES.SUPER_VISOR,
     section: "Inicio",
     heading: "Camila Restrepo, Bienvenida a AirCrew",
+  },
+  {
+    path: PATHS.superVisor.programacion,
+    role: ROLES.SUPER_VISOR,
+    section: "Programación",
   },
   {
     path: PATHS.superVisor.solicitudesReemplazo,

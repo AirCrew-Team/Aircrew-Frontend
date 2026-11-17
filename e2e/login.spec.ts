@@ -9,10 +9,17 @@ import {
 } from "./support/navigation.ts"
 
 // Spec e2e-playwright: E2E-01 (login por rol, en móvil), E2E-02 (credenciales incorrectas)
-// y E2E-03 (protección por rol). Menús de NAV_ITEMS_BY_ROLE (spec navbar-rutas-por-rol).
+// y E2E-03 (protección por rol). Menús de NAV_ITEMS_BY_ROLE (spec navbar-rutas-por-rol;
+// «Programación» del supervisor, después de «Inicio», de la spec programacion-supervisor).
 const MENU: Record<Rol, string[]> = {
   tripulante: ["Inicio", "Mis Vuelos", "Certificaciones", "Reportar Ausencia"],
-  supervisor: ["Inicio", "Recomendaciones", "Tripulación", "Ausencias"],
+  supervisor: [
+    "Inicio",
+    "Programación",
+    "Recomendaciones",
+    "Tripulación",
+    "Ausencias",
+  ],
   admin: ["Inicio", "Usuarios", "Aeronaves", "Certificaciones"],
 }
 

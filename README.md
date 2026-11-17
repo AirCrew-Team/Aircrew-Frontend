@@ -41,10 +41,10 @@ Cuando un tripulante no puede volar, encontrar un reemplazo suele depender de ll
 ## Funcionalidades
 
 - **Una vista para cada rol.** Tripulante, supervisor y administrador entran por el mismo Login y cada uno ve su propio menú, así nadie se pierde entre opciones que no le corresponden.
-- **Reemplazos más rápidos.** El supervisor revisa los candidatos que propone el sistema, aprueba uno y sigue cada ausencia hasta que el reemplazo se confirma.
+- **Tripulaciones armadas sin errores.** El supervisor asigna la tripulación de cada vuelo de su base: solo ve a quien cumple las reglas (habilitación, descanso, horas, certificado médico) y puede pedir a la IA una sugerencia antes de confirmar.
+- **Reemplazos más rápidos.** El supervisor ve quién de su base está de guardia y disponible, revisa los candidatos que propone el sistema, aprueba uno y sigue cada ausencia hasta que el reemplazo se confirma.
 - **Ausencias sin papeleo.** El tripulante avisa al centro de control desde la app, con el motivo y el soporte médico, y quien lo cubra recibe la asignación en su Inicio.
 - **Certificaciones al día.** Tripulantes y administradores ven qué licencias y exámenes vencen pronto, antes de que dejen a alguien sin poder volar.
-- **Tripulación del turno a la vista.** El supervisor sabe quién de su base está de guardia, en vuelo, en descanso o ausente, y quién puede cubrir un reemplazo.
 - **Perfil propio.** Cada usuario actualiza sus datos de contacto, su foto, su contraseña y los avisos que quiere recibir.
 
 ## Stack tecnológico
@@ -182,6 +182,7 @@ Prueban lo que jsdom no puede ver: el layout real, las vistas previas de imágen
 - aprobar un reemplazo (supervisor) y reportar una ausencia (tripulante);
 - el scroll de Ausencias, que muestra exactamente 2 tarjetas completas por columna;
 - filtros y búsqueda de Tripulación;
+- armar y confirmar la tripulación de un vuelo en Programación (a mano y con la sugerencia de la IA);
 - foto de perfil y cambio de contraseña en Configuración;
 - el menú del navbar en móvil;
 - una revisión automática de accesibilidad (WCAG 2.1 AA) con axe en las pantallas principales.
@@ -208,7 +209,8 @@ pnpm exec playwright show-report       # abre el reporte HTML de la última ejec
 
 - [x] Login con cuentas de prueba y recuperación de contraseña
 - [x] Tripulante: Inicio, Mis Vuelos, Reportar Ausencia, Certificaciones y Configuración
-- [x] Supervisor: Inicio, Recomendaciones, Ausencias, Tripulación y Configuración
+- [x] Supervisor: Inicio, Programación, Recomendaciones, Ausencias, Tripulación y Configuración
+- [ ] Tripulante: ver en «Mis Vuelos» las asignaciones que confirma el supervisor
 - [x] Administrador: Inicio, Usuarios, Certificaciones y Configuración
 - [ ] Administrador: Reportes y Aeronaves
 - [ ] Conectar con el API gateway (capa `App/actions` y cliente HTTP)
