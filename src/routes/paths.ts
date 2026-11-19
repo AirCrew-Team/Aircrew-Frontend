@@ -2,6 +2,7 @@
 export const PATHS = {
   root: "/",
   login: "/login",
+  activarCuenta: "/activar-cuenta",
   // Común a los tres roles, sin prefijo.
   configuracion: "/configuracion",
   tripulante: {

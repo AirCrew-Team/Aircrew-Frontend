@@ -1,7 +1,7 @@
 import { Navigate } from "react-router"
 
 import DevRoleSwitcher from "@/components/custom/DevRoleSwitcher"
-import { AuthHero } from "@/modules/login/AuthHero"
+import { AuthHero } from "@/modules/shared/auth/AuthHero"
 import { LoginPanel } from "@/modules/login/LoginPanel"
 import type { Session } from "@/modules/login/types"
 import { HOME_PATH_BY_ROLE } from "@/routes/navigation"

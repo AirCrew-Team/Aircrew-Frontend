@@ -12,6 +12,7 @@ const AUTH_PATHS = {
   login: "/api/admin/auth/login",
   me: "/api/admin/auth/me",
   logout: "/api/admin/auth/logout",
+  activate: "/api/admin/auth/activate",
 } as const
 
 const CREW_PROFILE_PATH = "/api/crew/crew-members/me"
@@ -91,6 +92,20 @@ export const login = async (
     if (error instanceof UnknownRoleError) await logout().catch(() => {})
     throw error
   }
+}
+
+// Activa la cuenta con el token de la invitación y crea la contraseña. No abre sesión:
+// devuelve el correo de la cuenta para que el llamador haga el login. Un 400 (token
+// inválido o vencido) relanza el AxiosError.
+export const activateAccount = async (credentials: {
+  token: string
+  password: string
+}): Promise<{ email: string }> => {
+  const { data } = await apiClient.post<{ user: { email: string } }>(
+    AUTH_PATHS.activate,
+    credentials
+  )
+  return data.user
 }
 
 export const getCurrentUser = async (): Promise<AuthUser> => {
