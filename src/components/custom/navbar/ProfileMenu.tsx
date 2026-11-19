@@ -1,6 +1,7 @@
 import { useRef } from "react"
 import { Link, useLocation } from "react-router"
 
+import { logout as logoutRequest } from "@/App/actions/auth/auth.actions"
 import type { AuthUser } from "@/App/types/auth.types"
 import { ChevronDownIcon, LogoutIcon, SettingsIcon } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
@@ -42,6 +43,17 @@ const ProfileMenu = ({ user }: ProfileMenuProps) => {
   const { pathname } = useLocation()
   // Si el ítem navega a otra ruta, MainLayout enfoca <main>; el menú no debe devolver el foco al botón.
   const navigatingRef = useRef(false)
+
+  // Borra la cookie en el backend (también con sesión demo, por si quedó una real) y
+  // cierra la sesión del navegador aunque la llamada falle (F7).
+  const handleLogout = async () => {
+    try {
+      await logoutRequest()
+    } catch {
+      // Sin backend o con error, la sesión del navegador se cierra igual.
+    }
+    logout()
+  }
 
   return (
     <DropdownMenu
@@ -129,7 +141,7 @@ const ProfileMenu = ({ user }: ProfileMenuProps) => {
         <DropdownMenuItem
           variant="destructive"
           className={itemClassName}
-          onClick={logout}
+          onClick={() => void handleLogout()}
         >
           <LogoutIcon aria-hidden="true" />
           Cerrar sesión

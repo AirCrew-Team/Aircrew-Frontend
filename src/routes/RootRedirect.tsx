@@ -4,10 +4,16 @@ import { useAuthStore } from "@/stores/auth.store"
 
 import { HOME_PATH_BY_ROLE } from "./navigation"
 import { PATHS } from "./paths"
+import { SessionLoading } from "./SessionGate"
 
 // Envía la raíz al inicio del rol actual, o al login si no hay sesión.
 const RootRedirect = () => {
   const user = useAuthStore((state) => state.user)
+  const status = useAuthStore((state) => state.status)
+
+  if (status === "checking") {
+    return <SessionLoading />
+  }
 
   return (
     <Navigate to={user ? HOME_PATH_BY_ROLE[user.role] : PATHS.login} replace />

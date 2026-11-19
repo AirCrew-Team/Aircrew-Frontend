@@ -92,7 +92,7 @@ La app arranca en el Login. Cada rol (tripulante, supervisor y administrador) ve
 Para recorrerla en desarrollo (`pnpm dev`), usa el selector **«Rol (dev)»** del Login: entra con el rol que elijas sin escribir credenciales y te deja cambiar de rol al instante. No se incluye en el build de producción.
 
 > [!NOTE]
-> Por ahora no hay backend conectado: las cuentas y todos los datos son simulados y viven en memoria, así que se reinician al recargar la página.
+> El Login está conectado al backend de AirCrew a través de su API gateway. La sesión vive en una cookie `httpOnly` que crea el backend, así que sigue abierta al recargar la página hasta que vence el token. Las cuentas demo y el selector «Rol (dev)» siguen disponibles y no llaman al backend. El resto de pantallas todavía usa datos simulados en memoria, que se reinician al recargar.
 
 <details>
 <summary>Generar y revisar el build de producción</summary>
@@ -110,7 +110,7 @@ Las variables se leen desde `.env` (plantilla en [`.env.template`](.env.template
 
 | Variable | Descripción | Por defecto | Obligatoria |
 | --- | --- | --- | --- |
-| `VITE_URL_API_BACKEND` | URL del API gateway que usa el cliente HTTP (`src/service/api-client.ts`). | — | Sí, cuando se conecte la API. Hoy la app funciona con datos simulados y no la usa. |
+| `VITE_URL_API_BACKEND` | URL del API gateway que usa el cliente HTTP (`src/service/api-client.ts`). Sin ella, la app no arranca. | `http://localhost:3000` (en `.env.template`) | Sí |
 
 > [!TIP]
 > Las variables con prefijo `VITE_` terminan dentro del bundle que descarga el navegador. Nunca guardes claves ni secretos en ellas.

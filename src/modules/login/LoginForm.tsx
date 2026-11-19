@@ -18,12 +18,16 @@ import {
 const MAX_LOGIN_ATTEMPTS = 3
 
 // Tipo de error mostrado en el formulario (null = sin error)
-type FormError = "empty" | "invalid" | null
+type FormError =
+  "empty" | "invalid_credentials" | "network_error" | "unknown_role" | null
 
 // Mensajes de error según el caso
 const ERROR_MESSAGES = {
   empty: "Ingresa tu correo y contraseña.",
-  invalid: "Correo o contraseña incorrectos.",
+  invalid_credentials: "Correo o contraseña incorrectos.",
+  network_error: "No pudimos conectar con el servidor. Intenta de nuevo.",
+  unknown_role:
+    "Tu cuenta tiene un rol que AirCrew no reconoce. Contacta al administrador.",
   locked:
     "Se alcanzó el límite de intentos. Recupera tu contraseña para continuar.",
 } as const
@@ -86,15 +90,19 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
     if (result.ok) {
       setFailedAttempts(0)
       setFormError(null)
-      toast.success(`Bienvenido a AirCrew, ${ROLE_LABELS[result.session.role]}.`)
+      toast.success(
+        `Bienvenido a AirCrew, ${ROLE_LABELS[result.session.role]}.`
+      )
       onLoginSuccess?.(result.session)
       return
     }
 
-    // Credenciales inválidas: suma un intento
+    setFormError(result.reason)
+    // Solo las credenciales inválidas suman intento (no la red ni un rol desconocido)
+    if (result.reason !== "invalid_credentials") return
+
     const nextAttempts = failedAttempts + 1
     setFailedAttempts(nextAttempts)
-    setFormError("invalid")
 
     // Al llegar al límite, abre la recuperación automáticamente
     if (nextAttempts >= MAX_LOGIN_ATTEMPTS) {

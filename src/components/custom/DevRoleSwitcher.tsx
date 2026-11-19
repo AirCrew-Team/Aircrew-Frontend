@@ -4,7 +4,8 @@ import { ROLES, type Role } from "@/App/types/auth.types"
 import { HOME_PATH_BY_ROLE } from "@/routes/navigation"
 import { useAuthStore } from "@/stores/auth.store"
 
-// Solo desarrollo: cambia el rol de la sesión simulada. Eliminar al integrar el login real.
+// Solo desarrollo: cambia el rol de la sesión simulada. Se mantiene junto a las cuentas
+// demo hasta que el usuario pida quitarlo.
 const DevRoleSwitcher = () => {
   const navigate = useNavigate()
   const role = useAuthStore((state) => state.user?.role)
