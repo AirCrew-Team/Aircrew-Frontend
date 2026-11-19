@@ -1,3 +1,7 @@
+import { isAxiosError } from "axios"
+
+import { login, UnknownRoleError } from "@/App/actions/auth/auth.actions"
+
 import type {
   LoginResult,
   MaskedContacts,
@@ -6,8 +10,8 @@ import type {
 } from "./types"
 
 /**
- * Contrato que debe cumplir el backend. Cuando exista la API, basta con crear
- * otra implementación (httpAuthService) y cambiar el export `authService`.
+ * Contrato del servicio de acceso. El login va al backend real salvo con las
+ * cuentas demo (D4); la recuperación de contraseña sigue simulada.
  */
 export interface AuthService {
   login(email: string, password: string): Promise<LoginResult>
@@ -19,7 +23,7 @@ export interface AuthService {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Implementación demo (sin backend). Eliminar al conectar la API real.       */
+/* Cuentas demo (D4) y recuperación simulada (el backend aún no la tiene).    */
 /* -------------------------------------------------------------------------- */
 
 // Cuenta de prueba guardada en memoria
@@ -35,24 +39,24 @@ export const DEMO_RECOVERY_CODE = "123456"
 
 // Una cuenta de ejemplo por cada rol
 const INITIAL_DEMO_ACCOUNTS: DemoAccount[] = [
-    {
-      email: "admin@gmail.com",
-      password: "1234567",
-      phone: "+57 300 000 0001",
-      role: "admin",
-    },
-    {
-      email: "supervisor@gmail.com",
-      password: "1234567",
-      phone: "+57 300 000 0002",
-      role: "supervisor",
-    },
-    {
-      email: "tripulante@gmail.com",
-      password: "1234567",
-      phone: "+57 300 000 0003",
-      role: "crew",
-    },
+  {
+    email: "admin@gmail.com",
+    password: "1234567",
+    phone: "+57 300 000 0001",
+    role: "admin",
+  },
+  {
+    email: "supervisor@gmail.com",
+    password: "1234567",
+    phone: "+57 300 000 0002",
+    role: "supervisor",
+  },
+  {
+    email: "tripulante@gmail.com",
+    password: "1234567",
+    phone: "+57 300 000 0003",
+    role: "crew",
+  },
 ]
 
 // "Base de datos" en memoria, indexada por email
@@ -68,10 +72,31 @@ const wait = (ms = 350) => new Promise((resolve) => setTimeout(resolve, ms))
 // Limpia y pasa a minúsculas el email para buscarlo
 const normalize = (email: string) => email.trim().toLowerCase()
 
-// Implementación falsa del servicio, usa las cuentas en memoria
-const demoAuthService: AuthService = {
+// Login contra el backend o las cuentas demo; la recuperación usa las cuentas en memoria.
+export const authService: AuthService = {
   // Valida email y contraseña; devuelve la sesión si son correctos
   async login(email, password) {
+    // Cualquier correo que no sea demo va al backend real (F4).
+    if (!demoAccounts.has(normalize(email))) {
+      try {
+        const user = await login(email.trim(), password)
+        return {
+          ok: true,
+          session: { email: email.trim(), role: user.role, user },
+        }
+      } catch (error) {
+        if (error instanceof UnknownRoleError) {
+          return { ok: false, reason: "unknown_role" }
+        }
+        if (isAxiosError(error) && error.response?.status === 401) {
+          return { ok: false, reason: "invalid_credentials" }
+        }
+        // Red caída, 5xx o cualquier otro fallo: no es culpa de las credenciales.
+        return { ok: false, reason: "network_error" }
+      }
+    }
+
+    // Cuentas demo (D4): se validan en memoria, sin llamar al backend.
     await wait()
     const account = demoAccounts.get(normalize(email))
     if (!account || account.password !== password) {
@@ -110,6 +135,3 @@ const demoAuthService: AuthService = {
     demoAccounts.set(account.email, { ...account, password: newPassword })
   },
 }
-
-// Implementación activa; cambiar aquí al conectar la API real
-export const authService: AuthService = demoAuthService

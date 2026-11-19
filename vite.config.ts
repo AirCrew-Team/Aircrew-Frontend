@@ -15,5 +15,8 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/tests/setup.ts"],
     include: ["src/tests/**/*.test.{ts,tsx}"],
+    // Misma URL del gateway en todos los entornos de test. MSW intercepta las peticiones
+    // (src/tests/utils/server.ts), así que no hace falta el backend.
+    env: { VITE_URL_API_BACKEND: "http://localhost:3000" },
   },
 })

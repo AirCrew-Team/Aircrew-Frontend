@@ -2,7 +2,7 @@ import { create } from "zustand"
 
 import { ROLES, type AuthUser, type Role } from "@/App/types/auth.types"
 
-// Sesión simulada mientras no exista la integración con el backend.
+// Usuarios simulados de las cuentas demo y del selector «Rol (dev)» (D4).
 const MOCK_USERS: Record<Role, AuthUser> = {
   [ROLES.TRIPULANTE]: {
     id: "mock-tripulante",
@@ -29,15 +29,21 @@ const MOCK_USERS: Record<Role, AuthUser> = {
 
 interface AuthState {
   user: AuthUser | null
+  // "checking" mientras SessionGate pregunta al backend si la cookie sigue viva.
+  status: "checking" | "ready"
+  // Usuario real que devuelve el backend (login o /auth/me).
+  setUser: (user: AuthUser) => void
   // Pone el usuario simulado del rol indicado. Lo usan el Login (cuentas demo) y el
-  // selector «Rol (dev)»; se reemplaza al conectar la API real.
+  // selector «Rol (dev)».
   setMockRole: (role: Role) => void
   logout: () => void
 }
 
-// Arranca sin sesión: al abrir la app se ve el Login. La sesión no se guarda al recargar.
+// Arranca comprobando la sesión: SessionGate pide /auth/me y deja el estado en "ready".
 export const useAuthStore = create<AuthState>()((set) => ({
   user: null,
-  setMockRole: (role) => set({ user: MOCK_USERS[role] }),
-  logout: () => set({ user: null }),
+  status: "checking",
+  setUser: (user) => set({ user, status: "ready" }),
+  setMockRole: (role) => set({ user: MOCK_USERS[role], status: "ready" }),
+  logout: () => set({ user: null, status: "ready" }),
 }))

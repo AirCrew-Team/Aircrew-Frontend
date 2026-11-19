@@ -5,6 +5,7 @@ import { useAuthStore } from "@/stores/auth.store"
 
 import { HOME_PATH_BY_ROLE } from "./navigation"
 import { PATHS } from "./paths"
+import { SessionLoading } from "./SessionGate"
 
 interface ProtectedRouteProps {
   allowedRoles: Role[]
@@ -13,6 +14,12 @@ interface ProtectedRouteProps {
 // Deja pasar solo a usuarios con sesión y con uno de los roles permitidos.
 const ProtectedRoute = ({ allowedRoles }: ProtectedRouteProps) => {
   const user = useAuthStore((state) => state.user)
+  const status = useAuthStore((state) => state.status)
+
+  // Mientras se restaura la sesión se espera en la ruta pedida, sin redirigir al Login.
+  if (status === "checking") {
+    return <SessionLoading />
+  }
 
   if (!user) {
     return <Navigate to={PATHS.login} replace />
