@@ -3,12 +3,15 @@ import { Outlet, useLocation } from "react-router"
 
 import DevRoleSwitcher from "@/components/custom/DevRoleSwitcher"
 import Navbar from "@/components/custom/navbar/Navbar"
+import { useLiveAlerts } from "@/hooks/useLiveAlerts"
 import { NAV_ITEMS_BY_ROLE } from "@/routes/navigation"
 import { useAuthStore } from "@/stores/auth.store"
 
 // Diseño base compartido por todos los roles: solo cambian las secciones del navbar.
 const MainLayout = () => {
   const user = useAuthStore((state) => state.user)
+  // Alertas en vivo del supervisor (socket); no hace nada en los demás roles.
+  useLiveAlerts()
   const { pathname, state } = useLocation()
   const mainRef = useRef<HTMLElement>(null)
   // Última ruta enfocada: evita mover el foco en la carga inicial (y en el doble efecto de StrictMode).

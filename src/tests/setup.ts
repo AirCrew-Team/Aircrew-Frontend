@@ -3,6 +3,7 @@ import { cleanup, configure } from "@testing-library/react"
 import { toast } from "sonner"
 import { afterEach, vi } from "vitest"
 
+import { useAlertsStore } from "@/stores/alerts.store"
 import { useAuthStore } from "@/stores/auth.store"
 
 // Módulos de datos ya conectados al backend: los tests de pantalla usan los datos
@@ -41,4 +42,6 @@ afterEach(() => {
   toast.dismiss()
   // La sesión simulada es global: se reinicia para que no pase de un test a otro.
   useAuthStore.setState(useAuthStore.getInitialState(), true)
+  // Las alertas en vivo de la campana también son globales.
+  useAlertsStore.setState(useAlertsStore.getInitialState(), true)
 })

@@ -2,6 +2,7 @@ import { create } from "zustand"
 
 import { ROLES, type AuthUser, type Role } from "@/App/types/auth.types"
 import { queryClient } from "@/lib/query-client"
+import { useAlertsStore } from "@/stores/alerts.store"
 
 // Usuarios simulados: los usan los tests (setMockRole) y el login demo de los tests.
 export const MOCK_USERS: Record<Role, AuthUser> = {
@@ -70,6 +71,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
   logout: () => {
     writeStoredToken(null)
     queryClient.clear()
+    useAlertsStore.getState().clear()
     set({ user: null, token: null })
   },
 }))
