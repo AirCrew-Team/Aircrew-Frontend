@@ -27,8 +27,10 @@ const data = vi.hoisted(() => ({
 
 vi.mock(
   "@/modules/absenceTracking/data/absenceTracking.data",
-  async (importOriginal) => {
-    const actual = await importOriginal<Record<string, unknown>>()
+  async () => {
+    const actual: Record<string, unknown> = await import(
+      "@/tests/fixtures/absenceTracking.fixtures"
+    )
     return Object.fromEntries(
       Object.entries(actual).map(([name, value]) => {
         if (typeof value !== "function") return [name, value]
@@ -190,7 +192,7 @@ describe("Ausencias: estados de carga, error y vacío", () => {
 const manyAbsences = async () => {
   const actual = await vi.importActual<{
     getAbsenceTracking: () => Promise<{ status: string }[]>
-  }>("@/modules/absenceTracking/data/absenceTracking.data")
+  }>("@/tests/fixtures/absenceTracking.fixtures")
   const real = await actual.getAbsenceTracking()
   const copies = (status: string, count: number) => {
     const model = real.find((absence) => absence.status === status)

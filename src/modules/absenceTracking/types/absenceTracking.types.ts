@@ -1,8 +1,9 @@
 export type TrackingStatus =
   "por_aprobar" | "esperando_confirmacion" | "cubierta"
 
-// Solo en «Por aprobar»: si la IA ya propuso, sigue buscando o no encontró a nadie que cumpla las reglas.
-export type SuggestionsState = "listas" | "buscando" | "sin_candidatos"
+// Solo en «Por aprobar»: si la IA ya propuso, sigue buscando, no encontró a nadie que
+// cumpla las reglas o no respondió (error: hay que pedir otra ronda en Recomendaciones).
+export type SuggestionsState = "listas" | "buscando" | "sin_candidatos" | "error"
 
 export interface TimelineEvent {
   atUtc: string // "HH:mm"

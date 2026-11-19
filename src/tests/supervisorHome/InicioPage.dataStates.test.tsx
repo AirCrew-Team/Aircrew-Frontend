@@ -52,8 +52,10 @@ vi.mock(
 
 vi.mock(
   "@/modules/supervisorHome/data/supervisorHome.data",
-  async (importOriginal) => {
-    const actual = await importOriginal<Record<string, unknown>>()
+  async () => {
+    const actual: Record<string, unknown> = await import(
+      "@/tests/fixtures/supervisorHome.fixtures"
+    )
     return Object.fromEntries(
       Object.entries(actual).map(([name, value]) => {
         if (typeof value !== "function") return [name, value]

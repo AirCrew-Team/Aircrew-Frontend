@@ -98,6 +98,15 @@ const CandidateCard = ({
         ))}
       </ul>
 
+      {candidate.rationale ? (
+        <p className={cn(typography.bodySm, "text-muted-foreground")}>
+          <strong className="font-semibold text-foreground">
+            Por qué la IA lo propone:
+          </strong>{" "}
+          {candidate.rationale}
+        </p>
+      ) : null}
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p
           className={cn(

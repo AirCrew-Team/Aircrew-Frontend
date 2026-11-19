@@ -20,6 +20,9 @@ export interface ReplacementRequest {
   timeToDeparture: string
   gate: string
   reason: string
+  // Estado de la búsqueda de la IA: "buscando" (aún sin candidatos) o "error" (la IA no
+  // respondió; hay que pedir otra ronda). Sin valor: candidatos listos o ninguno.
+  aiState?: "buscando" | "error"
 }
 
 // Candidato propuesto por la IA para una solicitud (llegan ordenados por afinidad).
@@ -37,4 +40,6 @@ export interface Candidate {
   // Teléfono en formato legible (ej. «+57 310 445 8899»).
   phone: string
   radioChannel: string
+  // Por qué la IA lo puso en ese lugar.
+  rationale?: string | null
 }

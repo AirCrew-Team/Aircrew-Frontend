@@ -1,222 +1,122 @@
-import type { TrackedAbsence } from "@/modules/absenceTracking/types/absenceTracking.types"
+import type {
+  SuggestionsState,
+  TrackedAbsence,
+} from "@/modules/absenceTracking/types/absenceTracking.types"
+import { utcClock } from "@/modules/shared/base/myBase"
+import {
+  ABSENCE_REASON_LABEL,
+  positionLabel,
+  timeUntil,
+  type ApiAbsenceReason,
+} from "@/modules/shared/crew/crewLabels"
+import apiClient from "@/service/api-client"
 
-// Ausencias del turno de hoy, ya ordenadas: «Por aprobar» (sin candidatos primero, porque
-// piden acción manual; luego las listas por urgencia y al final buscando), «Esperando
-// confirmación» por plazo y «Cubiertas» con la confirmación más reciente primero.
-// Las 5 «listas» copian las solicitudes de Recomendaciones.
-const ABSENCES: TrackedAbsence[] = [
-  {
-    id: "abs-07",
-    flightNumber: "AV-1288",
-    origin: "BOG",
-    destination: "PEI",
-    departureUtc: "23:15",
-    timeToDeparture: "8h 45m",
-    position: "Copiloto ATR 72",
-    reason: "Incapacidad médica repentina",
-    reportedBy: "Tomás Rincón",
-    reportedAtUtc: "13:30",
-    status: "por_aprobar",
-    suggestions: "sin_candidatos",
-    candidateCount: 0,
-    timeline: [
-      { atUtc: "13:30", text: "Ausencia reportada por Tomás Rincón" },
-      { atUtc: "13:33", text: "Ningún tripulante cumple los requisitos" },
-    ],
-  },
-  {
-    id: "abs-01",
-    flightNumber: "AV-9344",
-    origin: "BOG",
-    destination: "MIA",
-    departureUtc: "16:15",
-    timeToDeparture: "1h 45m",
-    position: "Copiloto A320",
-    reason: "Incapacidad médica repentina",
-    reportedBy: "Felipe Ardila",
-    reportedAtUtc: "13:58",
-    status: "por_aprobar",
-    suggestions: "listas",
-    candidateCount: 3,
-    timeline: [
-      { atUtc: "13:58", text: "Ausencia reportada por Felipe Ardila" },
-      { atUtc: "14:01", text: "La IA propuso 3 candidatos" },
-    ],
-  },
-  {
-    id: "abs-02",
-    flightNumber: "AV-8120",
-    origin: "BOG",
-    destination: "CLO",
-    departureUtc: "17:40",
-    timeToDeparture: "3h 10m",
-    position: "Jefe de Cabina",
-    reason: "Calamidad doméstica o familiar",
-    reportedBy: "Natalia Ríos",
-    reportedAtUtc: "14:05",
-    status: "por_aprobar",
-    suggestions: "listas",
-    candidateCount: 2,
-    timeline: [
-      { atUtc: "14:05", text: "Ausencia reportada por Natalia Ríos" },
-      { atUtc: "14:08", text: "La IA propuso 2 candidatos" },
-    ],
-  },
-  {
-    id: "abs-03",
-    flightNumber: "AV-7741",
-    origin: "BOG",
-    destination: "MDE",
-    departureUtc: "19:30",
-    timeToDeparture: "5h 00m",
-    position: "Tripulante de Cabina",
-    reason: "Incapacidad médica repentina",
-    reportedBy: "Sara Londoño",
-    reportedAtUtc: "14:12",
-    status: "por_aprobar",
-    suggestions: "listas",
-    candidateCount: 2,
-    timeline: [
-      { atUtc: "14:12", text: "Ausencia reportada por Sara Londoño" },
-      { atUtc: "14:15", text: "La IA propuso 2 candidatos" },
-    ],
-  },
-  {
-    id: "abs-04",
-    flightNumber: "AV-6612",
-    origin: "BOG",
-    destination: "CTG",
-    departureUtc: "20:50",
-    timeToDeparture: "6h 20m",
-    position: "Comandante",
-    reason: "Fatiga operacional / RAC 212",
-    reportedBy: "Andrés Vélez",
-    reportedAtUtc: "14:20",
-    status: "por_aprobar",
-    suggestions: "listas",
-    candidateCount: 2,
-    timeline: [
-      { atUtc: "14:20", text: "Ausencia reportada por Andrés Vélez" },
-      { atUtc: "14:23", text: "La IA propuso 2 candidatos" },
-    ],
-  },
-  {
-    id: "abs-05",
-    flightNumber: "AV-5023",
-    origin: "BOG",
-    destination: "SMR",
-    departureUtc: "22:35",
-    timeToDeparture: "8h 05m",
-    position: "Copiloto A320",
-    reason: "Dificultad de traslado comprobada",
-    reportedBy: "Daniela Pardo",
-    reportedAtUtc: "14:26",
-    status: "por_aprobar",
-    suggestions: "listas",
-    candidateCount: 2,
-    timeline: [
-      { atUtc: "14:26", text: "Ausencia reportada por Daniela Pardo" },
-      { atUtc: "14:29", text: "La IA propuso 2 candidatos" },
-    ],
-  },
-  {
-    id: "abs-06",
-    flightNumber: "AV-3307",
-    origin: "BOG",
-    destination: "BAQ",
-    departureUtc: "21:10",
-    timeToDeparture: "6h 40m",
-    position: "Tripulante de Cabina",
-    reason: "Fatiga operacional / RAC 212",
-    reportedBy: "Lucía Mora",
-    reportedAtUtc: "14:38",
-    status: "por_aprobar",
-    suggestions: "buscando",
-    candidateCount: 0,
-    timeline: [{ atUtc: "14:38", text: "Ausencia reportada por Lucía Mora" }],
-  },
-  {
-    id: "abs-08",
-    flightNumber: "AV-9341",
-    origin: "BOG",
-    destination: "LIM",
-    departureUtc: "17:05",
-    timeToDeparture: "2h 35m",
-    position: "Copiloto A320",
-    reason: "Incapacidad médica repentina",
-    reportedBy: "Paula Cárdenas",
-    reportedAtUtc: "13:58",
-    status: "esperando_confirmacion",
-    replacement: { fullName: "Mateo Morales", option: 2 },
-    approval: { by: "Camila Restrepo", atUtc: "14:06" },
-    deadlineUtc: "14:51",
-    timeline: [
-      { atUtc: "13:58", text: "Ausencia reportada por Paula Cárdenas" },
-      { atUtc: "14:01", text: "La IA propuso 3 candidatos" },
-      {
-        atUtc: "14:06",
-        text: "Camila Restrepo aprobó a Sebastián Castro (1.ª opción)",
-      },
-      {
-        atUtc: "14:21",
-        text: "Sebastián Castro no confirmó a tiempo",
-        missed: true,
-      },
-      { atUtc: "14:21", text: "Se notificó a Mateo Morales (2.ª opción)" },
-    ],
-  },
-  {
-    id: "abs-09",
-    flightNumber: "AV-2104",
-    origin: "BOG",
-    destination: "MAD",
-    departureUtc: "21:30",
-    timeToDeparture: "7h 00m",
-    position: "Jefe de Cabina",
-    reason: "Calamidad doméstica o familiar",
-    reportedBy: "Jorge Salas",
-    reportedAtUtc: "13:20",
-    status: "cubierta",
-    replacement: { fullName: "Laura Gómez", option: 1 },
-    approval: { by: "Camila Restrepo", atUtc: "13:40" },
-    confirmedAtUtc: "13:52",
-    timeline: [
-      { atUtc: "13:20", text: "Ausencia reportada por Jorge Salas" },
-      { atUtc: "13:23", text: "La IA propuso 2 candidatos" },
-      {
-        atUtc: "13:40",
-        text: "Camila Restrepo aprobó a Laura Gómez (1.ª opción)",
-      },
-      { atUtc: "13:52", text: "Laura Gómez confirmó el reemplazo" },
-    ],
-  },
-  {
-    id: "abs-10",
-    flightNumber: "AV-4410",
-    origin: "BOG",
-    destination: "JFK",
-    departureUtc: "18:20",
-    timeToDeparture: "3h 50m",
-    position: "Comandante",
-    reason: "Fatiga operacional / RAC 212",
-    reportedBy: "Martín Quintero",
-    reportedAtUtc: "11:48",
-    status: "cubierta",
-    replacement: { fullName: "Roberto Méndez", option: 1 },
-    approval: { by: "Camila Restrepo", atUtc: "12:02" },
-    confirmedAtUtc: "12:15",
-    timeline: [
-      { atUtc: "11:48", text: "Ausencia reportada por Martín Quintero" },
-      { atUtc: "11:51", text: "La IA propuso 2 candidatos" },
-      {
-        atUtc: "12:02",
-        text: "Camila Restrepo aprobó a Roberto Méndez (1.ª opción)",
-      },
-      { atUtc: "12:15", text: "Roberto Méndez confirmó el reemplazo" },
-    ],
-  },
-]
+// Seguimiento de las ausencias del turno desde GET /crew/absences/tracking. El backend
+// ya las devuelve ordenadas (por aprobar, esperando confirmación, cubiertas).
 
-// Seguimiento de las ausencias del turno. Se moverá a App/actions cuando exista la API.
-export const getAbsenceTracking = (): Promise<TrackedAbsence[]> =>
-  Promise.resolve(ABSENCES)
+type ApiSuggestionsState = "searching" | "ready" | "none" | "error"
+
+interface ApiTrackingItem {
+  id: string
+  flight_number: string
+  origin: string
+  destination: string
+  departure_at: string
+  slot_role: string | null
+  reason: ApiAbsenceReason
+  reported_by: string | null
+  employee_code: string | null
+  reported_at: string
+  status: "reported" | "pending_ack" | "covered" | "cancelled"
+  suggestions_state: ApiSuggestionsState | null
+  candidate_count: number
+  replacement: { user_id: string; full_name: string; option: number | null } | null
+  approval: { by: string; at: string } | null
+  deadline_at: string | null
+  confirmed_at: string | null
+  timeline: { at: string; type: string; text: string; missed?: boolean }[]
+}
+
+const NO_DATA = "—"
+
+const SUGGESTIONS: Record<ApiSuggestionsState, SuggestionsState> = {
+  searching: "buscando",
+  ready: "listas",
+  none: "sin_candidatos",
+  error: "error",
+}
+
+const clockOrDash = (iso: string | null) => (iso ? utcClock(iso) : NO_DATA)
+
+// null: estados que la pantalla no muestra (canceladas, o datos incompletos).
+const toTrackedAbsence = (item: ApiTrackingItem): TrackedAbsence | null => {
+  const base = {
+    id: item.id,
+    flightNumber: item.flight_number,
+    origin: item.origin,
+    destination: item.destination,
+    departureUtc: utcClock(item.departure_at),
+    timeToDeparture: timeUntil(item.departure_at),
+    position: positionLabel(item.slot_role),
+    reason: ABSENCE_REASON_LABEL[item.reason] ?? item.reason,
+    reportedBy: item.reported_by ?? item.employee_code ?? NO_DATA,
+    reportedAtUtc: utcClock(item.reported_at),
+    timeline: item.timeline.map((event) => ({
+      atUtc: utcClock(event.at),
+      text: event.text,
+      missed: event.missed || undefined,
+    })),
+  }
+  const replacement = item.replacement
+    ? { fullName: item.replacement.full_name, option: item.replacement.option ?? 1 }
+    : null
+  const approval = item.approval
+    ? { by: item.approval.by, atUtc: utcClock(item.approval.at) }
+    : null
+
+  switch (item.status) {
+    case "reported": {
+      const suggestions = item.suggestions_state
+        ? SUGGESTIONS[item.suggestions_state]
+        : "buscando"
+      return {
+        ...base,
+        status: "por_aprobar",
+        suggestions,
+        candidateCount: suggestions === "listas" ? item.candidate_count : 0,
+      }
+    }
+    case "pending_ack":
+      return replacement && approval
+        ? {
+            ...base,
+            status: "esperando_confirmacion",
+            replacement,
+            approval,
+            deadlineUtc: clockOrDash(item.deadline_at),
+          }
+        : null
+    case "covered":
+      return replacement && approval
+        ? {
+            ...base,
+            status: "cubierta",
+            replacement,
+            approval,
+            confirmedAtUtc: clockOrDash(item.confirmed_at),
+          }
+        : null
+    case "cancelled":
+      return null
+  }
+}
+
+// Seguimiento de las ausencias de los vuelos que salen hoy (hora de Colombia).
+export const getAbsenceTracking = async (): Promise<TrackedAbsence[]> => {
+  const { data } = await apiClient.get<ApiTrackingItem[]>(
+    "/crew/absences/tracking"
+  )
+  return data
+    .map(toTrackedAbsence)
+    .filter((absence): absence is TrackedAbsence => absence !== null)
+}
