@@ -38,7 +38,12 @@ export type CrewMember =
       reportUtc: string
     })
   | (CrewMemberBase & { status: "descanso"; restUntilUtc: string })
-  | (CrewMemberBase & { status: "ausente"; flight: FlightRef; reason: string })
+  // flight null: la ausencia no está ligada a un vuelo (p. ej. incapacidad sin vuelo asignado).
+  | (CrewMemberBase & {
+      status: "ausente"
+      flight: FlightRef | null
+      reason: string
+    })
 
 export interface ShiftCrew {
   base: { code: string; name: string } // { code: "BOG", name: "Base Eldorado" }

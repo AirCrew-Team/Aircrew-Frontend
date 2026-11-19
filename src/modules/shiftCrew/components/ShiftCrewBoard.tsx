@@ -32,7 +32,7 @@ const LIMIT = 12
 const matchesSearch = (member: CrewMember, search: string) =>
   [
     member.fullName,
-    ...("flight" in member
+    ...("flight" in member && member.flight
       ? [
           member.flight.flightNumber,
           member.flight.flightNumber.replace("-", ""),

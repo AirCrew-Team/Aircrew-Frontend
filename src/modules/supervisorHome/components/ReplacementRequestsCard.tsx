@@ -33,7 +33,10 @@ const ReplacementRequestsCard = () => {
         data
           ? {
               label: "Tasa de resolución",
-              value: `${data.resolutionRate}% Resuelto`,
+              value:
+                data.resolutionRate === null
+                  ? "Sin datos"
+                  : `${data.resolutionRate}% Resuelto`,
             }
           : undefined
       }

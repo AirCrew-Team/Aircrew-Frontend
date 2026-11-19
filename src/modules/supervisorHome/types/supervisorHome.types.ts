@@ -33,7 +33,8 @@ export interface ReplacementRequestsSummary {
   // Sugerencias de la IA pendientes de aprobación del supervisor.
   pendingApproval: number
   // Porcentaje de solicitudes resueltas, ej. 85.7.
-  resolutionRate: number
+  // null: todavía no hay ausencias en los últimos 30 días.
+  resolutionRate: number | null
 }
 
 // Tarjeta «Ausencias» (AbsencesCard).

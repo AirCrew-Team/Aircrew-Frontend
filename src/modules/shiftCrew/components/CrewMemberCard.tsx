@@ -93,7 +93,10 @@ const contextLines = (member: CrewMember) => {
     case "descanso":
       return { main: `Descanso hasta ${member.restUntilUtc}`, secondary: null }
     case "ausente":
-      return { main: member.reason, secondary: member.flight.flightNumber }
+      return {
+        main: member.reason,
+        secondary: member.flight?.flightNumber ?? null,
+      }
   }
 }
 
