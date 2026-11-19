@@ -14,8 +14,10 @@ import {
   confirmFlightCrew,
   suggestCrew,
   unassignCrew,
+  type UnfilledSlot,
 } from "@/modules/shared/flightAssignment/data/flightAssignment.data"
 import type { PlannedFlight } from "@/modules/shared/flightAssignment/types/flightAssignment.types"
+import { apiErrorMessage } from "@/service/api-error"
 
 // Cada acción guarda el data-focus-id del botón que la lanzó: si falla, el foco vuelve a él.
 type Action =
@@ -82,8 +84,18 @@ const FlightDetail = ({ flight, onActionStart }: FlightDetailProps) => {
             )
         )
         target = `change-${filled.at(0)?.id}`
+        // Puestos que ni la IA pudo cubrir (nadie cumple las reglas), con el motivo.
+        const unfilled =
+          (updated as { unfilled?: UnfilledSlot[] }).unfilled ?? []
         toast.success(
-          `La IA sugirió ${filled.length === 1 ? "1 tripulante" : `${filled.length} tripulantes`} para ${flight.flightNumber}`
+          `La IA sugirió ${filled.length === 1 ? "1 tripulante" : `${filled.length} tripulantes`} para ${flight.flightNumber}`,
+          unfilled.length > 0
+            ? {
+                description: `Sin cubrir: ${unfilled
+                  .map((slot) => `${slot.label} (${slot.reason})`)
+                  .join("; ")}`,
+              }
+            : undefined
         )
       }
       if (action.kind === "confirm") {
@@ -240,6 +252,11 @@ const FlightDetail = ({ flight, onActionStart }: FlightDetailProps) => {
             La IA está buscando…
           </p>
         ) : null}
+        {busy && kind === "suggest" ? (
+          <p className={cn(typography.bodySm, "-mt-2 px-1 text-muted-foreground")}>
+            Puede tardar hasta un minuto.
+          </p>
+        ) : null}
         {mutation.isError ? (
           <p
             role="alert"
@@ -248,7 +265,11 @@ const FlightDetail = ({ flight, onActionStart }: FlightDetailProps) => {
               "rounded-xl bg-error-container px-4 py-3 text-on-error-container"
             )}
           >
-            {kind === "suggest" ? SUGGEST_ERROR : SAVE_ERROR}
+            {/* El motivo del backend (p. ej. «No está habilitado en 787.»), si lo hay. */}
+            {apiErrorMessage(
+              mutation.error,
+              kind === "suggest" ? SUGGEST_ERROR : SAVE_ERROR
+            )}
           </p>
         ) : null}
 

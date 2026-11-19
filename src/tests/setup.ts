@@ -23,6 +23,10 @@ vi.mock(
   "@/modules/recommendations/data/recommendations.data",
   () => import("@/tests/fixtures/recommendations.fixtures")
 )
+vi.mock(
+  "@/modules/shared/flightAssignment/data/flightAssignment.data",
+  () => import("@/tests/fixtures/flightAssignment.fixtures")
+)
 
 // Las rutas lazy (Configuración, Reportar Ausencia) transforman su chunk en frío la
 // primera vez: con la máquina cargada, 1 s por defecto no siempre basta y el test falla

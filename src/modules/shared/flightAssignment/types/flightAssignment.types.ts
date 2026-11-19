@@ -26,7 +26,8 @@ export interface Assignee {
   fullName: string
   // «Habilitado en {familia} · {h} h de 90 este mes · descanso cumplido».
   summary: string
-  source: "manual" | "ia"
+  // regla: la asignó el puntaje de las reglas, sin explicación de la IA.
+  source: "manual" | "ia" | "regla"
   // Explicación de la IA cuando ella lo sugirió.
   rationale: string | null
 }

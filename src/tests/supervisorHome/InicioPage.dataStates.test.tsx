@@ -32,8 +32,10 @@ const data = vi.hoisted(() => ({
 // envoltorio: los overrides van por nombre de función (no chocan con los de supervisorHome).
 vi.mock(
   "@/modules/shared/flightAssignment/data/flightAssignment.data",
-  async (importOriginal) => {
-    const actual = await importOriginal<Record<string, unknown>>()
+  async () => {
+    const actual: Record<string, unknown> = await import(
+      "@/tests/fixtures/flightAssignment.fixtures"
+    )
     return Object.fromEntries(
       Object.entries(actual).map(([name, value]) => {
         if (typeof value !== "function") return [name, value]

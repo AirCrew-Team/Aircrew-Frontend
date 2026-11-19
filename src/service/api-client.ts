@@ -1,18 +1,12 @@
 import axios, { isAxiosError } from "axios"
 
+import type { ApiErrorBody } from "@/service/api-error"
 import { useAuthStore } from "@/stores/auth.store"
 
 const BASE_URL = import.meta.env.VITE_URL_API_BACKEND
 
 if (!BASE_URL) {
   throw new Error("Falta la variable VITE_URL_API_BACKEND en el archivo .env")
-}
-
-// Cuerpo de error del backend: { error, code?, field? }.
-export interface ApiErrorBody {
-  error: string
-  code?: string
-  field?: string
 }
 
 // Códigos con los que el backend indica que el token ya no sirve.
@@ -41,9 +35,5 @@ apiClient.interceptors.response.use(undefined, (error: unknown) => {
   }
   return Promise.reject(error)
 })
-
-// Mensaje del backend, o el de respaldo si no llegó respuesta.
-export const apiErrorMessage = (error: unknown, fallback: string) =>
-  (isAxiosError<ApiErrorBody>(error) && error.response?.data?.error) || fallback
 
 export default apiClient

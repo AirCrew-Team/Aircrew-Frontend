@@ -15,7 +15,7 @@ import {
   regenerateCandidates,
 } from "@/modules/recommendations/data/recommendations.data"
 import type { Candidate } from "@/modules/recommendations/types/recommendations.types"
-import { apiErrorMessage } from "@/service/api-client"
+import { apiErrorMessage } from "@/service/api-error"
 
 // Encabezado, cola y candidatos de la solicitud seleccionada. Guarda el estado de la
 // pantalla mientras el backend responde: selección, asignadas y en recálculo.
