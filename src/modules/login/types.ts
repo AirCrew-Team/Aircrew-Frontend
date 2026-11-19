@@ -1,3 +1,5 @@
+import type { AuthUser } from "@/App/types/auth.types"
+
 // Roles posibles de un usuario
 export type Role = "admin" | "supervisor" | "crew"
 
@@ -8,10 +10,12 @@ export const ROLE_LABELS: Record<Role, string> = {
   crew: "Tripulante",
 }
 
-// Datos de la sesión iniciada
+// Datos de la sesión iniciada: el usuario ya traducido al formato de la app y su JWT.
 export type Session = {
   email: string
   role: Role
+  token: string
+  user: AuthUser
 }
 
 // Medio por el que se envía el código de recuperación
@@ -23,7 +27,8 @@ export type MaskedContacts = {
   phone: string
 }
 
-// Resultado del login: sesión si fue exitoso, motivo si falló
+// Resultado del login: sesión si fue exitoso, motivo si falló.
+// "unavailable": el servidor no respondió; no cuenta como intento fallido.
 export type LoginResult =
   | { ok: true; session: Session }
-  | { ok: false; reason: "invalid_credentials" }
+  | { ok: false; reason: "invalid_credentials" | "unavailable" }

@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 
 import { ROLES, type Role } from "@/App/types/auth.types"
 import {
@@ -12,6 +12,12 @@ import { PATHS } from "@/routes/paths"
 import { useAuthStore } from "@/stores/auth.store"
 
 import { renderRoute } from "../utils/renderRoute"
+
+// El login real llama al backend: aquí se usa la implementación demo (mismas cuentas).
+vi.mock("@/modules/login/authService", async () => {
+  const { demoAuthService } = await import("@/modules/login/demoAuthService")
+  return { authService: demoAuthService }
+})
 
 // Spec login-integracion. Los tests no tocan el store: cada uno empieza con el estado
 // inicial (setup.ts lo reinicia con getInitialState()). renderRoute monta el Toaster,
@@ -207,7 +213,10 @@ describe("LG-07: un solo juego de roles", () => {
 
   it("LG-07: Role de la app y Role del Login son el mismo tipo (también lo comprueba pnpm typecheck)", () => {
     // Login → app: Session.role se asigna a Role sin traducción.
-    const session: Session = { email: "tripulante@gmail.com", role: "crew" }
+    const session: Pick<Session, "email" | "role"> = {
+      email: "tripulante@gmail.com",
+      role: "crew",
+    }
     const fromLogin: Role = session.role
     // App → Login: cada valor de ROLES es un Role del Login.
     const toLogin: LoginRole[] = Object.values(ROLES)

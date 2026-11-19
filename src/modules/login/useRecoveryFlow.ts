@@ -44,7 +44,20 @@ export function useRecoveryFlow({ onRecovered }: UseRecoveryFlowOptions) {
     setIsBusy(true)
     setEmail(nextEmail)
     setError("")
-    const recoveryContacts = await authService.getRecoveryContacts(nextEmail)
+    let recoveryContacts: MaskedContacts | null
+    try {
+      recoveryContacts = await authService.getRecoveryContacts(nextEmail)
+    } catch (lookupError) {
+      // El servicio puede no estar disponible (p. ej. el backend aún no lo tiene).
+      setIsBusy(false)
+      setContacts(null)
+      setError(
+        lookupError instanceof Error
+          ? lookupError.message
+          : "No pudimos continuar. Inténtalo de nuevo."
+      )
+      return
+    }
     setIsBusy(false)
 
     if (!recoveryContacts) {

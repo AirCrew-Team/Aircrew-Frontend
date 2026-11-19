@@ -18,12 +18,14 @@ import {
 const MAX_LOGIN_ATTEMPTS = 3
 
 // Tipo de error mostrado en el formulario (null = sin error)
-type FormError = "empty" | "invalid" | null
+type FormError = "empty" | "invalid" | "unavailable" | null
 
 // Mensajes de error según el caso
 const ERROR_MESSAGES = {
   empty: "Ingresa tu correo y contraseña.",
   invalid: "Correo o contraseña incorrectos.",
+  unavailable:
+    "No pudimos conectar con el servidor. Inténtalo de nuevo en unos minutos.",
   locked:
     "Se alcanzó el límite de intentos. Recupera tu contraseña para continuar.",
 } as const
@@ -88,6 +90,12 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
       setFormError(null)
       toast.success(`Bienvenido a AirCrew, ${ROLE_LABELS[result.session.role]}.`)
       onLoginSuccess?.(result.session)
+      return
+    }
+
+    // Servidor caído o sin red: no cuenta como intento fallido
+    if (result.reason === "unavailable") {
+      setFormError("unavailable")
       return
     }
 

@@ -2,7 +2,6 @@ import { useState, type FormEvent } from "react"
 import { Button } from "@/components/custom/Button"
 import { Dialog } from "@/components/custom/Dialog"
 import { PasswordChangeForm } from "@/components/custom/PasswordChangeForm"
-import { DEMO_RECOVERY_CODE } from "./authService"
 import type { RecoveryChannel } from "./types"
 import type { RecoveryFlow, RecoveryStep } from "./useRecoveryFlow"
 import { dialogInputClass, dialogPrimaryButtonClass } from "./styles"
@@ -108,12 +107,6 @@ function CodeStep({ flow }: { flow: RecoveryFlow }) {
     <form className="grid gap-4" noValidate onSubmit={handleSubmit}>
       <p className="m-0 rounded-lg bg-[#e8f4fb] p-3 text-sm text-[#245475]">
         Ingresa el código de verificación enviado a {target}.
-        {import.meta.env.DEV && (
-          <>
-            {" "}
-            Código de prueba: <strong>{DEMO_RECOVERY_CODE}</strong>.
-          </>
-        )}
       </p>
       <label className="grid gap-2 text-sm font-semibold">
         Código de verificación

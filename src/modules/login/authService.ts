@@ -1,16 +1,27 @@
+import { isAxiosError } from "axios"
+
+import {
+  toAuthUser,
+  type ApiAuthResult,
+  type ApiUser,
+  type AuthUser,
+} from "@/App/types/auth.types"
+import apiClient from "@/service/api-client"
+
 import type {
   LoginResult,
   MaskedContacts,
   RecoveryChannel,
-  Role,
 } from "./types"
 
 /**
- * Contrato que debe cumplir el backend. Cuando exista la API, basta con crear
- * otra implementación (httpAuthService) y cambiar el export `authService`.
+ * Contrato del servicio de autenticación. La implementación activa es la HTTP
+ * (gateway); demoAuthService.ts tiene la simulada que usan los tests.
  */
 export interface AuthService {
   login(email: string, password: string): Promise<LoginResult>
+  /** Usuario del token guardado (restaurar la sesión al recargar), o null si ya no sirve. */
+  getCurrentUser(): Promise<AuthUser | null>
   /** Devuelve contactos enmascarados, o null si la cuenta no existe. */
   getRecoveryContacts(email: string): Promise<MaskedContacts | null>
   requestRecoveryCode(email: string, channel: RecoveryChannel): Promise<void>
@@ -18,98 +29,50 @@ export interface AuthService {
   resetPassword(email: string, newPassword: string): Promise<void>
 }
 
-/* -------------------------------------------------------------------------- */
-/* Implementación demo (sin backend). Eliminar al conectar la API real.       */
-/* -------------------------------------------------------------------------- */
+// El backend todavía no tiene endpoints de recuperación de contraseña.
+export const RECOVERY_UNAVAILABLE_MESSAGE =
+  "La recuperación de contraseña aún no está disponible. Contacta a tu supervisor."
 
-// Cuenta de prueba guardada en memoria
-type DemoAccount = {
-  email: string
-  password: string
-  phone: string
-  role: Role
+const recoveryUnavailable = (): never => {
+  throw new Error(RECOVERY_UNAVAILABLE_MESSAGE)
 }
 
-// Código de verificación demo para el bloqueo tras tres intentos fallidos.
-export const DEMO_RECOVERY_CODE = "123456"
-
-// Una cuenta de ejemplo por cada rol
-const INITIAL_DEMO_ACCOUNTS: DemoAccount[] = [
-    {
-      email: "admin@gmail.com",
-      password: "1234567",
-      phone: "+57 300 000 0001",
-      role: "admin",
-    },
-    {
-      email: "supervisor@gmail.com",
-      password: "1234567",
-      phone: "+57 300 000 0002",
-      role: "supervisor",
-    },
-    {
-      email: "tripulante@gmail.com",
-      password: "1234567",
-      phone: "+57 300 000 0003",
-      role: "crew",
-    },
-]
-
-// "Base de datos" en memoria, indexada por email
-const demoAccounts = new Map<string, DemoAccount>(
-  INITIAL_DEMO_ACCOUNTS.map((account): [string, DemoAccount] => [
-    account.email,
-    account,
-  ])
-)
-
-// Simula la latencia de una petición de red
-const wait = (ms = 350) => new Promise((resolve) => setTimeout(resolve, ms))
-// Limpia y pasa a minúsculas el email para buscarlo
-const normalize = (email: string) => email.trim().toLowerCase()
-
-// Implementación falsa del servicio, usa las cuentas en memoria
-const demoAuthService: AuthService = {
-  // Valida email y contraseña; devuelve la sesión si son correctos
+export const httpAuthService: AuthService = {
   async login(email, password) {
-    await wait()
-    const account = demoAccounts.get(normalize(email))
-    if (!account || account.password !== password) {
-      return { ok: false, reason: "invalid_credentials" }
+    try {
+      const { data } = await apiClient.post<ApiAuthResult>(
+        "/admin/auth/login",
+        { email: email.trim(), password }
+      )
+      const user = toAuthUser(data.user)
+      return {
+        ok: true,
+        session: { email: data.user.email, role: user.role, token: data.token, user },
+      }
+    } catch (error) {
+      // 400/401: datos o credenciales inválidos (o cuenta sin activar).
+      const status = isAxiosError(error) ? error.response?.status : undefined
+      if (status === 400 || status === 401) {
+        return { ok: false, reason: "invalid_credentials" }
+      }
+      return { ok: false, reason: "unavailable" }
     }
-    return { ok: true, session: { email: account.email, role: account.role } }
   },
 
-  // Devuelve email y teléfono parcialmente ocultos (ej. a***@gmail.com)
-  async getRecoveryContacts(email) {
-    await wait(150)
-    const account = demoAccounts.get(normalize(email))
-    if (!account) return null
-    const [user, domain] = account.email.split("@")
-    return {
-      email: `${user.slice(0, 1)}***@${domain}`,
-      phone: `*** *** **${account.phone.slice(-2)}`,
+  async getCurrentUser() {
+    try {
+      const { data } = await apiClient.get<ApiUser>("/admin/auth/me")
+      return toAuthUser(data)
+    } catch {
+      return null
     }
   },
 
-  async requestRecoveryCode() {
-    // El backend real enviaría el código por el canal elegido.
-    await wait()
-  },
-
-  async verifyRecoveryCode(email, code) {
-    await wait(200)
-    return demoAccounts.has(normalize(email)) && code === DEMO_RECOVERY_CODE
-  },
-
-  // Reemplaza la contraseña de una cuenta registrada.
-  async resetPassword(email, newPassword) {
-    await wait()
-    const account = demoAccounts.get(normalize(email))
-    if (!account) throw new Error("account_not_found")
-    demoAccounts.set(account.email, { ...account, password: newPassword })
-  },
+  getRecoveryContacts: async () => recoveryUnavailable(),
+  requestRecoveryCode: async () => recoveryUnavailable(),
+  verifyRecoveryCode: async () => recoveryUnavailable(),
+  resetPassword: async () => recoveryUnavailable(),
 }
 
-// Implementación activa; cambiar aquí al conectar la API real
-export const authService: AuthService = demoAuthService
+// Implementación activa.
+export const authService: AuthService = httpAuthService
