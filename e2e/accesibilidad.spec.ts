@@ -101,6 +101,14 @@ const pantallas: {
     rol: "supervisor",
     abrir: (page) => goToConfiguracion(page, "supervisor"),
   },
+  // Spec configuracion-real: el admin usa la misma pantalla que los otros dos roles.
+  // Con las cuentas demo todo está deshabilitado, y axe no evalúa el contraste de los
+  // controles deshabilitados (lo revisa la prueba manual con una cuenta real).
+  {
+    nombre: "Configuración del admin",
+    rol: "admin",
+    abrir: (page) => goToConfiguracion(page, "admin"),
+  },
 ]
 
 test.describe("E2E-11 Accesibilidad automática (axe)", () => {
@@ -118,7 +126,7 @@ test.describe("E2E-11 Accesibilidad automática (axe)", () => {
 })
 
 // Toast de éxito de sonner (richColors), el mismo estilo de todas las confirmaciones de la
-// app («Perfil actualizado con éxito», «Contraseña actualizada»…). Se escanea con el de
+// app («Cambios guardados.», «Contraseña actualizada.»…). Se escanea con el de
 // bienvenida, que sale justo al entrar.
 test("E2E-11 el toast de éxito (bienvenida) no tiene violaciones critical ni serious de WCAG 2.1 A/AA", async ({
   page,

@@ -1,110 +1,140 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import {
+  useMutation,
+  useQueryClient,
+  type UseQueryResult,
+} from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
 
-import { SaveIcon, SyncIcon } from "@/App/utils/icons"
+import {
+  myProfileQueryKey,
+  ProfileFieldError,
+  updateMyProfile,
+  type MyCrewMember,
+} from "@/App/actions/profile/profile.actions"
+import type { AuthUser } from "@/App/types/auth.types"
+import { ROLES } from "@/App/types/auth.types"
+import type {
+  MyProfile,
+  NotificationKey,
+  UpdateMyProfileInput,
+} from "@/App/types/profile.types"
+import { InfoIcon, SaveIcon } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
 import ContactSection from "@/modules/profile/components/ContactSection"
 import EmploymentSection from "@/modules/profile/components/EmploymentSection"
 import NotificationsSection from "@/modules/profile/components/NotificationsSection"
 import SecuritySection from "@/modules/profile/components/SecuritySection"
+import SupervisorEmploymentSection from "@/modules/profile/components/SupervisorEmploymentSection"
 import {
-  getNotificationPreferences,
-  getSupervisorNotificationPreferences,
-  getUserProfile,
-  updateProfilePhoto,
-} from "@/modules/profile/data/profile.data"
-import {
-  profileSchema,
+  notificationKeysFor,
+  profileSchemaFor,
   type ProfileFormValues,
 } from "@/modules/profile/schemas/profile.schema"
-import type {
-  NotificationPreferences,
-  SupervisorNotificationPreferences,
-  UserProfile,
-} from "@/modules/profile/types/profile.types"
+
+// Valores del formulario a partir de la cuenta (vacíos en las cuentas demo).
+const toFormValues = (
+  profile: MyProfile | null,
+  keys: readonly NotificationKey[]
+): ProfileFormValues => ({
+  phone: profile?.phone ?? "",
+  residence: profile?.residence ?? "",
+  notifications: Object.fromEntries(
+    keys.map((key) => [key, profile?.notifications?.[key] === true])
+  ),
+})
 
 interface ProfileFormProps {
-  userId: string
-  isCrew: boolean
-  // Foto elegida en I1: un archivo nuevo, null (quitar) o undefined (sin cambios).
-  photo: File | null | undefined
-  // Vuelve a la foto guardada (tras guardarla o al cancelar).
-  onPhotoReset: () => void
+  user: AuthUser
+  // null en las cuentas demo: todo vacío y deshabilitado, sin peticiones.
+  profile: MyProfile | null
+  crew: UseQueryResult<MyCrewMember>
+  // Catálogo de ciudades de EE. UU.; undefined mientras llega, si falla o en las demo.
+  cities: string[] | undefined
+  // El catálogo no se pudo cargar: la ciudad la valida solo el backend.
+  citiesFailed: boolean
 }
 
-interface EditableFormProps extends ProfileFormProps {
-  profile: UserProfile
-  notifications?: NotificationPreferences | SupervisorNotificationPreferences
-}
-
-const showSavedToast = () =>
-  toast.success("Perfil actualizado con éxito", {
-    description:
-      "Los datos operativos y preferencias han sido transmitidos a OCC.",
-  })
-
-// Formulario F1 a F5. Se monta cuando ya tiene sus valores iniciales, porque useForm
-// toma defaultValues solo al montarse. Guardar solo actualiza el estado local, salvo la
-// foto, que se envía con updateProfilePhoto.
-const EditableForm = ({
-  userId,
-  isCrew,
+// Formulario de Contacto y Notificaciones (tripulante y supervisor), con Información
+// laboral (tripulante y supervisor) y Seguridad (con su propio envío). Se monta una sola vez, con los datos ya
+// cargados, porque useForm toma defaultValues al montarse; el último cambio de
+// contraseña se lee del perfil vivo.
+const ProfileForm = ({
+  user,
   profile,
-  notifications,
-  photo,
-  onPhotoReset,
-}: EditableFormProps) => {
+  crew,
+  cities,
+  citiesFailed,
+}: ProfileFormProps) => {
   const queryClient = useQueryClient()
+  const isDemo = profile === null
+  const isCrew = user.role === ROLES.TRIPULANTE
+  const showCrewEmployment = isCrew && !isDemo
+  // El supervisor demo no tiene employment (profile null), así que no ve el bloque.
+  const supervisorEmployment =
+    user.role === ROLES.SUPER_VISOR ? (profile?.employment ?? null) : null
+  const showEmployment = showCrewEmployment || supervisorEmployment !== null
+  // El admin no tiene notificaciones (Ampliación B), tampoco en la cuenta demo.
+  const hasNotifications = user.role !== ROLES.SUPER_ADMIN
+  const notificationKeys = hasNotifications ? notificationKeysFor(isCrew) : []
+  // Contacto es el 1; Información laboral y Notificaciones pueden faltar.
+  const notificationsNumber = showEmployment ? 3 : 2
+  const securityNumber = hasNotifications
+    ? notificationsNumber + 1
+    : notificationsNumber
+
   const {
     register,
     handleSubmit,
     reset,
+    setError,
     formState: { errors },
   } = useForm<ProfileFormValues>({
-    resolver: zodResolver(profileSchema),
-    defaultValues: {
-      phone: profile.contact.phone,
-      residenceZone: profile.contact.residenceZone,
-      ...notifications,
+    // Se rehace en cada render: cuando llega el catálogo, la residencia se valida con él.
+    resolver: zodResolver(profileSchemaFor(cities)),
+    defaultValues: toFormValues(profile, notificationKeys),
+  })
+
+  // El toast va aquí y no en mutate: sale aunque el usuario ya haya salido de la pantalla.
+  const mutation = useMutation({
+    mutationFn: updateMyProfile,
+    onSuccess: () => {
+      toast.success("Cambios guardados.")
+      void queryClient.invalidateQueries({
+        queryKey: myProfileQueryKey(user.id),
+      })
     },
   })
 
-  // Guardar la foto (con la API, un PUT). Las mutaciones no se reintentan solas (ADR 003).
-  const photoMutation = useMutation({
-    mutationFn: ({
-      photo,
-    }: {
-      values: ProfileFormValues
-      photo: File | null
-    }) => updateProfilePhoto(userId, photo),
-    onSuccess: (_saved, { values }) => {
-      // Refresca el perfil (la foto de I1) y deja el formulario con lo guardado.
-      queryClient.invalidateQueries({ queryKey: ["profile", userId] })
-      reset(values)
-      onPhotoReset()
-      showSavedToast()
-    },
-  })
-
-  // Lo enviado pasa a ser el "último guardado" al que vuelve Cancelar. Sin foto nueva,
-  // se guarda al momento, como siempre.
+  // El celular va sin espacios y las notificaciones solo con las claves del rol (el admin,
+  // sin notifications). Mientras se guarda, ni un clic ni Enter en un campo repiten el envío.
   const onSubmit = (values: ProfileFormValues) => {
-    if (photo === undefined) {
-      reset(values)
-      showSavedToast()
-      return
+    if (mutation.isPending) return
+    const input: UpdateMyProfileInput = {
+      phone: values.phone.replace(/\s/g, ""),
+      residence: values.residence,
     }
-    photoMutation.mutate({ values, photo })
-  }
-
-  // Cancelar: vuelve a lo último guardado (también la foto) y quita el error de guardado.
-  const onCancel = () => {
-    reset()
-    onPhotoReset()
-    photoMutation.reset()
+    if (hasNotifications) {
+      input.notifications = Object.fromEntries(
+        notificationKeys.map((key) => [key, values.notifications[key] === true])
+      )
+    }
+    // Lo guardado pasa a ser el valor inicial, con los datos normalizados del backend.
+    // Una ciudad que rechaza el backend (p. ej. sin catálogo en la pantalla) va al campo.
+    mutation.mutate(input, {
+      onSuccess: (saved) => reset(toFormValues(saved, notificationKeys)),
+      onError: (error) => {
+        if (error instanceof ProfileFieldError) {
+          setError(
+            error.field,
+            { message: "Elige una ciudad de la lista." },
+            { shouldFocus: true }
+          )
+        }
+      },
+    })
   }
 
   return (
@@ -114,126 +144,74 @@ const EditableForm = ({
       className="flex flex-col gap-4"
     >
       <ContactSection
-        userId={userId}
-        isCrew={isCrew}
-        email={profile.contact.email}
+        email={profile?.email ?? ""}
+        cities={cities}
+        citiesFailed={citiesFailed}
         register={register}
         errors={errors}
+        disabled={isDemo}
       />
-      <EmploymentSection userId={userId} isCrew={isCrew} />
-      <NotificationsSection isCrew={isCrew} register={register} />
-      <SecuritySection userId={userId} security={profile.security} />
+      {showCrewEmployment ? <EmploymentSection crew={crew} /> : null}
+      {supervisorEmployment ? (
+        <SupervisorEmploymentSection employment={supervisorEmployment} />
+      ) : null}
+      {hasNotifications ? (
+        <NotificationsSection
+          number={notificationsNumber}
+          keys={notificationKeys}
+          register={register}
+          disabled={isDemo}
+        />
+      ) : null}
+      <SecuritySection
+        number={securityNumber}
+        userId={user.id}
+        passwordChangedAt={profile?.password_changed_at}
+        disabled={isDemo}
+      />
 
-      {/* border-transparent: en colores forzados se pinta y delimita los botones. */}
       <div className="flex flex-col gap-4 rounded-xl border border-brand-border/70 bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-        <p
+        <div className="flex min-w-0 flex-col gap-1">
+          <p
+            className={cn(
+              typography.bodySm,
+              "flex items-center gap-2 text-muted-foreground"
+            )}
+          >
+            <InfoIcon
+              aria-hidden="true"
+              className="size-4.5 shrink-0 text-brand-secondary"
+            />
+            {hasNotifications
+              ? "Guarda tu contacto y tus notificaciones."
+              : "Guarda tu contacto."}{" "}
+            La foto y la contraseña se guardan aparte.
+          </p>
+          {mutation.isError &&
+          !(mutation.error instanceof ProfileFieldError) ? (
+            <p
+              role="alert"
+              className={cn(typography.bodySm, "text-destructive")}
+            >
+              No se pudieron guardar los cambios. Intenta de nuevo.
+            </p>
+          ) : null}
+        </div>
+        <button
+          type="submit"
+          // Demo: disabled nativo. Guardando: aria-disabled, para no perder el foco.
+          disabled={isDemo}
+          aria-disabled={mutation.isPending || undefined}
           className={cn(
-            typography.bodySm,
-            "flex min-w-0 items-center gap-2 text-muted-foreground"
+            typography.labelLg,
+            "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-md border border-transparent bg-brand-secondary px-8 py-2 whitespace-nowrap text-white shadow-sm transition-colors hover:bg-brand-secondary-hover focus-visible:ring-2 focus-visible:ring-brand-tertiary focus-visible:ring-offset-2 focus-visible:ring-offset-card focus-visible:outline-hidden active:bg-brand-primary disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-brand-secondary aria-disabled:cursor-not-allowed aria-disabled:opacity-60 aria-disabled:hover:bg-brand-secondary motion-reduce:transition-none sm:shrink-0 lg:min-h-10"
           )}
         >
-          <SyncIcon
-            aria-hidden="true"
-            className="size-4.5 shrink-0 text-brand-secondary"
-          />
-          Los cambios de contacto se sincronizan instantáneamente con el OCC
-          Bogotá.
-        </p>
-        {photoMutation.isError ? (
-          <p role="alert" className={cn(typography.bodySm, "text-destructive")}>
-            No se pudo guardar el perfil. Intenta de nuevo.
-          </p>
-        ) : null}
-        <div className="flex flex-col-reverse gap-2 sm:shrink-0 sm:flex-row">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={photoMutation.isPending}
-            className={cn(
-              typography.labelLg,
-              "inline-flex min-h-11 items-center justify-center rounded-md border border-transparent bg-muted px-6 py-2 whitespace-nowrap text-brand-primary transition-colors hover:bg-brand-border focus-visible:ring-2 focus-visible:ring-brand-tertiary focus-visible:ring-offset-2 focus-visible:ring-offset-card focus-visible:outline-hidden active:bg-brand-border-strong disabled:opacity-60 motion-reduce:transition-none lg:min-h-10"
-            )}
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            disabled={photoMutation.isPending}
-            className={cn(
-              typography.labelLg,
-              "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-md border border-transparent bg-brand-secondary px-8 py-2 whitespace-nowrap text-white shadow-sm transition-colors hover:bg-brand-secondary-hover focus-visible:ring-2 focus-visible:ring-brand-tertiary focus-visible:ring-offset-2 focus-visible:ring-offset-card focus-visible:outline-hidden active:bg-brand-primary disabled:cursor-wait disabled:opacity-70 motion-reduce:transition-none lg:min-h-10"
-            )}
-          >
-            <SaveIcon aria-hidden="true" className="size-4.5 shrink-0" />
-            {photoMutation.isPending ? "Guardando…" : "Guardar Cambios"}
-          </button>
-        </div>
+          <SaveIcon aria-hidden="true" className="size-4.5 shrink-0" />
+          {mutation.isPending ? "Guardando…" : "Guardar cambios"}
+        </button>
       </div>
     </form>
-  )
-}
-
-// Carga los datos iniciales del formulario: el perfil común y las preferencias de
-// notificaciones del rol (tripulante o supervisor).
-const ProfileForm = ({
-  userId,
-  isCrew,
-  photo,
-  onPhotoReset,
-}: ProfileFormProps) => {
-  const profile = useQuery({
-    queryKey: ["profile", userId],
-    queryFn: () => getUserProfile(userId),
-  })
-  const crewNotifications = useQuery({
-    queryKey: ["profile", "notifications", userId],
-    queryFn: () => getNotificationPreferences(userId),
-    enabled: isCrew,
-  })
-  const supervisorNotifications = useQuery({
-    queryKey: ["profile", "supervisor", "notifications", userId],
-    queryFn: () => getSupervisorNotificationPreferences(userId),
-    enabled: !isCrew,
-  })
-  const notifications = isCrew ? crewNotifications : supervisorNotifications
-
-  if (profile.isError || notifications.isError) {
-    return (
-      <p
-        role="alert"
-        className={cn(
-          typography.bodyMd,
-          "rounded-xl border border-brand-border/70 bg-card p-6 text-destructive shadow-sm"
-        )}
-      >
-        No se pudo cargar el perfil.
-      </p>
-    )
-  }
-
-  if (profile.isPending || notifications.isPending) {
-    return (
-      <p
-        role="status"
-        className={cn(
-          typography.bodyMd,
-          "rounded-xl border border-brand-border/70 bg-card p-6 text-muted-foreground shadow-sm"
-        )}
-      >
-        Cargando perfil…
-      </p>
-    )
-  }
-
-  return (
-    <EditableForm
-      userId={userId}
-      isCrew={isCrew}
-      profile={profile.data}
-      notifications={notifications.data}
-      photo={photo}
-      onPhotoReset={onPhotoReset}
-    />
   )
 }
 
