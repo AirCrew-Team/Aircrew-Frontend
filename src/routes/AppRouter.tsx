@@ -29,12 +29,19 @@ import SessionGate from "./SessionGate"
 const appRoutes: RouteObject[] = [
   { path: PATHS.root, element: <RootRedirect /> },
   { path: PATHS.login, element: <LoginPage /> },
-  // Pública y en diferido: react-hook-form + zod, igual que /configuracion.
+  // Públicas y en diferido: react-hook-form + zod, igual que /configuracion.
   {
     path: PATHS.activarCuenta,
     HydrateFallback: () => null,
     lazy: async () => ({
       Component: (await import("@/pages/ActivarCuentaPage")).default,
+    }),
+  },
+  {
+    path: PATHS.restablecerContrasena,
+    HydrateFallback: () => null,
+    lazy: async () => ({
+      Component: (await import("@/pages/RestablecerContrasenaPage")).default,
     }),
   },
   {

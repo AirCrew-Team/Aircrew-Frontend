@@ -8,20 +8,21 @@ import {
 // El backend acepta de 12 a 72 bytes UTF-8.
 const MAX_PASSWORD_BYTES = 72
 
-// Reglas de esta pantalla: la longitud sube a 12 y las otras cuatro son las del proyecto.
+// Reglas de la contraseña nueva (activación y restablecimiento): la longitud sube a 12
+// y las otras cuatro son las del proyecto.
 // slice(1) depende de que la regla de longitud sea la primera de PASSWORD_RULES.
-export const ACTIVATION_RULES: PasswordRule[] = [
+export const NEW_PASSWORD_RULES: PasswordRule[] = [
   { label: "Al menos 12 caracteres", test: (value) => value.length >= 12 },
   ...PASSWORD_RULES.slice(1),
 ]
 
-export const activateSchema = z
+export const newPasswordSchema = z
   .object({
     password: z.string().check(
       z.minLength(1, "Crea tu contraseña."),
       z.refine(
         (value) =>
-          value === "" || ACTIVATION_RULES.every((rule) => rule.test(value)),
+          value === "" || NEW_PASSWORD_RULES.every((rule) => rule.test(value)),
         "La contraseña todavía no cumple todos los requisitos."
       ),
       z.refine(
@@ -48,4 +49,4 @@ export const activateSchema = z
     )
   )
 
-export type ActivateFormValues = z.infer<typeof activateSchema>
+export type NewPasswordFormValues = z.infer<typeof newPasswordSchema>

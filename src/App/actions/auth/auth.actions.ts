@@ -13,6 +13,10 @@ const AUTH_PATHS = {
   me: "/api/admin/auth/me",
   logout: "/api/admin/auth/logout",
   activate: "/api/admin/auth/activate",
+  forgotPassword: "/api/admin/auth/forgot-password",
+  resetPassword: "/api/admin/auth/reset-password",
+  checkResetToken: "/api/admin/auth/reset-password/check",
+  checkActivationToken: "/api/admin/auth/activate/check",
 } as const
 
 const CREW_PROFILE_PATH = "/api/crew/crew-members/me"
@@ -106,6 +110,97 @@ export const activateAccount = async (credentials: {
     credentials
   )
   return data.user
+}
+
+// Límite de la recuperación de contraseña (429). `message` es el texto del backend
+// ({ error: "<mensaje>" }) o "" si no lo trae: cada pantalla pone su texto de respaldo.
+export class TooManyRequestsError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "TooManyRequestsError"
+  }
+}
+
+// Un 429 pasa a TooManyRequestsError; cualquier otro error sigue igual.
+const toLimitError = (error: unknown): unknown => {
+  if (isAxiosError(error) && error.response?.status === 429) {
+    const message: unknown = error.response.data?.error
+    return new TooManyRequestsError(
+      typeof message === "string" && message.trim() ? message : ""
+    )
+  }
+  return error
+}
+
+// Pide el enlace para restablecer la contraseña. El backend responde lo mismo exista
+// o no la cuenta; un 429 lanza TooManyRequestsError.
+export const requestPasswordReset = async (email: string): Promise<void> => {
+  try {
+    await apiClient.post(AUTH_PATHS.forgotPassword, {
+      email: email.trim().toLowerCase(),
+    })
+  } catch (error) {
+    throw toLimitError(error)
+  }
+}
+
+// Cambia la contraseña con el token del enlace. Igual que activateAccount, no abre
+// sesión y devuelve el correo de la cuenta. Un 400 relanza el AxiosError; un 429
+// (límite de cambios) lanza TooManyRequestsError.
+export const resetPassword = async (credentials: {
+  token: string
+  password: string
+}): Promise<{ email: string }> => {
+  try {
+    const { data } = await apiClient.post<{ user: { email: string } }>(
+      AUTH_PATHS.resetPassword,
+      credentials
+    )
+    return data.user
+  } catch (error) {
+    throw toLimitError(error)
+  }
+}
+
+// Resultado de comprobar el enlace al abrir la pantalla. `message` es el texto del 429
+// o "" si el backend no lo trae.
+export type ResetTokenCheck =
+  { status: "valid" | "invalid" } | { status: "limited"; message: string }
+
+// Comprueba el token del enlace sin gastarlo. Un 400 es "invalid" y un 429 "limited";
+// un error de red, un 5xx o cualquier otro estado se relanza.
+export const checkResetToken = async (
+  token: string
+): Promise<ResetTokenCheck> => {
+  try {
+    await apiClient.post(AUTH_PATHS.checkResetToken, { token })
+    return { status: "valid" }
+  } catch (error) {
+    if (isAxiosError(error) && error.response?.status === 400) {
+      return { status: "invalid" }
+    }
+    const limitError = toLimitError(error)
+    if (limitError instanceof TooManyRequestsError) {
+      return { status: "limited", message: limitError.message }
+    }
+    throw error
+  }
+}
+
+// Comprueba el enlace de activación sin gastarlo. Un 400 es "invalid"; un error de
+// red, un 5xx o cualquier otro estado se relanza.
+export const checkActivationToken = async (
+  token: string
+): Promise<ResetTokenCheck> => {
+  try {
+    await apiClient.post(AUTH_PATHS.checkActivationToken, { token })
+    return { status: "valid" }
+  } catch (error) {
+    if (isAxiosError(error) && error.response?.status === 400) {
+      return { status: "invalid" }
+    }
+    throw error
+  }
 }
 
 export const getCurrentUser = async (): Promise<AuthUser> => {

@@ -54,15 +54,9 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
   // Bloquea el formulario al superar el máximo de intentos
   const isLocked = failedAttempts >= MAX_LOGIN_ATTEMPTS
 
-  // Flujo de recuperación; al terminar, desbloquea y limpia el formulario
-  const recovery = useRecoveryFlow({
-    onRecovered: (recoveredEmail) => {
-      setFailedAttempts(0)
-      setEmail(recoveredEmail)
-      setPassword("")
-      setFormError(null)
-    },
-  })
+  // Flujo de recuperación por enlace. El bloqueo sigue hasta recargar la página:
+  // la contraseña se cambia desde el enlace del correo, que es una carga nueva.
+  const recovery = useRecoveryFlow()
 
   // Mensaje a mostrar: el de bloqueo tiene prioridad sobre el error normal
   const errorMessage = isLocked
@@ -104,9 +98,9 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
     const nextAttempts = failedAttempts + 1
     setFailedAttempts(nextAttempts)
 
-    // Al llegar al límite, abre la recuperación automáticamente
+    // Al llegar al límite, abre la recuperación con el correo escrito, sin enviar nada
     if (nextAttempts >= MAX_LOGIN_ATTEMPTS) {
-      void recovery.open(email, true)
+      recovery.open(email)
     }
   }
 
@@ -182,7 +176,7 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
         <div className="mt-[17px] mb-[38px] flex justify-end max-[700px]:mb-7">
           <button
             className="inline-flex items-center gap-[9px] border-0 bg-transparent p-0 text-[15px] font-semibold text-[#258dc3] hover:text-[#126b9b] hover:underline hover:underline-offset-4"
-            onClick={() => void recovery.open()}
+            onClick={() => recovery.open()}
             type="button"
           >
             <LockKeyhole aria-hidden="true" size={15} />
