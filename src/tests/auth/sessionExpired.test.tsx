@@ -10,6 +10,7 @@ import { PATHS } from "@/routes/paths"
 import apiClient from "@/service/api-client"
 import { useAuthStore } from "@/stores/auth.store"
 
+import { mockAbsencesList } from "../mocks/absencesApi"
 import { API_URL, API_USERS, errorBody } from "../mocks/authApi"
 import { renderRoute } from "../utils/renderRoute"
 import { server } from "../utils/server"
@@ -33,6 +34,8 @@ describe("LR-08: sesión vencida durante el uso (con el router)", () => {
         HttpResponse.json(errorBody("Token vencido"), { status: 401 })
       )
     )
+    // Spec ausencias-reales: con sesión real, el tablero pide GET /api/crew/absences.
+    mockAbsencesList([])
     // Sesión real ya confirmada: SessionGate no pide /auth/me.
     useAuthStore.getState().setUser({
       id: API_USERS.supervisor.id,

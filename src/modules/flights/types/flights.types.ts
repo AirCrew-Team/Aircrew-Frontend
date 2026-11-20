@@ -39,7 +39,8 @@ export interface FlightMetrics {
     usedHours: number
     maxHours: number
     regulation: string
-    cycleClosesInDays: number
+    // null sin vuelos (sesión real): no se muestra el cierre del ciclo.
+    cycleClosesInDays: number | null
   }
   rest: { guaranteed: string; status: string; note: string; endsAt: string }
   month: {

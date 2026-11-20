@@ -4,18 +4,19 @@ import { useQuery } from "@tanstack/react-query"
 import { ClockIcon } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
-import { getCrewStatus } from "@/modules/home/data/home.data"
+import { getCrewStatus, getMyCrewStatus } from "@/modules/home/data/home.data"
 import DotSeparator from "@/modules/home/components/DotSeparator"
 import UtcClock from "@/modules/home/components/UtcClock"
-import { useAuthStore } from "@/stores/auth.store"
+import { isDemoUser, useAuthStore } from "@/stores/auth.store"
 
 // Bloque 1: bienvenida (h1 con el nombre de la sesión) y la tarjeta del reloj maestro.
 const WelcomeHeader = () => {
-  const displayName = useAuthStore((state) => state.user?.displayName)
+  const user = useAuthStore((state) => state.user)
   const titleId = useId()
+  // Misma query que AssignmentStatus: la cuenta demo usa los datos de ejemplo.
   const { data, isPending, isError } = useQuery({
-    queryKey: ["crew", "status"],
-    queryFn: getCrewStatus,
+    queryKey: ["crew", "status", user?.id],
+    queryFn: isDemoUser(user) ? getCrewStatus : getMyCrewStatus,
   })
 
   return (
@@ -38,7 +39,8 @@ const WelcomeHeader = () => {
           {data ? (
             <>
               <DotSeparator />
-              Base {data.base}
+              {data.base ? `Base ${data.base}` : "Sin base asignada"}
+              {/* Separa la base del h1 en el texto de la página. */}{" "}
             </>
           ) : null}
         </p>
@@ -49,7 +51,7 @@ const WelcomeHeader = () => {
             "font-bold tracking-tight text-brand-primary"
           )}
         >
-          {displayName}, Bienvenido a AirCrew
+          {user?.displayName}, Bienvenido a AirCrew
         </h1>
       </div>
 

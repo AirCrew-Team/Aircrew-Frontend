@@ -3,7 +3,11 @@ import { useQuery } from "@tanstack/react-query"
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
 import SpokenText from "@/modules/flights/components/SpokenText"
-import { getFlightMetrics } from "@/modules/flights/data/flights.data"
+import {
+  EMPTY_FLIGHT_METRICS,
+  getFlightMetrics,
+} from "@/modules/flights/data/flights.data"
+import { isDemoUser, useAuthStore } from "@/stores/auth.store"
 
 // 45 → «45h 00m».
 const formatHours = (hours: number) =>
@@ -19,13 +23,17 @@ const figureClass = cn(typography.headlineLg, "font-bold text-foreground")
 const unitClass = cn(typography.bodyMd, "text-muted-foreground")
 
 // M1 a M3: una sola query para las tres tarjetas del mes.
+// Con la sesión real aún no hay vuelos: métricas vacías y sin consulta.
 const FlightMetrics = () => {
-  const { data, isPending, isError } = useQuery({
+  const demo = useAuthStore((state) => isDemoUser(state.user))
+  const { data, isPending } = useQuery({
     queryKey: ["flights", "metrics"],
     queryFn: getFlightMetrics,
+    enabled: demo,
   })
+  const metrics = demo ? data : EMPTY_FLIGHT_METRICS
 
-  if (isPending) {
+  if (!metrics && isPending) {
     return (
       <p
         role="status"
@@ -36,7 +44,8 @@ const FlightMetrics = () => {
     )
   }
 
-  if (isError) {
+  // Sin datos y sin carga pendiente: la consulta falló.
+  if (!metrics) {
     return (
       <p role="alert" className={cn(typography.bodySm, "text-destructive")}>
         No se pudieron cargar las métricas.
@@ -44,7 +53,7 @@ const FlightMetrics = () => {
     )
   }
 
-  const { fdp, rest, month } = data
+  const { fdp, rest, month } = metrics
   const usedPercent = Math.round((fdp.usedHours / fdp.maxHours) * 100)
 
   return (
@@ -104,7 +113,9 @@ const FlightMetrics = () => {
             )}
           >
             <span>Acumulado: {usedPercent}%</span>{" "}
-            <span>Ciclo cierra en {fdp.cycleClosesInDays} días</span>
+            {fdp.cycleClosesInDays === null ? null : (
+              <span>Ciclo cierra en {fdp.cycleClosesInDays} días</span>
+            )}
           </p>
         </div>
       </div>

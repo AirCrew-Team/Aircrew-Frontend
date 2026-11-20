@@ -1,16 +1,17 @@
-import { useId, useLayoutEffect, useRef, useState } from "react"
+import { useId, useLayoutEffect, useRef, useState, type ReactNode } from "react"
 
 import { ChevronDownIcon } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
-import AbsenceTrackingCard from "@/modules/absenceTracking/components/AbsenceTrackingCard"
-import type { TrackedAbsence } from "@/modules/absenceTracking/types/absenceTracking.types"
 
-interface TrackingColumnProps {
+// Sirve para las ausencias de ejemplo (cuentas demo) y para las reales: cada tablero
+// pasa su tarjeta.
+interface TrackingColumnProps<T extends { id: string }> {
   title: string
   // Color del punto decorativo junto al título.
   dotClassName: string
-  absences: TrackedAbsence[]
+  absences: T[]
+  renderCard: (absence: T) => ReactNode
 }
 
 // Tarjetas visibles al cargar y cuántas añade cada «Ver más».
@@ -22,11 +23,12 @@ const SCROLL_PADDING = 8
 // Una columna del tablero: título con el total de tarjetas y sus ausencias, en el orden
 // recibido, de 5 en 5 al principio y por tandas de 10 con «Ver más», en una zona con
 // scroll propio para que una columna larga no empuje a las demás fuera de la pantalla.
-const TrackingColumn = ({
+const TrackingColumn = <T extends { id: string }>({
   title,
   dotClassName,
   absences,
-}: TrackingColumnProps) => {
+  renderCard,
+}: TrackingColumnProps<T>) => {
   const titleId = useId()
   const [limit, setLimit] = useState(INITIAL)
   const shown = absences.slice(0, limit)
@@ -118,9 +120,7 @@ const TrackingColumn = ({
           {/* role="list": Safari deja de exponer como lista un <ul> con list-style: none. */}
           <ul ref={listRef} role="list" className="flex flex-col gap-3">
             {shown.map((absence) => (
-              <li key={absence.id}>
-                <AbsenceTrackingCard absence={absence} />
-              </li>
+              <li key={absence.id}>{renderCard(absence)}</li>
             ))}
           </ul>
 
