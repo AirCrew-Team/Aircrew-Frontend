@@ -141,7 +141,10 @@ const AbsenceTrackingBoard = () => {
             "text-muted-foreground"
           )}
         >
-          No hay ausencias reportadas en el turno.
+          {/* La lista real trae todas las ausencias, no solo las del turno. */}
+          {isDemo
+            ? "No hay ausencias reportadas en el turno."
+            : "No hay ausencias reportadas."}
         </p>
       ) : (
         <>

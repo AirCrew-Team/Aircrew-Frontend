@@ -26,6 +26,8 @@ const NO_FLIGHTS = "No tienes vuelos programados."
 const NO_CERTIFICATIONS = "Aún no tienes certificaciones registradas."
 const STATUS_ERROR = "No se pudo cargar el estado de asignación."
 const ME_REQUEST = `GET ${API_URL}/api/admin/users/me`
+const NEXT_FLIGHT = "Próximo vuelo"
+const DEMO_FLIGHT_LABEL = "Itinerario Confirmado"
 
 // El párrafo de la tarjeta del reloj con «Condición operacional: …».
 const conditionLine = (main: HTMLElement) => {
@@ -110,6 +112,23 @@ describe("AU-01: Inicio con sesión real", () => {
     expect(within(main).queryAllByRole("alert")).toHaveLength(0)
   })
 
+  it("D1: sin vuelos, la tarjeta lleva la etiqueta «Próximo vuelo» y el Inicio no contiene «Itinerario Confirmado»", async () => {
+    const main = await openRealHome()
+
+    const heading = await within(main).findByRole("heading", {
+      level: 2,
+      name: NEXT_FLIGHT,
+    })
+    const card = heading.closest("article")
+    expect(card, "la tarjeta del próximo vuelo es un article").not.toBeNull()
+    // La etiqueta (con su ícono) va antes del h2 visualmente y después en el DOM: el
+    // texto de la tarjeta es «Próximo vuelo» (h2) + estado vacío + «Próximo vuelo».
+    expect(normalize(card?.textContent ?? null)).toBe(
+      `${NEXT_FLIGHT}${NO_FLIGHTS}${NEXT_FLIGHT}`
+    )
+    expect(main).not.toHaveTextContent(DEMO_FLIGHT_LABEL)
+  })
+
   it("AU-01: no se muestra ninguna asignación de reemplazo", async () => {
     const main = await openRealHome()
     // Ancla: la pantalla ya pintó los estados vacíos.
@@ -181,6 +200,8 @@ describe("AU-03: Inicio con la cuenta demo", () => {
     const main = screen.getByRole("main")
     await waitFor(() => expect(main).toHaveTextContent("Base BOG / SKBO"))
     expect(main).not.toHaveTextContent(NO_FLIGHTS)
+    // D1: la demo conserva la etiqueta del diseño de ejemplo.
+    expect(main).toHaveTextContent(DEMO_FLIGHT_LABEL)
     expect(requests).toEqual([])
   })
 })

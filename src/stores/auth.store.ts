@@ -1,6 +1,7 @@
 import { create } from "zustand"
 
 import { ROLES, type AuthUser, type Role } from "@/App/types/auth.types"
+import { queryClient } from "@/lib/query-client"
 
 // Usuarios simulados de las cuentas demo y del selector «Rol (dev)» (D4).
 const MOCK_USERS: Record<Role, AuthUser> = {
@@ -47,10 +48,23 @@ interface AuthState {
 }
 
 // Arranca comprobando la sesión: SessionGate pide /auth/me y deja el estado en "ready".
-export const useAuthStore = create<AuthState>()((set) => ({
-  user: null,
-  status: "checking",
-  setUser: (user) => set({ user, status: "ready" }),
-  setMockRole: (role) => set({ user: MOCK_USERS[role], status: "ready" }),
-  logout: () => set({ user: null, status: "ready" }),
-}))
+// La caché de TanStack Query se vacía al cerrar sesión y al pasar a otro usuario, para
+// que nadie vea datos del anterior (spec cierre-tareas-johan, D3). Restaurar la misma
+// sesión (mismo id) la conserva.
+export const useAuthStore = create<AuthState>()((set, get) => {
+  const setSessionUser = (user: AuthUser) => {
+    if (get().user?.id !== user.id) queryClient.clear()
+    set({ user, status: "ready" })
+  }
+
+  return {
+    user: null,
+    status: "checking",
+    setUser: setSessionUser,
+    setMockRole: (role) => setSessionUser(MOCK_USERS[role]),
+    logout: () => {
+      queryClient.clear()
+      set({ user: null, status: "ready" })
+    },
+  }
+})
