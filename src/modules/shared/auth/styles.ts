@@ -18,3 +18,7 @@ export const dialogInputClass =
 // Botón principal de los diálogos, más compacto que el del login
 export const dialogPrimaryButtonClass =
   "h-10 rounded-full bg-[#07436a] px-5 text-white hover:bg-[#083d61]"
+
+// Aviso informativo (azul, no el rojo de error): p. ej. los límites de la recuperación
+export const infoNoticeClass =
+  "flex items-start gap-2 rounded-lg bg-[#e8f4fb] p-3 text-left text-sm text-[#245475]"

@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { http, HttpResponse } from "msw"
-import { describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it, onTestFinished } from "vitest"
 
 import { ROLES, type AuthUser } from "@/App/types/auth.types"
 import { HOME_PATH_BY_ROLE } from "@/routes/navigation"
@@ -11,17 +11,28 @@ import { useAuthStore } from "@/stores/auth.store"
 import {
   ACTIVATED_MESSAGE,
   ACTIVATED_USER,
+  INVALID_ACTIVATION_MESSAGE,
   TEST_TOKEN,
   VALID_PASSWORD,
   activateError,
   mockActivate,
+  mockCheckActivationToken,
 } from "../mocks/activateApi"
 import { AUTH_URLS, CREW_PROFILE, errorBody, loginBody } from "../mocks/authApi"
+import { apiError, createGate } from "../mocks/passwordResetApi"
 import { renderRoute } from "../utils/renderRoute"
 import { server } from "../utils/server"
 import { findToast, queryAllToasts } from "../utils/toasts"
 
-// Spec activar-cuenta: pantalla pública /activar-cuenta (AC-01 a AC-12).
+// Spec activar-cuenta: pantalla pública /activar-cuenta (AC-01 a AC-12), y Ampliación B
+// de recuperar-contrasena: comprobación del enlace al abrirlo (AC-13 a AC-16).
+
+// Ampliación B: al abrir la pantalla con token se comprueba el enlace. Por defecto el
+// enlace es válido (200), así AC-01 a AC-12 prueban lo mismo que antes. Los tests que
+// necesitan otra respuesta llaman a mockCheckActivationToken(...), que tiene prioridad.
+beforeEach(() => {
+  mockCheckActivationToken()
+})
 
 const ACTIVATE_PATH = "/activar-cuenta"
 const WITH_TOKEN = `${ACTIVATE_PATH}?token=${TEST_TOKEN}`
@@ -54,10 +65,15 @@ const confirmInput = () =>
 const submitButton = () =>
   screen.getByRole("button", { name: "Activar cuenta" })
 
-// Abre la pantalla con el formulario visible.
+const findSubmitButton = () =>
+  screen.findByRole("button", { name: "Activar cuenta" }, WAIT)
+
+// Abre la pantalla y espera el formulario: el h1 ya se ve mientras se comprueba el
+// enlace, así que no basta con esperar el título.
 const openForm = async (path = WITH_TOKEN) => {
   const router = renderRoute(path)
   await findHeading()
+  await findSubmitButton()
   return router
 }
 
@@ -517,4 +533,130 @@ describe("AC-12: el token no se guarda", () => {
     expect(dump(sessionStorage)).not.toContain(TEST_TOKEN)
     expect(document.cookie).not.toContain(TEST_TOKEN)
   })
+})
+
+// Ampliación B: comprobación del enlace al abrir la pantalla.
+
+const CHECKING = "Comprobando el enlace…"
+const SUBTITLE = "Crea tu contraseña para entrar a AirCrew."
+
+// Espera la comprobación y que todas las peticiones lleven `{ token }`. No fija cuántas:
+// con StrictMode un efecto puede pedirla dos veces.
+const expectCheckedWith = async (bodies: unknown[], token: string) => {
+  await waitFor(
+    () =>
+      expect(bodies, "debe enviar POST /activate/check").not.toHaveLength(0),
+    WAIT
+  )
+  bodies.forEach((body) => expect(body).toEqual({ token }))
+}
+
+const expectNoForm = () => {
+  expect(screen.queryByLabelText(/^Nueva contraseña$/)).toBeNull()
+  expect(screen.queryByRole("button", { name: "Activar cuenta" })).toBeNull()
+}
+
+describe("AC-13: comprobación del enlace al abrir la pantalla", () => {
+  it('AC-13 al abrir ?token=abc envía POST /activate/check con { token: "abc" }', async () => {
+    const checkBodies = mockCheckActivationToken()
+    renderRoute(`${ACTIVATE_PATH}?token=abc`)
+
+    await findHeading()
+    await expectCheckedWith(checkBodies, "abc")
+  })
+
+  it("AC-13 mientras se comprueba se ve «Comprobando el enlace…» en un role=status con el h1 y sin el formulario; con el 200 aparece el formulario", async () => {
+    const { gate, release } = createGate()
+    onTestFinished(() => release())
+    const checkBodies = mockCheckActivationToken(async () => {
+      await gate
+      return HttpResponse.json({ valid: true })
+    })
+    renderRoute(WITH_TOKEN)
+
+    await findHeading()
+    const checking = await screen.findByText(CHECKING, {}, WAIT)
+    expect(
+      checking.closest('[role="status"]'),
+      "«Comprobando el enlace…» debe estar en un role=status"
+    ).not.toBeNull()
+    expectNoForm()
+    await expectCheckedWith(checkBodies, TEST_TOKEN)
+
+    release()
+    expect(await findSubmitButton()).toBeEnabled()
+    expect(passwordInput()).toBeInTheDocument()
+    expect(confirmInput()).toBeInTheDocument()
+    expect(screen.getByText(SUBTITLE)).toBeInTheDocument()
+    expect(screen.queryByText(CHECKING)).toBeNull()
+  })
+})
+
+describe("AC-14: la comprobación responde 400", () => {
+  it("AC-14 aparece el aviso de enlace no válido sin escribir nada, sin mover el foco al enlace y sin llamar a activate", async () => {
+    const checkBodies = mockCheckActivationToken(
+      apiError(400, INVALID_ACTIVATION_MESSAGE)
+    )
+    const activateBodies = mockActivate()
+    renderRoute(WITH_TOKEN)
+
+    await findHeading()
+    await expectCheckedWith(checkBodies, TEST_TOKEN)
+    await expectInvalidLink()
+    expect(
+      screen.getByRole("link", { name: "Ir al inicio de sesión" })
+    ).not.toHaveFocus()
+    expect(screen.queryByText(SUBTITLE)).toBeNull()
+    expect(queryAllToasts()).toHaveLength(0)
+    expect(activateBodies).toHaveLength(0)
+  })
+})
+
+describe("AC-15: la comprobación falla por red o 500", () => {
+  it.each([
+    ["500", apiError(500, "Error interno")],
+    ["error de red", () => HttpResponse.error()],
+  ])(
+    "AC-15 con %s aparece el formulario, sin aviso de error, y se puede activar normalmente",
+    async (_label, respond) => {
+      const checkBodies = mockCheckActivationToken(respond)
+      const activateBodies = mockActivate()
+      mockLogin(loginOk)
+      const user = userEvent.setup()
+      renderRoute(WITH_TOKEN)
+
+      await findHeading()
+      await expectCheckedWith(checkBodies, TEST_TOKEN)
+      await findSubmitButton()
+      expect(screen.queryByRole("alert")).toBeNull()
+      expect(screen.queryByText(CHECKING)).toBeNull()
+
+      await fillForm(user)
+      await user.click(submitButton())
+
+      await findToast(TEXTS.welcome)
+      expect(activateBodies).toEqual([
+        { token: TEST_TOKEN, password: VALID_PASSWORD },
+      ])
+    }
+  )
+})
+
+describe("AC-16: sin token no se comprueba", () => {
+  it.each([
+    ["sin token", ACTIVATE_PATH],
+    ["con token vacío", `${ACTIVATE_PATH}?token=`],
+  ])(
+    "AC-16 %s no se llama a check y aparece el aviso de enlace no válido",
+    async (_label, path) => {
+      const checkBodies = mockCheckActivationToken()
+      renderRoute(path)
+
+      await findHeading()
+      await expectInvalidLink()
+      // Margen para una petición lanzada al montar: es un «no llamó», no hay evento que esperar.
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      expect(checkBodies).toHaveLength(0)
+    }
+  )
 })

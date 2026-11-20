@@ -18,15 +18,6 @@ export type Session = {
   user?: AuthUser
 }
 
-// Medio por el que se envía el código de recuperación
-export type RecoveryChannel = "email" | "sms"
-
-/** Datos de contacto ya enmascarados; nunca se exponen completos al cliente. */
-export type MaskedContacts = {
-  email: string
-  phone: string
-}
-
 // Resultado del login: sesión si fue exitoso, motivo si falló
 export type LoginResult =
   | { ok: true; session: Session }

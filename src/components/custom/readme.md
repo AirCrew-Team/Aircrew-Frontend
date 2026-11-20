@@ -15,9 +15,3 @@
 # y contenido adicional. El módulo consumidor provee sus clases para conservar
 
 # el estilo visual propio de cada formulario.
-
-# PasswordChangeForm.tsx comparte los campos de contraseña nueva y confirmación,
-
-# sus requisitos, validación y controles para mostrar u ocultar el texto. Los
-
-# módulos conservan separados los flujos que presentan este formulario.

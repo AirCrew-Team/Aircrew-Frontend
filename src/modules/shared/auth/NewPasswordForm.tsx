@@ -5,36 +5,62 @@ import { useForm, useWatch } from "react-hook-form"
 import { useNavigate } from "react-router"
 import { toast } from "sonner"
 
-import { activateAccount, login, logout } from "@/App/actions/auth/auth.actions"
+import {
+  login,
+  logout,
+  TooManyRequestsError,
+} from "@/App/actions/auth/auth.actions"
 import { ArrowRightIcon, CheckIcon, PasswordIcon } from "@/App/utils/icons"
 import { Button } from "@/components/custom/Button"
 import { InputField } from "@/components/custom/InputField"
 import { VisibilityToggle } from "@/components/custom/VisibilityToggle"
-import {
-  loginFieldClass,
-  loginInputClass,
-  loginPrimaryButtonClass,
-} from "@/modules/shared/auth/styles"
 import { HOME_PATH_BY_ROLE } from "@/routes/navigation"
 import { PATHS } from "@/routes/paths"
 import { useAuthStore } from "@/stores/auth.store"
 
 import {
-  ACTIVATION_RULES,
-  activateSchema,
-  type ActivateFormValues,
-} from "./activate.schema"
+  NEW_PASSWORD_RULES,
+  newPasswordSchema,
+  type NewPasswordFormValues,
+} from "./newPassword.schema"
+import {
+  loginFieldClass,
+  loginInputClass,
+  loginPrimaryButtonClass,
+} from "./styles"
 
-type ActivateFormProps = {
+type NewPasswordFormProps = {
   token: string
+  /** Guarda la contraseña con el token (activateAccount o resetPassword) y devuelve el correo. */
+  submit: (credentials: {
+    token: string
+    password: string
+  }) => Promise<{ email: string }>
+  submitLabel: string
+  busyLabel: string
+  /** Toast cuando el login automático funciona. */
+  welcomeToast: string
+  /** Toast cuando la contraseña se guardó pero el login falló. */
+  loginToast: string
   /** El backend rechazó el token (400): el padre cambia el formulario por el aviso. */
   onInvalidLink: () => void
+  /** Límite (429), solo en el restablecimiento: recibe el texto del backend o "". */
+  onLimit?: (message: string) => void
 }
 
 const errorClass = "mt-2 px-2 text-sm font-semibold text-[#b42318]"
 
-/** Formulario para crear la contraseña, activar la cuenta y abrir la sesión. */
-export function ActivateForm({ token, onInvalidLink }: ActivateFormProps) {
+/** Formulario para crear la contraseña nueva con el token del enlace y abrir la sesión. */
+export function NewPasswordForm({
+  token,
+  submit,
+  submitLabel,
+  busyLabel,
+  welcomeToast,
+  loginToast,
+  onInvalidLink,
+  onLimit,
+}: NewPasswordFormProps) {
   const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
@@ -45,39 +71,38 @@ export function ActivateForm({ token, onInvalidLink }: ActivateFormProps) {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<ActivateFormValues>({
-    resolver: zodResolver(activateSchema),
+  } = useForm<NewPasswordFormValues>({
+    resolver: zodResolver(newPasswordSchema),
     defaultValues: { password: "", confirmPassword: "" },
   })
   const password = useWatch({ control, name: "password" })
 
-  const onSubmit = async (values: ActivateFormValues) => {
+  const onSubmit = async (values: NewPasswordFormValues) => {
     setNetworkError(false)
     try {
-      const { email } = await activateAccount({
-        token,
-        password: values.password,
-      })
-      // La cuenta ya quedó activada: si el login falla, solo se pide iniciar sesión.
+      const { email } = await submit({ token, password: values.password })
+      // La contraseña ya quedó guardada: si el login falla, solo se pide iniciar sesión.
       try {
         const user = await login(email, values.password)
         useAuthStore.getState().setUser(user)
-        toast.success("Cuenta activada. ¡Bienvenido a AirCrew!")
+        toast.success(welcomeToast)
         navigate(HOME_PATH_BY_ROLE[user.role], {
           replace: true,
           state: { focusMain: true },
         })
       } catch {
-        // Si había otra sesión abierta (A6), se cierra: sin esto, /login redirigiría
+        // Si había otra sesión abierta, se cierra: sin esto, /login redirigiría
         // al inicio de esa otra persona.
         await logout().catch(() => {})
         useAuthStore.getState().logout()
-        toast.success("Cuenta activada. Ya puedes iniciar sesión.")
+        toast.success(loginToast)
         navigate(PATHS.login, { replace: true })
       }
     } catch (error) {
       if (isAxiosError(error) && error.response?.status === 400) {
         onInvalidLink()
+      } else if (error instanceof TooManyRequestsError && onLimit) {
+        onLimit(error.message)
       } else {
         setNetworkError(true)
       }
@@ -131,7 +156,7 @@ export function ActivateForm({ token, onInvalidLink }: ActivateFormProps) {
           id="password-rules"
           className="-mt-2 mb-0 grid list-none gap-1 rounded-lg bg-[#f0f5f9] p-3 text-xs"
         >
-          {ACTIVATION_RULES.map((rule) => {
+          {NEW_PASSWORD_RULES.map((rule) => {
             const isSatisfied = rule.test(password)
             return (
               <li
@@ -205,7 +230,7 @@ export function ActivateForm({ token, onInvalidLink }: ActivateFormProps) {
         disabled={isSubmitting}
         type="submit"
       >
-        <span>{isSubmitting ? "Activando…" : "Activar cuenta"}</span>
+        <span>{isSubmitting ? busyLabel : submitLabel}</span>
         <ArrowRightIcon aria-hidden="true" size={22} strokeWidth={1.8} />
       </Button>
     </form>
