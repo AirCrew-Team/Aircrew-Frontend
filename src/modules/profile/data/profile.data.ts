@@ -1,3 +1,8 @@
+import {
+  getMyAccount,
+  getMyCrewMember,
+  type CrewMemberStatus,
+} from "@/App/actions/profile/profile.actions"
 import type {
   CrewProfile,
   NotificationPreferences,
@@ -7,6 +12,7 @@ import type {
 } from "@/modules/profile/types/profile.types"
 import { daysFromToday } from "@/modules/shared/certifications/data/certifications.data"
 import { CurrentPasswordError } from "@/modules/shared/password/CurrentPasswordError"
+import { PasswordChangeUnavailableError } from "@/modules/shared/password/PasswordChangeUnavailableError"
 import type { ChangePasswordInput } from "@/modules/shared/password/types/password.types"
 
 // Datos simulados con la forma de las acciones reales: se moverán a App/actions cuando exista la API.
@@ -149,6 +155,122 @@ const SUPERVISOR_NOTIFICATION_PREFERENCES: Record<
   },
 }
 
+// Copia limpia de los ejemplos tal como se cargan: las cuentas demo modifican sus
+// registros (foto, contraseña), y una cuenta real no debe heredar esos cambios.
+const PRISTINE_USER_PROFILES = structuredClone(USER_PROFILES)
+const PRISTINE_NOTIFICATION_PREFERENCES = structuredClone(
+  NOTIFICATION_PREFERENCES
+)
+const PRISTINE_SUPERVISOR_PROFILES = structuredClone(SUPERVISOR_PROFILES)
+const PRISTINE_SUPERVISOR_NOTIFICATION_PREFERENCES = structuredClone(
+  SUPERVISOR_NOTIFICATION_PREFERENCES
+)
+
+// Ids de las cuentas demo: los de los registros de ejemplo tal como se cargan.
+const DEMO_IDS = new Set(Object.keys(USER_PROFILES))
+
+export const isDemoUserId = (userId: string) => DEMO_IDS.has(userId)
+
+// Plantilla de ejemplo según el rol que devuelve el backend.
+const TEMPLATE_BY_ROLE: Record<string, string> = {
+  crew: "mock-tripulante",
+  supervisor: "mock-supervisor",
+  super_admin: "mock-admin",
+}
+
+const STATUS_LABELS: Record<CrewMemberStatus, string> = {
+  available: "Disponible",
+  on_duty: "En servicio",
+  in_flight: "En vuelo",
+  medical_leave: "Incapacidad médica",
+}
+
+// Perfiles de tripulante de ids reales (crewProfiles() se recalcula en cada llamada).
+const realCrewProfiles: Record<string, CrewProfile> = {}
+
+// Copia profunda de la plantilla limpia al id real, si hay plantilla para ese rol.
+const copyTemplate = <T>(
+  pristine: Record<string, T>,
+  records: Record<string, T>,
+  template: string,
+  userId: string
+) => {
+  if (template in pristine)
+    records[userId] = structuredClone(pristine[template])
+}
+
+// Crea los registros de un id real: plantilla de su rol con los datos reales encima.
+// Siempre consulta la cuenta (si el servidor falla, se ve el error); si los registros ya
+// existen no los reemplaza, para no perder lo que el usuario cambió en esta sesión.
+// Escribe al final, así un fallo no deja registros a medias.
+const createRealRecords = async (userId: string) => {
+  const account = await getMyAccount()
+  // La cookie puede ser de otra cuenta (p. ej. otra pestaña cambió de usuario): sus
+  // datos nunca se guardan bajo este id.
+  if (account.id !== userId) {
+    throw new Error("La cuenta del servidor no es la de la sesión.")
+  }
+  if (userId in USER_PROFILES) return
+  const template = TEMPLATE_BY_ROLE[account.role]
+  if (!template) throw new Error(`Rol desconocido: ${account.role}`)
+  // Si el perfil de crew falla, el tripulante ve la plantilla con su correo real.
+  const crewMember =
+    account.role === "crew" ? await getMyCrewMember().catch(() => null) : null
+
+  const profile = structuredClone(PRISTINE_USER_PROFILES[template])
+  profile.contact.email = account.email
+  profile.status = account.is_active ? "Activo" : "Inactivo"
+
+  // Solo el tripulante tiene plantilla aquí (undefined para supervisor y admin).
+  const crewProfile: CrewProfile | undefined = crewProfiles()[template]
+  if (crewMember && crewProfile) {
+    profile.employeeCode = crewMember.employee_code
+    profile.status = STATUS_LABELS[crewMember.status]
+    crewProfile.employment.officialPosition = crewMember.position
+    if (crewMember.current_location) {
+      crewProfile.employment.base = crewMember.current_location
+      crewProfile.quickStats.base = crewMember.current_location
+    }
+  }
+
+  USER_PROFILES[userId] = profile
+  if (crewProfile) realCrewProfiles[userId] = crewProfile
+  copyTemplate(
+    PRISTINE_NOTIFICATION_PREFERENCES,
+    NOTIFICATION_PREFERENCES,
+    template,
+    userId
+  )
+  copyTemplate(
+    PRISTINE_SUPERVISOR_PROFILES,
+    SUPERVISOR_PROFILES,
+    template,
+    userId
+  )
+  copyTemplate(
+    PRISTINE_SUPERVISOR_NOTIFICATION_PREFERENCES,
+    SUPERVISOR_NOTIFICATION_PREFERENCES,
+    template,
+    userId
+  )
+}
+
+// Las consultas simultáneas de un id comparten la misma petición. Al terminar, bien o mal,
+// se olvida, así un fallo no se queda guardado y un reintento puede funcionar.
+const creations = new Map<string, Promise<void>>()
+
+const ensureRecords = (userId: string): Promise<void> => {
+  if (isDemoUserId(userId)) return Promise.resolve()
+  let creation = creations.get(userId)
+  if (!creation) {
+    creation = createRealRecords(userId)
+    creations.set(userId, creation)
+    const forget = () => creations.delete(userId)
+    creation.then(forget, forget)
+  }
+  return creation
+}
+
 const findOrFail = <T>(records: Record<string, T>, userId: string) =>
   userId in records
     ? Promise.resolve(records[userId])
@@ -157,31 +279,46 @@ const findOrFail = <T>(records: Record<string, T>, userId: string) =>
 // Devuelve una copia, como el backend: si fuera el mismo objeto que luego cambia
 // changePassword, TanStack Query vería la respuesta igual y no repintaría.
 export const getUserProfile = (userId: string): Promise<UserProfile> =>
-  findOrFail(USER_PROFILES, userId).then((profile) => structuredClone(profile))
+  ensureRecords(userId)
+    .then(() => findOrFail(USER_PROFILES, userId))
+    .then((profile) => structuredClone(profile))
 
 export const getCrewProfile = (userId: string): Promise<CrewProfile> =>
-  findOrFail(crewProfiles(), userId)
+  ensureRecords(userId)
+    .then(() => findOrFail({ ...crewProfiles(), ...realCrewProfiles }, userId))
+    .then((profile) => structuredClone(profile))
 
 export const getNotificationPreferences = (
   userId: string
 ): Promise<NotificationPreferences> =>
-  findOrFail(NOTIFICATION_PREFERENCES, userId)
+  ensureRecords(userId).then(() => findOrFail(NOTIFICATION_PREFERENCES, userId))
 
 export const getSupervisorProfile = (
   userId: string
-): Promise<SupervisorProfile> => findOrFail(SUPERVISOR_PROFILES, userId)
+): Promise<SupervisorProfile> =>
+  ensureRecords(userId).then(() => findOrFail(SUPERVISOR_PROFILES, userId))
 
 export const getSupervisorNotificationPreferences = (
   userId: string
 ): Promise<SupervisorNotificationPreferences> =>
-  findOrFail(SUPERVISOR_NOTIFICATION_PREFERENCES, userId)
+  ensureRecords(userId).then(() =>
+    findOrFail(SUPERVISOR_NOTIFICATION_PREFERENCES, userId)
+  )
 
 // Cambia la contraseña (con la API, un POST aparte). Falla si la actual no coincide.
 export const changePassword = (
   userId: string,
   input: ChangePasswordInput
-): Promise<void> =>
-  new Promise((resolve, reject) => {
+): Promise<void> => {
+  // Con una sesión real el backend aún no tiene este endpoint.
+  if (!isDemoUserId(userId)) {
+    return Promise.reject(
+      new PasswordChangeUnavailableError(
+        "El cambio de contraseña todavía no está conectado al servidor."
+      )
+    )
+  }
+  return new Promise((resolve, reject) => {
     // Simula la latencia de la red.
     setTimeout(() => {
       const profile = USER_PROFILES[userId]
@@ -195,6 +332,7 @@ export const changePassword = (
       resolve()
     }, 400)
   })
+}
 
 // Guarda la foto del perfil (con la API, un PUT). null la quita; un File es la nueva (en el
 // navegador se muestra desde la memoria; con la API, el backend devolverá su dirección).
