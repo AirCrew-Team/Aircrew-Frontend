@@ -1,9 +1,11 @@
+import { getMyAccount } from "@/App/actions/profile/profile.actions"
 import type {
   OperatorProfile,
   ResidenceOption,
   UpdateOperatorProfileInput,
 } from "@/modules/operatorProfile/types/operatorProfile.types"
 import { CurrentPasswordError } from "@/modules/shared/password/CurrentPasswordError"
+import { PasswordChangeUnavailableError } from "@/modules/shared/password/PasswordChangeUnavailableError"
 import type { ChangePasswordInput } from "@/modules/shared/password/types/password.types"
 
 // Datos simulados con la forma de las acciones reales: se moverán a App/actions cuando
@@ -66,6 +68,46 @@ const PROFILES: Record<string, OperatorProfile> = {
   },
 }
 
+// Copia limpia del ejemplo: el admin demo modifica su perfil (teléfono, foto…), y una
+// cuenta real no debe heredar esos cambios.
+const PRISTINE_ADMIN_PROFILE = structuredClone(PROFILES["mock-admin"])
+
+// Ids de las cuentas demo: los de los perfiles de ejemplo tal como se cargan.
+const DEMO_IDS = new Set(Object.keys(PROFILES))
+const isDemoUserId = (userId: string) => DEMO_IDS.has(userId)
+
+// Perfil de un id real: copia profunda del ejemplo del admin con su nombre y correo reales.
+// Siempre consulta la cuenta (si el servidor falla, se ve el error); si el perfil ya existe
+// no lo reemplaza, para no perder lo que el usuario cambió en esta sesión.
+// Las consultas simultáneas de un id comparten la misma petición; al terminar, bien o mal,
+// se olvida, así un fallo no se queda guardado y un reintento puede funcionar.
+const creations = new Map<string, Promise<void>>()
+
+const createRealProfile = async (userId: string) => {
+  const account = await getMyAccount()
+  // La cookie puede ser de otra cuenta: sus datos nunca se guardan bajo este id.
+  if (account.id !== userId) {
+    throw new Error("La cuenta del servidor no es la de la sesión.")
+  }
+  if (userId in PROFILES) return
+  const profile = structuredClone(PRISTINE_ADMIN_PROFILE)
+  profile.fullName = account.name
+  profile.email = account.email
+  PROFILES[userId] = profile
+}
+
+const ensureProfile = (userId: string): Promise<void> => {
+  if (isDemoUserId(userId)) return Promise.resolve()
+  let creation = creations.get(userId)
+  if (!creation) {
+    creation = createRealProfile(userId)
+    creations.set(userId, creation)
+    const forget = () => creations.delete(userId)
+    creation.then(forget, forget)
+  }
+  return creation
+}
+
 // Copia del perfil: las funciones devuelven datos nuevos en cada respuesta, como el
 // backend. Si devolvieran el mismo objeto que luego se modifica, TanStack Query vería la
 // respuesta igual a la anterior y no repintaría.
@@ -73,14 +115,12 @@ const copyProfile = (profile: OperatorProfile): OperatorProfile =>
   structuredClone(profile)
 
 // Perfil del usuario con sesión (con la API, un GET del perfil).
-export const getOperatorProfile = (
-  userId: string
-): Promise<OperatorProfile> => {
-  const profile = PROFILES[userId]
-  return profile
-    ? Promise.resolve(copyProfile(profile))
-    : Promise.reject(new Error(`Perfil ${userId} no encontrado`))
-}
+export const getOperatorProfile = (userId: string): Promise<OperatorProfile> =>
+  ensureProfile(userId).then(() => {
+    const profile = PROFILES[userId]
+    if (!profile) throw new Error(`Perfil ${userId} no encontrado`)
+    return copyProfile(profile)
+  })
 
 // Opciones de «País o Residencia Principal»: los hubs de Delta en EE. UU. Con la API
 // vendrán de un catálogo del backend.
@@ -141,8 +181,16 @@ export const updateOperatorProfile = (
 export const changePassword = (
   userId: string,
   input: ChangePasswordInput
-): Promise<void> =>
-  new Promise((resolve, reject) => {
+): Promise<void> => {
+  // Con una sesión real el backend aún no tiene este endpoint.
+  if (!isDemoUserId(userId)) {
+    return Promise.reject(
+      new PasswordChangeUnavailableError(
+        "El cambio de contraseña todavía no está conectado al servidor."
+      )
+    )
+  }
+  return new Promise((resolve, reject) => {
     setTimeout(() => {
       const profile = PROFILES[userId]
       if (!profile) return reject(new Error(`Perfil ${userId} no encontrado`))
@@ -155,3 +203,4 @@ export const changePassword = (
       resolve()
     }, 400)
   })
+}

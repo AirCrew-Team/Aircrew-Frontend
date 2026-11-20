@@ -18,6 +18,7 @@ import {
   fieldLabelClass,
 } from "@/modules/shared/password/components/formStyles"
 import { CurrentPasswordError } from "@/modules/shared/password/CurrentPasswordError"
+import { PasswordChangeUnavailableError } from "@/modules/shared/password/PasswordChangeUnavailableError"
 import {
   changePasswordSchema,
   type ChangePasswordFormValues,
@@ -312,7 +313,9 @@ const ChangePasswordPanel = ({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
         {genericError ? (
           <p role="alert" className={errorClass}>
-            No se pudo actualizar la contraseña. Intenta de nuevo.
+            {mutation.error instanceof PasswordChangeUnavailableError
+              ? mutation.error.message
+              : "No se pudo actualizar la contraseña. Intenta de nuevo."}
           </p>
         ) : null}
         <div className="flex justify-end gap-2">
