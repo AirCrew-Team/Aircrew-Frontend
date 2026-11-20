@@ -29,6 +29,14 @@ import SessionGate from "./SessionGate"
 const appRoutes: RouteObject[] = [
   { path: PATHS.root, element: <RootRedirect /> },
   { path: PATHS.login, element: <LoginPage /> },
+  // Pública y en diferido: react-hook-form + zod, igual que /configuracion.
+  {
+    path: PATHS.activarCuenta,
+    HydrateFallback: () => null,
+    lazy: async () => ({
+      Component: (await import("@/pages/ActivarCuentaPage")).default,
+    }),
+  },
   {
     element: <ProtectedRoute allowedRoles={[ROLES.TRIPULANTE]} />,
     children: [

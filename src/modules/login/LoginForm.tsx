@@ -12,7 +12,7 @@ import {
   loginFieldClass,
   loginInputClass,
   loginPrimaryButtonClass,
-} from "./styles"
+} from "@/modules/shared/auth/styles"
 
 // Intentos fallidos permitidos antes de bloquear el formulario
 const MAX_LOGIN_ATTEMPTS = 3

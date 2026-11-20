@@ -5,7 +5,10 @@ import { PasswordChangeForm } from "@/components/custom/PasswordChangeForm"
 import { DEMO_RECOVERY_CODE } from "./authService"
 import type { RecoveryChannel } from "./types"
 import type { RecoveryFlow, RecoveryStep } from "./useRecoveryFlow"
-import { dialogInputClass, dialogPrimaryButtonClass } from "./styles"
+import {
+  dialogInputClass,
+  dialogPrimaryButtonClass,
+} from "@/modules/shared/auth/styles"
 
 // Título y descripción del diálogo según el paso actual
 const STEP_COPY: Record<RecoveryStep, { title: string; description: string }> =
@@ -46,10 +49,7 @@ export function RecoveryDialog({ flow }: { flow: RecoveryFlow }) {
       {flow.step === "channel" && <ChannelStep flow={flow} />}
       {flow.step === "code" && <CodeStep flow={flow} />}
       {flow.step === "password" && (
-        <PasswordChangeForm
-          onSave={flow.savePassword}
-          onSuccess={flow.close}
-        />
+        <PasswordChangeForm onSave={flow.savePassword} onSuccess={flow.close} />
       )}
     </Dialog>
   )
