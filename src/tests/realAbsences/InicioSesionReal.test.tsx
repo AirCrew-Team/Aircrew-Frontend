@@ -6,6 +6,7 @@ import { PATHS } from "@/routes/paths"
 import { useAuthStore } from "@/stores/auth.store"
 
 import { recordRequests } from "../mocks/absencesApi"
+import { API_URL } from "../mocks/authApi"
 import {
   crewMemberErrorHandler,
   crewMemberHandler,
@@ -24,6 +25,7 @@ const BANNER = "Asignación de reemplazo"
 const NO_FLIGHTS = "No tienes vuelos programados."
 const NO_CERTIFICATIONS = "Aún no tienes certificaciones registradas."
 const STATUS_ERROR = "No se pudo cargar el estado de asignación."
+const ME_REQUEST = `GET ${API_URL}/api/admin/users/me`
 
 // El párrafo de la tarjeta del reloj con «Condición operacional: …».
 const conditionLine = (main: HTMLElement) => {
@@ -136,9 +138,12 @@ describe("AU-01: Inicio con sesión real", () => {
     const main = await openRealHome()
     await within(main).findByText(NO_FLIGHTS)
 
-    expect(requests.length).toBeGreaterThan(0)
+    // El navbar pide el perfil para la foto (spec configuracion-real, CF-12): no es del
+    // Inicio, así que se quita antes de comprobar.
+    const homeRequests = requests.filter((request) => request !== ME_REQUEST)
+    expect(homeRequests.length).toBeGreaterThan(0)
     expect(
-      requests.filter(
+      homeRequests.filter(
         (request) => !request.endsWith("/api/crew/crew-members/me")
       )
     ).toEqual([])

@@ -1,7 +1,7 @@
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
 
-// Estilos del panel de contraseña, compartidos con el formulario del perfil del operador.
+// Estilos del panel de contraseña.
 
 // Campos de texto y listas con el mismo borde, foco y error que los formularios del
 // proyecto. text-base por debajo de lg: con menos de 16 px iOS hace zoom al enfocar.

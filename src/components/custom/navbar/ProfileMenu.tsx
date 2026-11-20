@@ -1,4 +1,4 @@
-import { useRef } from "react"
+import { useRef, useState } from "react"
 import { Link, useLocation } from "react-router"
 
 import { logout as logoutRequest } from "@/App/actions/auth/auth.actions"
@@ -22,6 +22,8 @@ import { barButton, popoverSurface } from "./navbar.styles"
 
 interface ProfileMenuProps {
   user: AuthUser
+  // URL de la foto de perfil; sin foto (o en las cuentas demo), las iniciales.
+  photoUrl?: string | null
 }
 
 // Iniciales de las dos primeras palabras del nombre: "Juan Pablo" -> "JP".
@@ -38,8 +40,12 @@ const itemClassName = cn(
   "cursor-pointer gap-2.5 px-3 py-3 lg:py-2"
 )
 
-const ProfileMenu = ({ user }: ProfileMenuProps) => {
+const ProfileMenu = ({ user, photoUrl }: ProfileMenuProps) => {
   const logout = useAuthStore((state) => state.logout)
+  // URL que no se pudo cargar: vuelven las iniciales hasta que llegue otra (otro ?v=).
+  const [brokenSrc, setBrokenSrc] = useState<string | null>(null)
+  const photo = photoUrl ?? user.avatarUrl ?? null
+  const shownPhoto = photo !== brokenSrc ? photo : null
   const { pathname } = useLocation()
   // Si el ítem navega a otra ruta, MainLayout enfoca <main>; el menú no debe devolver el foco al botón.
   const navigatingRef = useRef(false)
@@ -66,10 +72,11 @@ const ProfileMenu = ({ user }: ProfileMenuProps) => {
         aria-label={`Menú de perfil de ${user.displayName} ${user.position}`}
         className={cn(barButton, "group gap-2.5 py-1.5 pr-2 pl-1 lg:py-1")}
       >
-        {user.avatarUrl ? (
+        {shownPhoto ? (
           <img
-            src={user.avatarUrl}
+            src={shownPhoto}
             alt=""
+            onError={() => setBrokenSrc(shownPhoto)}
             className="size-8 rounded-full object-cover"
           />
         ) : (

@@ -7,6 +7,7 @@ import { PATHS } from "@/routes/paths"
 import { useAuthStore } from "@/stores/auth.store"
 
 import { recordRequests } from "../mocks/absencesApi"
+import { API_URL } from "../mocks/authApi"
 import { REAL_USERS } from "../mocks/profileApi"
 import { renderRoute } from "../utils/renderRoute"
 import { LAZY, loadingStatuses, normalize } from "./realAbsencesTestUtils"
@@ -16,6 +17,9 @@ import { LAZY, loadingStatuses, normalize } from "./realAbsencesTestUtils"
 // (AU-03).
 
 const FLIGHTS_H1 = "Mis Vuelos Asignados"
+
+// GET del perfil que hace MainLayout con sesión real (foto del navbar, configuracion-real A4).
+const ME_REQUEST = `GET ${API_URL}/api/admin/users/me`
 const CERTIFICATIONS_H1 = "Certificaciones y Licencias"
 
 // Supuesto: el estado vacío de cada lista dice «No hay vuelos…» o «No tienes vuelos…»
@@ -85,7 +89,8 @@ describe("AU-02: Mis vuelos con sesión real", () => {
     await expectEmptyFlightsPanel()
     expect(main).not.toHaveTextContent("AV-9102")
 
-    expect(requests).toEqual([])
+    // La única petición es la del perfil del navbar (MainLayout, foto de perfil).
+    expect(requests.filter((request) => request !== ME_REQUEST)).toEqual([])
   })
 })
 
@@ -111,7 +116,8 @@ describe("AU-02: Certificaciones con sesión real", () => {
       expect(main).not.toHaveTextContent(text)
     }
     expect(within(main).queryAllByRole("alert")).toHaveLength(0)
-    expect(requests).toEqual([])
+    // La única petición es la del perfil del navbar (MainLayout, foto de perfil).
+    expect(requests.filter((request) => request !== ME_REQUEST)).toEqual([])
   })
 })
 

@@ -1,9 +1,13 @@
 import * as z from "zod/mini"
 
-import { isPasswordValid } from "@/components/custom/passwordRules"
+import { NEW_PASSWORD_RULES } from "@/modules/shared/auth/newPassword.schema"
+
+// El backend acepta de 12 a 72 bytes UTF-8.
+const MAX_PASSWORD_BYTES = 72
 
 // Reglas de «Cambiar contraseña»: la actual (la valida el backend), la nueva con las
-// reglas del proyecto (las mismas del login) y su confirmación.
+// reglas de 12 caracteres (las mismas de la activación y el restablecimiento) y su
+// confirmación.
 export const changePasswordSchema = z
   .object({
     currentPassword: z
@@ -12,8 +16,13 @@ export const changePasswordSchema = z
     newPassword: z.string().check(
       z.minLength(1, "Ingresa la nueva contraseña."),
       z.refine(
-        (value) => value === "" || isPasswordValid(value),
-        "Usa al menos 8 caracteres con mayúsculas, minúsculas, números y símbolos."
+        (value) =>
+          value === "" || NEW_PASSWORD_RULES.every((rule) => rule.test(value)),
+        "Usa al menos 12 caracteres con mayúsculas, minúsculas, números y símbolos."
+      ),
+      z.refine(
+        (value) => new TextEncoder().encode(value).length <= MAX_PASSWORD_BYTES,
+        "La contraseña es demasiado larga. Usa menos caracteres o evita tildes y símbolos especiales."
       )
     ),
     confirmPassword: z

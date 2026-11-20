@@ -1,144 +1,40 @@
-import { useId } from "react"
-import { useQuery } from "@tanstack/react-query"
+import type { UseQueryResult } from "@tanstack/react-query"
 
-import {
-  CalendarIcon,
-  ClockIcon,
-  DepartureIcon,
-  FlightIcon,
-  GaugeIcon,
-  LockIcon,
-  LogbookIcon,
-  PositionIcon,
-  RadioChannelIcon,
-  RankIcon,
-  SupervisorIcon,
-  VerifiedIcon,
-} from "@/App/utils/icons"
+import type {
+  CrewMemberStatus,
+  MyCrewMember,
+} from "@/App/actions/profile/profile.actions"
+import { LockIcon, PositionIcon, VerifiedIcon } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
-import {
-  getCrewProfile,
-  getSupervisorProfile,
-} from "@/modules/profile/data/profile.data"
+import SectionCard from "@/modules/profile/components/SectionCard"
 
-interface EmploymentSectionProps {
-  userId: string
-  isCrew: boolean
+const STATUS_LABELS: Record<CrewMemberStatus, string> = {
+  available: "Disponible",
+  on_duty: "En servicio",
+  in_flight: "En vuelo",
+  medical_leave: "Incapacidad médica",
 }
 
-// F2 (solo lectura): información laboral registrada por RRHH. El tripulante ve su
-// escalafón y su flota; el supervisor, su base, su área y su turno.
-const EmploymentSection = ({ userId, isCrew }: EmploymentSectionProps) => {
-  const titleId = useId()
-  const fieldId = useId()
-  const crew = useQuery({
-    queryKey: ["profile", "crew", userId],
-    queryFn: () => getCrewProfile(userId),
-    enabled: isCrew,
-  })
-  const supervisor = useQuery({
-    queryKey: ["profile", "supervisor", userId],
-    queryFn: () => getSupervisorProfile(userId),
-    enabled: !isCrew,
-  })
+const formatDate = (iso: string) =>
+  new Intl.DateTimeFormat("es-CO", { dateStyle: "long" }).format(new Date(iso))
 
-  const { isPending, isError } = isCrew ? crew : supervisor
+interface EmploymentSectionProps {
+  // GET /crew-members/me (la consulta es de ProfileSettings).
+  crew: UseQueryResult<MyCrewMember>
+}
 
-  const crewFields = crew.data
-    ? [
-        {
-          label: "Base Principal",
-          value: crew.data.employment.base,
-          Icon: DepartureIcon,
-        },
-        {
-          label: "Cargo Oficial / Escalafón",
-          value: crew.data.employment.officialPosition,
-          Icon: RankIcon,
-        },
-        {
-          label: "Flota Autorizada",
-          value: crew.data.employment.authorizedFleet,
-          Icon: FlightIcon,
-        },
-        {
-          label: "Fecha de Ingreso",
-          value: crew.data.employment.hireDate,
-          Icon: CalendarIcon,
-        },
-        {
-          label: "Horas Totales de Vuelo",
-          value: crew.data.employment.totalHours,
-          Icon: LogbookIcon,
-        },
-        {
-          label: "Límite Mensual FDP",
-          value: crew.data.employment.fdpLimit,
-          Icon: GaugeIcon,
-        },
-      ]
-    : []
-
-  const supervisorFields = supervisor.data
-    ? [
-        {
-          label: "Base Asignada",
-          value: supervisor.data.employment.base,
-          Icon: DepartureIcon,
-        },
-        {
-          label: "Cargo Oficial",
-          value: supervisor.data.employment.officialPosition,
-          Icon: RankIcon,
-        },
-        {
-          label: "Área",
-          value: supervisor.data.employment.area,
-          Icon: SupervisorIcon,
-        },
-        {
-          label: "Turno Asignado",
-          value: supervisor.data.employment.shift,
-          Icon: ClockIcon,
-        },
-        {
-          label: "Fecha de Ingreso",
-          value: supervisor.data.employment.hireDate,
-          Icon: CalendarIcon,
-        },
-        {
-          label: "Canal de Radio",
-          value: supervisor.data.employment.radioChannel,
-          Icon: RadioChannelIcon,
-        },
-      ]
-    : []
-
-  const fields = isCrew ? crewFields : supervisorFields
+// Información laboral (solo el tripulante, solo lectura): sale de crew. Si crew falla, el
+// error se queda en este bloque y el resto de la pantalla sigue funcionando.
+const EmploymentSection = ({ crew }: EmploymentSectionProps) => {
+  // Por la falta de datos, no por isError: una recarga que falla conserva los datos.
+  const { data, isPending } = crew
 
   return (
-    <section
-      aria-labelledby={titleId}
-      className="flex flex-col gap-4 rounded-xl border border-brand-border/70 bg-card p-4 shadow-sm sm:p-6"
-    >
-      <div className="-mx-4 -mt-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-t-xl border-b border-brand-neutral bg-background px-4 pt-4 pb-3 sm:-mx-6 sm:-mt-6 sm:px-6">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-sm bg-brand-neutral text-foreground">
-            <PositionIcon aria-hidden="true" className="size-4.5" />
-          </span>
-          <h2
-            id={titleId}
-            className={cn(
-              typography.headlineSm,
-              "min-w-0 font-bold text-brand-primary"
-            )}
-          >
-            {isCrew
-              ? "2. Información Laboral y Escalafón (Solo Lectura - Registrada)"
-              : "2. Información Laboral y Turno (Solo Lectura - Registrada)"}
-          </h2>
-        </div>
+    <SectionCard
+      title="2. Información laboral"
+      icon={<PositionIcon aria-hidden="true" className="size-4.5" />}
+      aside={
         <p
           className={cn(
             typography.labelSm,
@@ -146,55 +42,56 @@ const EmploymentSection = ({ userId, isCrew }: EmploymentSectionProps) => {
           )}
         >
           <LockIcon aria-hidden="true" className="size-3.5 shrink-0" />
-          RRHH & Operaciones
+          Solo lectura
         </p>
-      </div>
-
-      {isPending ? (
-        <p
-          role="status"
-          className={cn(typography.bodySm, "text-muted-foreground")}
-        >
-          {isCrew ? "Cargando datos de vuelo…" : "Cargando datos del turno…"}
-        </p>
-      ) : isError ? (
-        <p role="alert" className={cn(typography.bodySm, "text-destructive")}>
-          {isCrew
-            ? "No se pudieron cargar los datos de vuelo."
-            : "No se pudieron cargar los datos del turno."}
-        </p>
+      }
+    >
+      {!data ? (
+        isPending ? (
+          <p
+            role="status"
+            className={cn(typography.bodySm, "text-muted-foreground")}
+          >
+            Cargando información laboral…
+          </p>
+        ) : (
+          <p role="alert" className={cn(typography.bodySm, "text-destructive")}>
+            No se pudo cargar la información laboral.
+          </p>
+        )
       ) : (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          {fields.map(({ label, value, Icon }, index) => (
-            // group: el último campo (límite FDP o canal de radio) va en azul, como la referencia.
-            <div key={label} className="group flex min-w-0 flex-col gap-1">
-              <label
-                htmlFor={`${fieldId}-${index}`}
-                className={cn(
-                  typography.labelMd,
-                  "font-semibold text-brand-primary"
-                )}
+        <div className="flex flex-col gap-3">
+          <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {[
+              { label: "Código de empleado", value: data.employee_code },
+              { label: "Cargo", value: data.position },
+              {
+                label: "Base",
+                value: data.current_location ?? "Sin base asignada",
+              },
+              { label: "Estado operativo", value: STATUS_LABELS[data.status] },
+            ].map(({ label, value }) => (
+              <div
+                key={label}
+                className="flex min-w-0 flex-col gap-0.5 rounded-sm border border-brand-border bg-muted px-3 py-2"
               >
-                {label}
-              </label>
-              <div className="relative">
-                <Icon
-                  aria-hidden="true"
-                  className="pointer-events-none absolute top-1/2 left-3 size-4.5 -translate-y-1/2 text-muted-foreground"
-                />
-                <input
-                  id={`${fieldId}-${index}`}
-                  type="text"
-                  readOnly
-                  value={value}
+                <dt className={cn(typography.labelMd, "text-muted-foreground")}>
+                  {label}
+                </dt>
+                <dd
                   className={cn(
-                    typography.bodyMd,
-                    "min-h-11 w-full min-w-0 cursor-not-allowed truncate rounded-sm border border-brand-border bg-muted py-2 pr-3 pl-10 text-foreground group-last:font-medium group-last:text-brand-secondary focus-visible:border-brand-tertiary focus-visible:ring-2 focus-visible:ring-brand-tertiary focus-visible:outline-hidden lg:min-h-10"
+                    typography.labelLg,
+                    "wrap-break-word text-brand-primary"
                   )}
-                />
+                >
+                  {value}
+                </dd>
               </div>
-            </div>
-          ))}
+            ))}
+          </dl>
+          <p className={cn(typography.bodySm, "text-muted-foreground")}>
+            Registrado en tripulación desde {formatDate(data.created_at)}
+          </p>
         </div>
       )}
 
@@ -208,11 +105,9 @@ const EmploymentSection = ({ userId, isCrew }: EmploymentSectionProps) => {
           aria-hidden="true"
           className="size-4 shrink-0 text-brand-secondary"
         />
-        Información registrada y auditada por Recursos Humanos y Operaciones de
-        Vuelo. Para solicitar modificaciones, contacte a Gestión de
-        Tripulaciones.
+        La gestiona un supervisor; pídele los cambios.
       </p>
-    </section>
+    </SectionCard>
   )
 }
 
