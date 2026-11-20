@@ -27,6 +27,13 @@ const MOCK_USERS: Record<Role, AuthUser> = {
   },
 }
 
+const DEMO_USER_IDS = new Set(Object.values(MOCK_USERS).map((user) => user.id))
+
+// true si la sesión es de una cuenta demo o del selector «Rol (dev)»: esas pantallas
+// usan datos de ejemplo en lugar del backend.
+export const isDemoUser = (user: AuthUser | null): boolean =>
+  user !== null && DEMO_USER_IDS.has(user.id)
+
 interface AuthState {
   user: AuthUser | null
   // "checking" mientras SessionGate pregunta al backend si la cookie sigue viva.

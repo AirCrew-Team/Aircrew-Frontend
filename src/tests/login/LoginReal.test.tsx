@@ -160,6 +160,9 @@ describe("LR-01: credenciales reales correctas", () => {
 
   it("LR-11: si el perfil de crew responde 401, el tripulante entra igual con «Tripulante» y sin el toast de sesión vencida", async () => {
     mockLoginSequence([loginOk(API_USERS.crew)])
+    // 401 persistente: también lo recibe la petición del Inicio real, ya con la sesión
+    // puesta. El interceptor no cierra la sesión por crew-members/me: el bloque muestra
+    // su propio error.
     mockCrewProfile(status(401))
     const user = userEvent.setup()
     const router = renderRoute(PATHS.login)
@@ -169,7 +172,23 @@ describe("LR-01: credenciales reales correctas", () => {
     await waitForPath(router, PATHS.tripulante.inicio)
     await findNavbarProfile("Luis Pérez Tripulante")
     expect(useAuthStore.getState().user?.position).toBe("Tripulante")
+
+    // Ancla: el Inicio ya recibió su 401 (si no, los asserts de abajo pasarían en vacío).
+    const region = await screen.findByRole("region", {
+      name: "Estado de asignación",
+    })
+    await waitFor(
+      () =>
+        expect(
+          within(region)
+            .queryAllByRole("alert")
+            .map((alert) => alert.textContent?.trim())
+        ).toContain("No se pudo cargar el estado de asignación."),
+      AFTER_LOGIN_WAIT
+    )
     expect(queryToast(TEXTS.expired)).toBeNull()
+    expect(useAuthStore.getState().user).not.toBeNull()
+    expect(router.state.location.pathname).toBe(PATHS.tripulante.inicio)
   })
 })
 
@@ -325,6 +344,8 @@ describe("LR-07b: /login con una sesión confirmada", () => {
   it.each(Object.values(ROLES))(
     "LR-07b: con setUser de un %s, entrar a /login termina en el inicio del rol",
     async (role) => {
+      // Spec ausencias-reales: el Inicio real del tripulante pide crew-members/me.
+      mockCrewProfile(() => HttpResponse.json(CREW_PROFILE))
       useAuthStore.getState().setUser(REAL_USERS[role])
 
       const router = renderRoute(PATHS.login)

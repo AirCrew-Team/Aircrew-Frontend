@@ -12,6 +12,7 @@ import {
   getUpcomingFlights,
 } from "@/modules/flights/data/flights.data"
 import type { CrewFlight } from "@/modules/flights/types/flights.types"
+import { isDemoUser, useAuthStore } from "@/stores/auth.store"
 
 type FlightsTab = "upcoming" | "history"
 
@@ -43,7 +44,9 @@ const controlClass = cn(
 
 // B: pestañas, buscador, mes y filtros, con la lista de la pestaña activa.
 // Las dos listas se piden al entrar porque las pestañas muestran sus conteos.
+// Con la sesión real aún no hay vuelos: listas vacías y sin consulta.
 const FlightsBrowser = () => {
+  const demo = useAuthStore((state) => isDemoUser(state.user))
   const id = useId()
   const [tab, setTab] = useState<FlightsTab>("upcoming")
   const [search, setSearch] = useState("")
@@ -52,17 +55,21 @@ const FlightsBrowser = () => {
   const upcoming = useQuery({
     queryKey: ["flights", "upcoming"],
     queryFn: getUpcomingFlights,
+    enabled: demo,
   })
   const history = useQuery({
     queryKey: ["flights", "history"],
     queryFn: getFlightHistory,
+    enabled: demo,
   })
 
   const query = search.trim()
   const normalizedQuery = normalizeForSearch(query)
   const lists = TABS.map(({ value, label }) => {
-    const { data, isPending, isError } =
-      value === "upcoming" ? upcoming : history
+    const result = value === "upcoming" ? upcoming : history
+    const data = demo ? result.data : []
+    const isPending = demo && result.isPending
+    const isError = demo && result.isError
     const monthFlights = data?.filter((flight) => flight.month === month)
     const visible = monthFlights?.filter((flight) =>
       matchesSearch(flight, normalizedQuery)

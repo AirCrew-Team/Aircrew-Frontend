@@ -9,15 +9,20 @@ import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
 import { getCertifications } from "@/modules/shared/certifications/data/certifications.data"
 import { getExpiryInfo } from "@/modules/shared/certifications/utils/expiry"
+import { isDemoUser, useAuthStore } from "@/stores/auth.store"
 
 // R: contadores por estado, calculados sobre la misma query que la lista.
+// Con la sesión real aún no hay certificaciones: contadores en cero y sin consulta.
 const CertificationsSummary = () => {
-  const { data, isPending, isError } = useQuery({
+  const demo = useAuthStore((state) => isDemoUser(state.user))
+  const { data, isPending } = useQuery({
     queryKey: ["certifications", "list"],
     queryFn: getCertifications,
+    enabled: demo,
   })
+  const certifications = demo ? data : []
 
-  if (isPending) {
+  if (!certifications && isPending) {
     return (
       <p
         role="status"
@@ -28,7 +33,8 @@ const CertificationsSummary = () => {
     )
   }
 
-  if (isError) {
+  // Sin datos y sin carga pendiente: la consulta falló.
+  if (!certifications) {
     return (
       <p role="alert" className={cn(typography.bodySm, "text-destructive")}>
         No se pudo cargar el resumen de certificaciones.
@@ -40,7 +46,7 @@ const CertificationsSummary = () => {
   const current: string[] = []
   const upcoming: string[] = []
   const expired: string[] = []
-  for (const certification of data) {
+  for (const certification of certifications) {
     const { status } = getExpiryInfo(certification.expiresAt, today)
     if (status === "vencido") expired.push(certification.name)
     else if (status === "proximo") upcoming.push(certification.name)

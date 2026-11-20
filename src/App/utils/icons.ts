@@ -24,7 +24,9 @@ export {
   Contact as ContactIcon,
   DoorOpen as GateIcon,
   Download as DownloadIcon,
+  ExternalLink as ExternalLinkIcon,
   Eye as ViewIcon,
+  EyeOff as HideIcon,
   FileText as DocumentIcon,
   Gauge as GaugeIcon,
   Headset as EmergencyLineIcon,
@@ -69,4 +71,6 @@ export {
   UserCog as SupervisorIcon,
   UserPlus as AddUserIcon,
   X as CloseIcon,
+  ZoomIn as ZoomInIcon,
+  ZoomOut as ZoomOutIcon,
 } from "lucide-react"

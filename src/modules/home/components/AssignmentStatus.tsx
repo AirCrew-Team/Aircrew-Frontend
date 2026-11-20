@@ -4,8 +4,9 @@ import { useQuery } from "@tanstack/react-query"
 import { AvailabilityIcon, InfoIcon } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
-import { getCrewStatus } from "@/modules/home/data/home.data"
+import { getCrewStatus, getMyCrewStatus } from "@/modules/home/data/home.data"
 import type { Availability } from "@/modules/home/types/home.types"
+import { isDemoUser, useAuthStore } from "@/stores/auth.store"
 
 const LABELS: Record<Availability, string> = {
   disponible: "Disponible",
@@ -16,9 +17,11 @@ const LABELS: Record<Availability, string> = {
 // Bloque 2: estado de asignación de solo lectura. Lo asigna OCC; el tripulante no lo cambia.
 const AssignmentStatus = () => {
   const titleId = useId()
+  const user = useAuthStore((state) => state.user)
+  // Misma query que WelcomeHeader: la cuenta demo usa los datos de ejemplo.
   const { data, isPending, isError } = useQuery({
-    queryKey: ["crew", "status"],
-    queryFn: getCrewStatus,
+    queryKey: ["crew", "status", user?.id],
+    queryFn: isDemoUser(user) ? getCrewStatus : getMyCrewStatus,
   })
 
   return (

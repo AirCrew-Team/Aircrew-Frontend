@@ -55,7 +55,8 @@ const loadingStatuses = (container: HTMLElement) =>
     .queryAllByRole("status")
     .filter((element) => /^cargando/i.test(element.textContent?.trim() ?? ""))
 
-// Espera a que la pantalla tenga su <form> con el vuelo de F1 ya cargado.
+// Espera a que la pantalla tenga su <form> listo. Spec ausencias-reales: ya no hay vuelo
+// que cargar; el formulario está listo cuando tiene «Fecha de inicio».
 const findLoadedForm = async () => {
   const main = await screen.findByRole("main")
   const form = await waitFor(() => {
@@ -63,7 +64,11 @@ const findLoadedForm = async () => {
     expect(element, "la pantalla debe tener un <form>").not.toBeNull()
     return element as HTMLFormElement
   }, LAZY)
-  await waitFor(() => expect(form).toHaveTextContent("AV-8520"))
+  await waitFor(() =>
+    expect(
+      within(form).getByLabelText(/Fecha de inicio/, { selector: "input" })
+    ).toBeInTheDocument()
+  )
   await waitFor(() => expect(loadingStatuses(main)).toHaveLength(0))
   return { main, form }
 }
@@ -246,7 +251,8 @@ describe("Reportar Ausencia: ajustes de lector de pantalla", () => {
     )
   })
 
-  it("A11Y-AUS-5: el formulario es un landmark con el nombre del h1 y F1 ya no es una región", async () => {
+  // Spec ausencias-reales: F1 (vuelo afectado) se quitó; su ausencia la comprueba AU-04.
+  it("A11Y-AUS-5: el formulario es un landmark con el nombre del h1", async () => {
     renderRoute(PATHS.tripulante.reportarAusencia)
     const main = await screen.findByRole("main")
     expect(
@@ -256,13 +262,6 @@ describe("Reportar Ausencia: ajustes de lector de pantalla", () => {
         LAZY
       )
     ).toBeInTheDocument()
-    await within(main).findByRole("heading", {
-      level: 2,
-      name: "Vuelo o Turno Afectado",
-    })
-    expect(
-      within(main).queryByRole("region", { name: "Vuelo o Turno Afectado" })
-    ).toBeNull()
   })
 
   it("A11Y-AUS-6: «Enviar Aviso a Despacho» se describe con el aviso operacional crítico", async () => {

@@ -8,10 +8,13 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import DotSeparator from "@/modules/home/components/DotSeparator"
 import { getReplacementAssignments } from "@/modules/home/data/home.data"
+import { isDemoUser, useAuthStore } from "@/stores/auth.store"
 
 // Bloque 3: asignaciones de reemplazo aprobadas por el Supervisor. Se ve una sola,
 // la primera sin «Enterado»; si no queda ninguna, no se pinta nada.
+// Con la sesión real aún no hay asignaciones: no se pinta ni se consulta.
 const ReplacementAssignmentBanner = () => {
+  const demo = useAuthStore((state) => isDemoUser(state.user))
   const titleId = useId()
   const detailId = useId()
   const chipRef = useRef<HTMLSpanElement>(null)
@@ -27,6 +30,7 @@ const ReplacementAssignmentBanner = () => {
   } = useQuery({
     queryKey: ["replacements", "assignments"],
     queryFn: getReplacementAssignments,
+    enabled: demo,
   })
 
   const unacknowledged = (assignments ?? []).filter(
@@ -44,7 +48,7 @@ const ReplacementAssignmentBanner = () => {
     else document.getElementById("contenido")?.focus()
   }, [assignment?.flightNumber])
 
-  if (!isPending && !isError && !assignment) return null
+  if (!demo || (!isPending && !isError && !assignment)) return null
 
   return (
     <section
