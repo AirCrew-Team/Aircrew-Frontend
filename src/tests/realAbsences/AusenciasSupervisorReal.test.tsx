@@ -63,7 +63,11 @@ const CLOSE_DIALOG = "Cerrar detalle de la ausencia"
 const NO_ATTACHMENT = "Sin comprobante adjunto"
 const REPORTED_CHIP = "Pendiente de reemplazo"
 const COVERED_CHIP = "Cubierta"
-const EMPTY_BOARD = "No hay ausencias reportadas en el turno."
+// D2 (spec cierre-tareas-johan): la lista real trae todas las ausencias, no solo las
+// de hoy ni las del turno.
+const EMPTY_BOARD = "No hay ausencias reportadas."
+const EYEBROW = "Seguimiento de ausencias · Horas en UTC"
+const DESCRIPTION = "Estado del reemplazo de cada ausencia reportada."
 const BOARD_ERROR = "No se pudieron cargar las ausencias."
 
 const REPORTED_LABEL = "Incapacidad médica repentina"
@@ -179,6 +183,17 @@ describe("AU-08: tablero con sesión real", () => {
 
     expect(await within(main).findByText(EMPTY_BOARD)).toBeInTheDocument()
     expect(within(main).queryAllByRole("article")).toHaveLength(0)
+  })
+
+  it("D2: la cabecera y el vacío no hablan de «Hoy» ni del «turno»", async () => {
+    mockAbsencesList([])
+    const { main } = await openBoard()
+    await within(main).findByText(EMPTY_BOARD)
+
+    expect(within(main).getByText(EYEBROW)).toBeInTheDocument()
+    expect(within(main).getByText(DESCRIPTION)).toBeInTheDocument()
+    expect(main).not.toHaveTextContent(/\bHoy\b/)
+    expect(main).not.toHaveTextContent(/turno/i)
   })
 
   it("AU-08: si GET /api/crew/absences falla, se muestra el error del bloque", async () => {

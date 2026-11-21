@@ -150,7 +150,8 @@ const NextFlightCard = () => {
             >
               <DepartureIcon aria-hidden="true" className="size-5" />
             </span>
-            Itinerario Confirmado
+            {/* La sesión real aún no tiene vuelos: la etiqueta es el nombre de la tarjeta. */}
+            {demo ? "Itinerario Confirmado" : "Próximo vuelo"}
           </p>
           {demo && flight ? (
             <p
