@@ -36,7 +36,8 @@ export interface Candidate {
   affinityLabel: string
   checks: string[]
   location: string
-  minutesToRamp: number
+  // null: el backend no sabe dónde está (no está de guardia).
+  minutesToRamp: number | null
   // Teléfono en formato legible (ej. «+57 310 445 8899»).
   phone: string
   radioChannel: string

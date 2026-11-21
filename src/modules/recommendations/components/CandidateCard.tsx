@@ -117,10 +117,16 @@ const CandidateCard = ({
           <LocationIcon aria-hidden="true" className="size-4 shrink-0" />
           <span>
             {candidate.location} ·{" "}
-            <strong className="font-semibold text-foreground">
-              {candidate.minutesToRamp} min
-            </strong>{" "}
-            a rampa
+            {candidate.minutesToRamp === null ? (
+              "tiempo a rampa sin dato"
+            ) : (
+              <>
+                <strong className="font-semibold text-foreground">
+                  {candidate.minutesToRamp} min
+                </strong>{" "}
+                a rampa
+              </>
+            )}
           </span>
         </p>
         {/* Toggle con nombre fijo «Elegir» (APG): el estado va en aria-pressed y en el
@@ -164,7 +170,9 @@ const CandidateCard = ({
                 Llegada estimada a rampa
               </dt>
               <dd className={cn(typography.headlineSm, "text-brand-secondary")}>
-                {candidate.minutesToRamp} min
+                {candidate.minutesToRamp === null
+                  ? "Sin dato"
+                  : `${candidate.minutesToRamp} min`}
               </dd>
             </div>
             <div className="flex flex-col gap-1 rounded-md bg-muted px-3 py-2.5">

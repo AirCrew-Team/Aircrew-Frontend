@@ -22,7 +22,8 @@ export type CrewMember =
   | (CrewMemberBase & {
       status: "guardia"
       location: string
-      minutesToRamp: number
+      // null: el backend no tiene el dato.
+      minutesToRamp: number | null
       guardUntilUtc: string
       // null = disponible para reemplazos; si no, el motivo de regla.
       replacementBlocker: string | null

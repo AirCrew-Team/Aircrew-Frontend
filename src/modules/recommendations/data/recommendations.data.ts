@@ -121,7 +121,7 @@ const toCandidate = (candidate: ApiCandidate): Candidate => ({
   affinityLabel: AFFINITY_LABEL[candidate.affinity_label],
   checks: candidate.checks,
   location: candidate.location ?? NO_DATA,
-  minutesToRamp: candidate.minutes_to_ramp ?? 0,
+  minutesToRamp: candidate.minutes_to_ramp,
   phone: candidate.phone ?? NO_DATA,
   radioChannel: candidate.radio_channel ?? NO_DATA,
   rationale: candidate.rationale,

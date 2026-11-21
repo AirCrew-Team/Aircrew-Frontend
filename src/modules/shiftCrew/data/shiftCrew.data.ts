@@ -78,7 +78,7 @@ const toCrewMember = (member: ApiShiftMember): CrewMember | null => {
         ...base,
         status: "guardia",
         location: member.location ?? NO_DATA,
-        minutesToRamp: member.minutes_to_ramp ?? 0,
+        minutesToRamp: member.minutes_to_ramp ?? null,
         guardUntilUtc: clockOrDash(member.guard_until),
         replacementBlocker: member.replacement_blocker ?? null,
       }
