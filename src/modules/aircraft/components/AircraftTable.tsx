@@ -11,18 +11,18 @@ import AircraftFormDialog, {
 } from "@/modules/aircraft/components/AircraftFormDialog"
 import AircraftReportDialog from "@/modules/aircraft/components/AircraftReportDialog"
 import DeleteAircraftDialog from "@/modules/aircraft/components/DeleteAircraftDialog"
+import { AIRCRAFT_PAGE_SIZE } from "@/modules/aircraft/data/aircraft.data"
 import {
-  AIRCRAFT_PAGE_SIZE,
-  getAircraft,
-} from "@/modules/aircraft/data/aircraft.data"
+  useAircraftApi,
+  useMaintenanceLabel,
+} from "@/modules/aircraft/hooks/useAircraftApi"
 import { useAircraftSearchParams } from "@/modules/aircraft/hooks/useAircraftSearchParams"
 import { aircraftPhotoSrc } from "@/modules/aircraft/utils/aircraftPhoto"
-import type { Aircraft } from "@/modules/aircraft/types/aircraft.types"
+import type { Aircraft } from "@/App/types/aircraft.types"
 import {
   AIRCRAFT_STATUS,
-  CATEGORY_LABEL,
-  MAINTENANCE_LABEL,
-  crewText,
+  categoryLabel,
+  crewTextOf,
   statusLabelOf,
 } from "@/modules/aircraft/utils/aircraftStatus"
 
@@ -66,6 +66,8 @@ const MobileLabel = ({ children }: { children: string }) => (
 const AircraftTable = () => {
   const { page, search, filter, setPage, hrefForPage } =
     useAircraftSearchParams()
+  const { getAircraft } = useAircraftApi()
+  const maintenanceLabel = useMaintenanceLabel()
   // La búsqueda espera 300 ms sin teclear antes de consultar: una petición por búsqueda,
   // no por tecla. El campo de la barra sigue mostrando el texto al instante.
   const debouncedSearch = useDebouncedValue(search)
@@ -240,7 +242,7 @@ const AircraftTable = () => {
                           "rounded-sm bg-brand-neutral px-2 py-1 font-semibold text-brand-secondary uppercase"
                         )}
                       >
-                        {CATEGORY_LABEL[aircraft.category]}
+                        {categoryLabel(aircraft.category)}
                       </span>
                     </td>
                     {/* Capacidad y tripulación mínima del modelo. */}
@@ -260,7 +262,7 @@ const AircraftTable = () => {
                           "block text-muted-foreground"
                         )}
                       >
-                        {crewText(aircraft.minimumCrew)}
+                        {crewTextOf(aircraft.minimumCrew)}
                       </span>
                     </td>
                     <td role="cell" className={cellClass}>
@@ -296,7 +298,7 @@ const AircraftTable = () => {
                             "mt-1 block text-muted-foreground"
                           )}
                         >
-                          {MAINTENANCE_LABEL[aircraft.maintenanceType]}
+                          {maintenanceLabel(aircraft.maintenanceType)}
                         </span>
                       ) : null}
                     </td>

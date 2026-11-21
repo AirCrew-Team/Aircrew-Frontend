@@ -2,6 +2,7 @@ import { useId, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
+import { AircraftRequestError } from "@/App/actions/aircraft/aircraft.actions"
 import {
   ConfirmedIcon,
   DocumentIcon,
@@ -13,21 +14,19 @@ import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import AircraftDialogHeader from "@/modules/aircraft/components/AircraftDialogHeader"
 import {
-  getAircraftReport,
-  releaseToService,
-  setMaintenanceTask,
-} from "@/modules/aircraft/data/aircraft.data"
+  useAircraftApi,
+  useMaintenanceLabel,
+} from "@/modules/aircraft/hooks/useAircraftApi"
 import type {
   Aircraft,
   MaintenanceHistoryEntry,
   MaintenanceRecord,
-} from "@/modules/aircraft/types/aircraft.types"
+} from "@/App/types/aircraft.types"
 import { aircraftPhotoSrc } from "@/modules/aircraft/utils/aircraftPhoto"
 import {
   AIRCRAFT_STATUS,
-  CATEGORY_LABEL,
-  MAINTENANCE_LABEL,
-  crewText,
+  categoryLabel,
+  crewTextOf,
   statusLabelOf,
 } from "@/modules/aircraft/utils/aircraftStatus"
 import { formatDate, formatNumber } from "@/modules/aircraft/utils/formatDate"
@@ -68,13 +67,13 @@ const AircraftSection = ({ aircraft }: { aircraft: Aircraft }) => {
           <Field label="Matrícula" value={aircraft.registration} />
           <Field label="Número de serie" value={aircraft.msn} />
           <Field label="Modelo" value={aircraft.modelName} />
-          <Field label="Categoría" value={CATEGORY_LABEL[aircraft.category]} />
+          <Field label="Categoría" value={categoryLabel(aircraft.category)} />
           <Field label="Capacidad" value={`${aircraft.capacity} pasajeros`} />
           <Field
             label="Tripulación mínima"
-            value={crewText(aircraft.minimumCrew)}
+            value={crewTextOf(aircraft.minimumCrew)}
           />
-          <Field label="Motores" value={aircraft.engines} />
+          <Field label="Motores" value={aircraft.engines ?? "—"} />
           <Field
             label="Año de fabricación"
             value={String(aircraft.manufactureYear)}
@@ -129,6 +128,8 @@ const MaintenanceSection = ({
   const titleId = useId()
   const progressId = useId()
   const queryClient = useQueryClient()
+  const { setMaintenanceTask, releaseToService } = useAircraftApi()
+  const maintenanceLabel = useMaintenanceLabel()
   const done = maintenance.tasks.filter((task) => task.done).length
   const total = maintenance.tasks.length
   const percent = Math.round((done / total) * 100)
@@ -172,7 +173,7 @@ const MaintenanceSection = ({
           <WarningIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0" />
           <div className="flex min-w-0 flex-col gap-0.5">
             <p className={cn(typography.labelLg, "font-bold")}>
-              {MAINTENANCE_LABEL[maintenance.type]}
+              {maintenanceLabel(maintenance.type)}
             </p>
             <p className={typography.bodySm}>
               {maintenance.description ?? "Sin descripción del problema."}
@@ -288,7 +289,9 @@ const MaintenanceSection = ({
         </div>
         {release.isError ? (
           <p role="alert" className={cn(typography.bodySm, "text-destructive")}>
-            No se pudo liberar la aeronave. Intenta de nuevo.
+            {release.error instanceof AircraftRequestError
+              ? release.error.message
+              : "No se pudo liberar la aeronave. Intenta de nuevo."}
           </p>
         ) : null}
       </div>
@@ -303,6 +306,7 @@ const HistorySection = ({
   history: MaintenanceHistoryEntry[]
 }) => {
   const titleId = useId()
+  const maintenanceLabel = useMaintenanceLabel()
   return (
     <section aria-labelledby={titleId} className={cardClass}>
       <h3 id={titleId} className={sectionTitleClass}>
@@ -325,7 +329,7 @@ const HistorySection = ({
                   "font-bold text-brand-primary"
                 )}
               >
-                {MAINTENANCE_LABEL[entry.type]}
+                {maintenanceLabel(entry.type)}
               </span>
               {entry.description ? (
                 <span className={cn(typography.bodySm, "text-brand-primary")}>
@@ -358,6 +362,7 @@ const AircraftReportDialog = ({
   onClose,
   onEdit,
 }: AircraftReportDialogProps) => {
+  const { getAircraftReport } = useAircraftApi()
   // Última aeronave abierta: el contenido sigue visible durante la animación de cierre.
   const [shown, setShown] = useState(aircraft)
   if (aircraft !== null && aircraft !== shown) setShown(aircraft)

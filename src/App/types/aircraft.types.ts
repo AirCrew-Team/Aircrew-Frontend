@@ -43,6 +43,14 @@ export interface AircraftBase {
   name: string
 }
 
+// Motivo de mantenimiento del catálogo del backend, con sus tareas en orden.
+export interface MaintenanceTypeOption {
+  code: MaintenanceType
+  // Texto para la pantalla, ej. «Problemas con el motor».
+  label: string
+  tasks: string[]
+}
+
 // Aeronave como la devuelve el backend: con los datos de su modelo y su base.
 export interface Aircraft {
   id: string
@@ -52,10 +60,11 @@ export interface Aircraft {
   msn: string
   modelId: string
   modelName: string
-  category: AircraftCategory
+  // null en aeronaves antiguas sin modelo del catálogo (el backend no los conoce).
+  category: AircraftCategory | null
   capacity: number
-  minimumCrew: MinimumCrew
-  engines: string
+  minimumCrew: MinimumCrew | null
+  engines: string | null
   baseCode: string
   baseName: string
   // Año de fabricación, ej. 2021.
@@ -96,15 +105,20 @@ export interface AircraftStats {
   maintenance: number
   // Asientos de toda la flota (suma de la capacidad de cada aeronave).
   totalSeats: number
+  // Modelos de las aeronaves operativas, sin repetir y ordenados.
+  modelsInService: string[]
 }
 
-// Catálogos del formulario.
+// Catálogos del backend (GET /aircraft/options): modelos, bases y motivos de
+// mantenimiento con sus tareas.
 export interface AircraftOptions {
   models: AircraftModel[]
   bases: AircraftBase[]
+  maintenanceTypes: MaintenanceTypeOption[]
 }
 
-// Datos que se envían al registrar o editar (con la API, POST o PUT de la aeronave).
+// Datos que se envían al registrar o editar (POST o PUT de la aeronave). La foto va
+// aparte, después de guardar (PUT .../photo), igual que la foto de perfil.
 export interface SaveAircraftInput {
   registration: string
   msn: string
@@ -115,8 +129,6 @@ export interface SaveAircraftInput {
   condition: AircraftStatus
   maintenanceType: MaintenanceType | null
   maintenanceNote: string | null
-  // Foto nueva, null para quitarla o undefined para dejar la que había.
-  photo?: File | null
 }
 
 // Tarea del mantenimiento.
