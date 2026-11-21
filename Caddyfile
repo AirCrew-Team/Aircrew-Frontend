@@ -1,0 +1,34 @@
+# Servidor del frontend en Railway (spec docs/specs/proxy-railway.md).
+# PORT lo define Railway (por defecto, 8080). GATEWAY_URL no tiene valor por defecto: si falta, el CMD del
+# Dockerfile no arranca Caddy, en vez de responder 502 en silencio.
+{
+	admin off
+}
+
+:{$PORT:8080} {
+	encode zstd gzip
+
+	# El gateway espera el prefijo /api/<servicio> intacto: handle, no handle_path.
+	# reverse_proxy también reenvía el WebSocket de las alertas.
+	handle /api/* {
+		reverse_proxy {$GATEWAY_URL}
+	}
+
+	# Vite pone un hash en el nombre de cada archivo de /assets/: caché de un año.
+	# Un archivo que no existe da 404 (sin caché), no index.html.
+	handle /assets/* {
+		root * /srv
+		@exists file
+		header @exists Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+
+	# El resto, sin caché: index.html (también en las rutas de la SPA, p. ej. F5 en
+	# /supervisor/programacion), para que tras un despliegue no pida chunks viejos.
+	handle {
+		root * /srv
+		header Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+}

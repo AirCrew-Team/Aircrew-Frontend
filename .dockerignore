@@ -1,0 +1,15 @@
+# Lo que no entra en la imagen del frontend (spec docs/specs/proxy-railway.md).
+# src/tests y los tsconfig* sí entran: tsc -b los usa en pnpm build.
+node_modules
+dist
+.git
+.env
+*.local
+.claude
+.superpowers
+.agents
+.impeccable
+docs
+referencias
+test-results
+playwright-report
