@@ -29,6 +29,7 @@ Interfaz web para gestionar tripulaciones aéreas: tripulantes, supervisores y a
 - [Configuración](#configuración)
 - [Arquitectura](#arquitectura)
 - [Pruebas](#pruebas)
+- [Despliegue en Railway](#despliegue-en-railway)
 - [Hoja de ruta](#hoja-de-ruta)
 - [Contribuir](#contribuir)
 - [Licencia](#licencia)
@@ -204,6 +205,49 @@ pnpm exec playwright show-report       # abre el reporte HTML de la última ejec
 
 > [!NOTE]
 > Playwright compila la app (`pnpm build`) y la sirve con `vite preview` en el puerto 4173 antes de probar; no hace falta tener `pnpm dev` abierto. Si una prueba falla, el reporte guarda la captura, el video y la traza del fallo. En el CI se sube como artefacto `playwright-report`.
+
+## Despliegue en Railway
+
+En producción, la app se publica en Railway como **el único servicio con dominio público**. El `Dockerfile` la compila y la sirve con [Caddy](https://caddyserver.com/), que además reenvía `/api/*` al gateway del backend por la red privada de Railway:
+
+```text
+Navegador ──► dominio del frontend
+                 ├─ /, /supervisor/programacion, /assets/...  → la app (dist/)
+                 └─ /api/...  ──(red privada)──► gateway ──► servicios
+```
+
+El navegador habla con un solo dominio, así que la cookie de sesión (`SameSite=Lax`) funciona en todos los navegadores, también en Safari. El backend, PostgreSQL y sus variables se configuran según el README del repositorio del backend.
+
+**Servicio `frontend` en Railway:**
+
+- **Origen:** este repositorio. Railway detecta el `Dockerfile` de la raíz.
+- **Dominio público:** sí, en el puerto `8080`.
+- **Healthcheck path:** `/`.
+- **Variables:**
+
+| Variable | Valor | Obligatoria |
+| --- | --- | --- |
+| `PORT` | `8080` | Sí |
+| `GATEWAY_URL` | `http://${{gateway.RAILWAY_PRIVATE_DOMAIN}}:3000` (URL privada del gateway) | Sí: sin ella, el contenedor no arranca |
+| `VITE_URL_API_BACKEND` | `/` (ya es el valor por defecto del `Dockerfile`) | No |
+
+**Qué hace Caddy (`Caddyfile`):**
+
+- `/api/*` va al gateway con el prefijo intacto, incluido el WebSocket de las alertas.
+- Cualquier otra ruta devuelve `index.html`, así que recargar con F5 en una pantalla no da 404.
+- Caché:
+  - `index.html` y las rutas de la app van con `Cache-Control: no-cache`, para que tras un despliegue nadie se quede con chunks viejos;
+  - los archivos de `/assets/` van con caché de un año (`immutable`), porque Vite les pone un hash en el nombre;
+  - un archivo de `/assets/` que no existe da 404.
+
+**Probar la imagen en local** (con el backend corriendo en el equipo):
+
+```bash
+docker build -t aircrew-frontend .
+docker run --rm -p 8080:8080 -e PORT=8080 -e GATEWAY_URL=http://host.docker.internal:3000 aircrew-frontend
+```
+
+Y abrir `http://localhost:8080`. En local la cookie no lleva `Secure`, así que funciona por http.
 
 ## Hoja de ruta
 
