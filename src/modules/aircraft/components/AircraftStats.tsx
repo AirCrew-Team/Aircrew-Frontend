@@ -8,12 +8,13 @@ import {
 } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
-import { getAircraftStats } from "@/modules/aircraft/data/aircraft.data"
+import { useAircraftApi } from "@/modules/aircraft/hooks/useAircraftApi"
 
 // Bloque 2: indicadores de la flota, en tarjetas pequeñas como en Usuarios y
 // Certificaciones. Comparte la consulta ["aircraft", "stats"] con los conteos de los
 // filtros (AircraftToolbar): TanStack Query la pide una sola vez.
 const AircraftStats = () => {
+  const { getAircraftStats } = useAircraftApi()
   const { data, isPending, isError } = useQuery({
     queryKey: ["aircraft", "stats"],
     queryFn: getAircraftStats,

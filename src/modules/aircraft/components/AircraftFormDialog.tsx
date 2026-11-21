@@ -1,9 +1,13 @@
 import { useId, useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useForm, useWatch } from "react-hook-form"
 import { toast } from "sonner"
 
+import {
+  AircraftFieldError,
+  AircraftRequestError,
+} from "@/App/actions/aircraft/aircraft.actions"
 import { FlightIcon } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
 import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog"
@@ -11,11 +15,9 @@ import { cn } from "@/lib/utils"
 import AircraftDialogHeader from "@/modules/aircraft/components/AircraftDialogHeader"
 import AircraftPhotoField from "@/modules/aircraft/components/AircraftPhotoField"
 import {
-  AircraftFieldError,
-  createAircraft,
-  getAircraftOptions,
-  updateAircraft,
-} from "@/modules/aircraft/data/aircraft.data"
+  useAircraftApi,
+  useAircraftOptions,
+} from "@/modules/aircraft/hooks/useAircraftApi"
 import {
   aircraftSchema,
   type AircraftFormValues,
@@ -24,10 +26,9 @@ import type {
   Aircraft,
   AircraftOptions,
   MaintenanceType,
-} from "@/modules/aircraft/types/aircraft.types"
+} from "@/App/types/aircraft.types"
 import {
   CATEGORY_LABEL,
-  MAINTENANCE_LABEL,
   crewText,
 } from "@/modules/aircraft/utils/aircraftStatus"
 
@@ -83,7 +84,13 @@ interface AircraftFormProps {
 const AircraftForm = ({ aircraft, options, onSaved }: AircraftFormProps) => {
   const id = useId()
   const queryClient = useQueryClient()
+  const { createAircraft, updateAircraft, uploadAircraftPhoto } =
+    useAircraftApi()
   const isEdit = Boolean(aircraft)
+  // En mantenimiento, «Operativa» no se puede elegir: vuelve a servicio solo con
+  // «Liberar a servicio» en el informe, con todas las tareas hechas (si no, el backend
+  // responde 409).
+  const lockedInMaintenance = aircraft?.status === "mantenimiento"
   // Foto elegida: un archivo nuevo o undefined (dejar la que había). Va fuera de
   // react-hook-form porque es un File, no texto.
   const [photo, setPhoto] = useState<File | undefined>(undefined)
@@ -105,10 +112,11 @@ const AircraftForm = ({ aircraft, options, onSaved }: AircraftFormProps) => {
   const condition = useWatch({ control, name: "condition" })
   const model = options.models.find((option) => option.id === modelId)
 
-  // Registrar (con la API, un POST) o editar (un PUT). Las mutaciones no se reintentan
-  // solas (ADR 003).
+  // Registrar (POST) o editar (PUT) y, si se eligió foto, subirla después (PUT
+  // .../photo), igual que la foto de perfil. Las mutaciones no se reintentan solas
+  // (ADR 003).
   const mutation = useMutation({
-    mutationFn: (values: AircraftFormValues) => {
+    mutationFn: async (values: AircraftFormValues) => {
       const inMaintenance = values.condition === "mantenimiento"
       const input = {
         registration: values.registration,
@@ -126,13 +134,22 @@ const AircraftForm = ({ aircraft, options, onSaved }: AircraftFormProps) => {
           inMaintenance && values.maintenanceNote
             ? values.maintenanceNote
             : null,
-        photo,
       }
-      return aircraft
-        ? updateAircraft(aircraft.id, input)
-        : createAircraft(input)
+      const saved = aircraft
+        ? await updateAircraft(aircraft.id, input)
+        : await createAircraft(input)
+      // La aeronave ya quedó guardada: si la foto falla, no se pierde el registro.
+      let photoFailed = false
+      if (photo) {
+        try {
+          await uploadAircraftPhoto(saved.id, photo)
+        } catch {
+          photoFailed = true
+        }
+      }
+      return { saved, photoFailed }
     },
-    onSuccess: (saved) => {
+    onSuccess: ({ saved, photoFailed }) => {
       // Refresca las tarjetas, los indicadores y los conteos de los filtros.
       queryClient.invalidateQueries({ queryKey: ["aircraft"] })
       toast.success(isEdit ? "Aeronave actualizada" : "Aeronave registrada", {
@@ -140,6 +157,11 @@ const AircraftForm = ({ aircraft, options, onSaved }: AircraftFormProps) => {
           ? `Los cambios de ${saved.registration} ya están vigentes.`
           : `${saved.registration} quedó en la flota con base en ${saved.baseName}.`,
       })
+      if (photoFailed) {
+        toast.error("No se pudo subir la foto", {
+          description: `${saved.registration} quedó guardada sin la foto nueva. Edítala para intentarlo de nuevo.`,
+        })
+      }
       onSaved()
     },
     onError: (error) => {
@@ -150,8 +172,14 @@ const AircraftForm = ({ aircraft, options, onSaved }: AircraftFormProps) => {
     },
   })
 
+  // Error que no es de un campo: el texto del backend (400/409, p. ej. volver a
+  // servicio desde aquí) o el aviso general.
   const genericError =
     mutation.isError && !(mutation.error instanceof AircraftFieldError)
+      ? mutation.error instanceof AircraftRequestError
+        ? mutation.error.message
+        : "No se pudo guardar la aeronave. Intenta de nuevo."
+      : null
 
   // Props comunes de cada campo: obligatorio, inválido y sus textos de ayuda/error.
   const describedBy = (name: keyof AircraftFormValues, hasHint = false) =>
@@ -368,6 +396,9 @@ const AircraftForm = ({ aircraft, options, onSaved }: AircraftFormProps) => {
             <div
               role="radiogroup"
               aria-label="Estado de la aeronave"
+              aria-describedby={
+                lockedInMaintenance ? `${id}-condition-hint` : undefined
+              }
               className="flex flex-wrap gap-2"
             >
               {(
@@ -386,6 +417,9 @@ const AircraftForm = ({ aircraft, options, onSaved }: AircraftFormProps) => {
                   <input
                     type="radio"
                     value={value}
+                    // Solo se deshabilita «Operativa»: el valor elegido (mantenimiento)
+                    // sigue en el formulario.
+                    disabled={lockedInMaintenance && value === "operativa"}
                     className="sr-only"
                     {...register("condition")}
                   />
@@ -393,6 +427,12 @@ const AircraftForm = ({ aircraft, options, onSaved }: AircraftFormProps) => {
                 </label>
               ))}
             </div>
+            {lockedInMaintenance ? (
+              <p id={`${id}-condition-hint`} className={hintClass}>
+                Para volver a servicio, completa las tareas y usa «Liberar a
+                servicio» en el informe de la aeronave.
+              </p>
+            ) : null}
 
             {/* Motivo y descripción: solo si está en mantenimiento. */}
             {condition === "mantenimiento" ? (
@@ -413,14 +453,10 @@ const AircraftForm = ({ aircraft, options, onSaved }: AircraftFormProps) => {
                   {...register("maintenanceType")}
                 >
                   <option value="">Selecciona…</option>
-                  {(
-                    Object.entries(MAINTENANCE_LABEL) as [
-                      MaintenanceType,
-                      string,
-                    ][]
-                  ).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
+                  {/* Motivos del catálogo del backend (GET /aircraft/options). */}
+                  {options.maintenanceTypes.map((type) => (
+                    <option key={type.code} value={type.code}>
+                      {type.label}
                     </option>
                   ))}
                 </select>
@@ -460,7 +496,7 @@ const AircraftForm = ({ aircraft, options, onSaved }: AircraftFormProps) => {
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           {genericError ? (
             <p role="alert" className={errorClass}>
-              No se pudo guardar la aeronave. Intenta de nuevo.
+              {genericError}
             </p>
           ) : null}
           <div className="flex justify-end gap-2">
@@ -513,12 +549,7 @@ const AircraftFormDialog = ({ target, onClose }: AircraftFormDialogProps) => {
   if (target !== null && target !== shown) setShown(target)
   const aircraft = shown?.aircraft
 
-  const options = useQuery({
-    queryKey: ["aircraft", "options"],
-    queryFn: getAircraftOptions,
-    staleTime: 10 * 60 * 1000,
-    enabled: shown !== null,
-  })
+  const options = useAircraftOptions(shown !== null)
 
   return (
     <Dialog
