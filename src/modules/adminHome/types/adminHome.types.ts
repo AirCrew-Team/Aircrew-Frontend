@@ -31,8 +31,12 @@ export interface AirportStatus {
 // Tarjeta «Gestión de Usuarios» (UsersCard).
 export interface UsersSummary {
   registeredCrew: number
-  // Porcentaje de tripulantes aptos en el turno actual.
-  availabilityPercent: number
+  // Tripulantes activos disponibles para un reemplazo (crew_available). Los datos de
+  // ejemplo no lo tienen.
+  availableCrew?: number
+  // Porcentaje de tripulantes aptos en el turno actual. null: el backend aún no tiene
+  // datos médicos.
+  availabilityPercent: number | null
 }
 
 // Tarjeta «Flota de Aeronaves» (FleetCard).

@@ -9,8 +9,9 @@ import { useAuthStore } from "@/stores/auth.store"
 import { renderRoute } from "../utils/renderRoute"
 import { findToast } from "../utils/toasts"
 
-// Acciones de cada fila: ojo, lápiz (editar) y papelera (eliminar con confirmación).
-// Va en su propio archivo porque editar y eliminar cambian los datos simulados en
+// Acciones de cada fila con la cuenta demo: ojo, lápiz (editar) y papelera (desactivar
+// con confirmación).
+// Va en su propio archivo porque editar y desactivar cambian los datos simulados en
 // memoria. Los tests que cambian datos van al final y cada uno usa un usuario distinto.
 
 // Estos tests llenan el formulario campo por campo con userEvent: con la máquina cargada
@@ -73,15 +74,20 @@ const openEdit = async (name: string) => {
   return { user, dialog }
 }
 
-const openDelete = async (name: string) => {
+const openDeactivate = async (name: string) => {
   const user = await renderUsers()
-  const trigger = screen.getByRole("button", { name: `Eliminar a ${name}` })
+  const trigger = screen.getByRole("button", { name: `Desactivar a ${name}` })
   await user.click(trigger)
   const dialog = await screen.findByRole("alertdialog", {
-    name: `¿Desea eliminar a ${name}?`,
+    name: `¿Desea desactivar a ${name}?`,
   })
   return { user, trigger, dialog }
 }
+
+const optionTexts = (select: HTMLElement) =>
+  within(select)
+    .getAllByRole("option")
+    .map((option) => option.textContent)
 
 describe("Usuarios: acciones de cada fila", () => {
   it("cada fila tiene ojo, lápiz y papelera, solo con ícono y con nombre accesible", async () => {
@@ -92,14 +98,14 @@ describe("Usuarios: acciones de cada fila", () => {
     expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual([
       "Ver más información de Diego Salcedo",
       "Editar a Diego Salcedo",
-      "Eliminar a Diego Salcedo",
+      "Desactivar a Diego Salcedo",
     ])
     // Sin texto visible: solo el ícono, con ayuda al pasar el mouse.
     for (const button of buttons) expect(button.textContent).toBe("")
     expect(buttons.map((button) => button.title)).toEqual([
       "Ver más información",
       "Editar",
-      "Eliminar",
+      "Desactivar",
     ])
   })
 })
@@ -121,29 +127,35 @@ describe("Usuarios: editar", () => {
     expect(form.getByLabelText(/^Rol/)).toHaveValue("tripulacion")
     expect(form.getByLabelText(/^Cargo/)).toHaveValue("Comandante")
     expect(form.getByLabelText(/^Base/)).toHaveValue("ATL")
-    expect(form.getByLabelText(/^Número de licencia/)).toHaveValue(
-      "FAA ATP #1108-US"
-    )
-    for (const certificate of [
-      "Airline Transport Pilot (ATP)",
-      "Instrument Rating (IR)",
-      "Multi-Engine (ME)",
-    ]) {
-      expect(form.getByRole("checkbox", { name: certificate })).toBeChecked()
-    }
+    // La licencia y los certificados ya no se editan aquí.
     expect(
-      form.getByRole("checkbox", { name: "Private Pilot (PPL)" })
-    ).not.toBeChecked()
+      form.queryByRole("group", { name: "Licencia" })
+    ).not.toBeInTheDocument()
   })
 
-  it("un supervisor se abre sin cargo ni licencia", async () => {
-    const { dialog } = await openEdit("Camila Restrepo")
+  it("el rol de un tripulante no se puede cambiar", async () => {
+    const { dialog } = await openEdit("Diego Salcedo")
+    const role = within(dialog).getByLabelText(/^Rol/)
 
-    expect(within(dialog).getByLabelText(/^Rol/)).toHaveValue("supervisor")
-    expect(within(dialog).queryByLabelText(/^Cargo/)).not.toBeInTheDocument()
-    expect(
-      within(dialog).queryByRole("group", { name: "Licencia" })
-    ).not.toBeInTheDocument()
+    expect(optionTexts(role)).toEqual(["Tripulación"])
+    expect(role).toHaveAccessibleDescription(
+      "El rol de un tripulante no se puede cambiar."
+    )
+  })
+
+  it("un supervisor se abre con su base y su turno, y solo puede pasar a Administrador", async () => {
+    const { dialog } = await openEdit("Camila Restrepo")
+    const form = within(dialog)
+
+    expect(form.getByLabelText(/^Rol/)).toHaveValue("supervisor")
+    expect(optionTexts(form.getByLabelText(/^Rol/))).toEqual([
+      "Selecciona…",
+      "Supervisor",
+      "Administrador",
+    ])
+    expect(form.queryByLabelText(/^Cargo/)).not.toBeInTheDocument()
+    expect(form.getByLabelText(/^Base/)).toHaveValue("JFK")
+    expect(form.getByLabelText(/^Turno/)).toHaveValue("turno_1")
   })
 
   it("valida igual que el alta: un correo de otro usuario se marca en el campo", async () => {
@@ -158,7 +170,7 @@ describe("Usuarios: editar", () => {
 
     await waitFor(() =>
       expect(email).toHaveAccessibleDescription(
-        "Ya existe un usuario con ese correo."
+        "Ya existe un usuario con ese email."
       )
     )
     expect(screen.getByRole("dialog", { name: "Editar usuario" })).toBeVisible()
@@ -179,7 +191,7 @@ describe("Usuarios: editar", () => {
     ).toHaveAttribute("role", "alert")
   })
 
-  it("guardar envía los cambios, avisa, cierra y la tabla se actualiza", async () => {
+  it("guardar envía los cambios y los datos originales, avisa, cierra y la tabla se actualiza", async () => {
     const { user, dialog } = await openEdit("Diego Salcedo")
 
     await user.selectOptions(within(dialog).getByLabelText(/^Base/), "BOS")
@@ -198,25 +210,23 @@ describe("Usuarios: editar", () => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
     )
 
-    const call = usersData.calls.find((entry) => entry.name === "updateUser")
-    expect(call?.args[0]).toBe("AC-1108")
-    expect(call?.args[1]).toEqual({
+    const original = {
       firstName: "Diego",
       lastName: "Salcedo",
       email: "d.salcedo@aircrew-ops.com",
       phone: "+14045550142",
       roleGroup: "tripulacion",
       roleTitle: "Comandante",
-      base: "BOS",
-      license: {
-        number: "FAA ATP #1108-US",
-        certificates: [
-          "Airline Transport Pilot (ATP)",
-          "Instrument Rating (IR)",
-          "Multi-Engine (ME)",
-        ],
-      },
-    })
+      base: "ATL",
+      shift: "",
+    }
+    // id, lo nuevo y lo que había: con eso la acción envía solo lo que cambió.
+    const call = usersData.calls.find((entry) => entry.name === "updateUser")
+    expect(call?.args).toEqual([
+      "AC-1108",
+      { ...original, base: "BOS" },
+      original,
+    ])
     await waitFor(() => expect(rowOf("Diego Salcedo")).toHaveTextContent("BOS"))
   })
 
@@ -241,60 +251,56 @@ describe("Usuarios: editar", () => {
   })
 })
 
-describe("Usuarios: eliminar", () => {
-  it("la papelera pide confirmación; «Cancelar» cierra sin eliminar", async () => {
-    const { user, trigger, dialog } = await openDelete("Valeria Ortiz")
+describe("Usuarios: desactivar", () => {
+  it("la papelera pide confirmación; «Cancelar» cierra sin desactivar", async () => {
+    const { user, trigger, dialog } = await openDeactivate("Valeria Ortiz")
 
     expect(dialog).toHaveAccessibleDescription(
-      "Esta acción no se podrá deshacer."
+      "No se borra: seguirá en la lista como inactivo y no podrá iniciar sesión."
     )
     await user.click(within(dialog).getByRole("button", { name: "Cancelar" }))
 
     await waitFor(() =>
       expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
     )
-    expect(rowOf("Valeria Ortiz")).toBeInTheDocument()
+    expect(rowOf("Valeria Ortiz")).not.toHaveTextContent("Inactivo")
     expect(usersData.calls.some((call) => call.name === "deleteUser")).toBe(
       false
     )
     await waitFor(() => expect(trigger).toHaveFocus())
   })
 
-  it("si eliminar falla, avisa y el usuario sigue en la lista", async () => {
+  it("si desactivar falla, avisa y el usuario sigue activo", async () => {
     usersData.overrides.deleteUser = fail
-    const { user, dialog } = await openDelete("Valeria Ortiz")
+    const { user, dialog } = await openDeactivate("Valeria Ortiz")
 
-    await user.click(within(dialog).getByRole("button", { name: "Eliminar" }))
+    await user.click(within(dialog).getByRole("button", { name: "Desactivar" }))
 
     expect(
       await within(dialog).findByText(
-        "No se pudo eliminar el usuario. Intenta de nuevo."
+        "No se pudo desactivar el usuario. Intenta de nuevo."
       )
     ).toHaveAttribute("role", "alert")
-    expect(rowOf("Valeria Ortiz")).toBeInTheDocument()
+    expect(rowOf("Valeria Ortiz")).not.toHaveTextContent("Inactivo")
   })
 
-  // Último del archivo: Valeria queda eliminada en memoria.
-  it("«Eliminar» lo quita de la lista, avisa y actualiza los conteos", async () => {
-    const { user, dialog } = await openDelete("Valeria Ortiz")
+  // Último del archivo: Valeria queda desactivada en memoria.
+  it("«Desactivar» lo deja en la lista como inactivo, avisa y no se puede repetir", async () => {
+    const { user, dialog } = await openDeactivate("Valeria Ortiz")
 
-    await user.click(within(dialog).getByRole("button", { name: "Eliminar" }))
+    await user.click(within(dialog).getByRole("button", { name: "Desactivar" }))
 
-    const toast = await findToast("Usuario eliminado")
-    expect(toast).toHaveTextContent(
-      "Valeria Ortiz ya no forma parte del directorio."
-    )
+    const toast = await findToast("Usuario desactivado")
+    expect(toast).toHaveTextContent("Valeria Ortiz ya no podrá iniciar sesión.")
     expect(
       usersData.calls.find((call) => call.name === "deleteUser")?.args
     ).toEqual(["AC-5520"])
+    // Sigue en la lista, con «Inactivo» y la papelera deshabilitada.
     await waitFor(() =>
-      expect(screen.queryByText("Valeria Ortiz")).not.toBeInTheDocument()
+      expect(rowOf("Valeria Ortiz")).toHaveTextContent("Inactivo")
     )
     expect(
-      await screen.findByRole("button", { name: "Todos (183)" })
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole("button", { name: "Tripulación (157)" })
-    ).toBeInTheDocument()
+      screen.getByRole("button", { name: "Desactivar a Valeria Ortiz" })
+    ).toBeDisabled()
   })
 })

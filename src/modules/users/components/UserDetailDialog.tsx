@@ -1,20 +1,18 @@
 import { useId, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 
-import {
-  MailIcon,
-  PositionIcon,
-  PrintIcon,
-  VerifiedIcon,
-} from "@/App/utils/icons"
+import { MailIcon, PositionIcon, VerifiedIcon } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import UserDialogHeader from "@/modules/users/components/UserDialogHeader"
-import UserStatusBadge from "@/modules/users/components/UserStatusBadge"
-import { getUserDetail } from "@/modules/users/data/users.data"
+import UserStatusBadge, {
+  AccountStatusTag,
+} from "@/modules/users/components/UserStatusBadge"
+import { useUsersApi } from "@/modules/users/hooks/useUsersApi"
 import type { UserDetail } from "@/modules/users/types/users.types"
 import { fullName, initials } from "@/modules/users/utils/userName"
+import { SHIFT_LABEL } from "@/modules/users/utils/userLabels"
 
 // 1110 → «18h 30m».
 const formatMinutes = (minutes: number) =>
@@ -114,8 +112,9 @@ const TagList = ({ label, tags }: { label: string; tags: string[] }) => (
   </ul>
 )
 
-// Contenido de la ficha, con los datos ya cargados. Supervisor y Administrador no
-// tienen horas de vuelo, descanso, licencia ni habilitaciones: solo se muestran sus datos.
+// Contenido de la ficha, con los datos ya cargados. Horas de vuelo, descanso, licencia,
+// habilitaciones y la nota de disponibilidad todavía no existen en el backend: solo se
+// muestran si vienen (en los datos de ejemplo, y nunca en Supervisor y Administrador).
 const UserDetailContent = ({ user }: { user: UserDetail }) => {
   const sectionTitleId = useId()
 
@@ -146,14 +145,16 @@ const UserDetailContent = ({ user }: { user: UserDetail }) => {
               >
                 {fullName(user)}
               </span>
-              <span
-                className={cn(
-                  typography.labelSm,
-                  "rounded-sm bg-brand-border px-1.5 py-0.5 font-mono text-brand-primary"
-                )}
-              >
-                {user.id}
-              </span>
+              {user.code ? (
+                <span
+                  className={cn(
+                    typography.labelSm,
+                    "rounded-sm bg-brand-border px-1.5 py-0.5 font-mono text-brand-primary"
+                  )}
+                >
+                  {user.code}
+                </span>
+              ) : null}
             </p>
             <p
               className={cn(
@@ -161,7 +162,10 @@ const UserDetailContent = ({ user }: { user: UserDetail }) => {
                 "font-semibold text-brand-secondary"
               )}
             >
-              {user.roleTitle} · {user.baseLabel}
+              {/* Un administrador no tiene base. */}
+              {user.roleGroup === "administrador"
+                ? user.roleTitle
+                : `${user.roleTitle} · ${user.baseLabel}`}
             </p>
             <p
               className={cn(
@@ -176,9 +180,15 @@ const UserDetailContent = ({ user }: { user: UserDetail }) => {
         </div>
         <div className="flex flex-col gap-1 sm:items-end">
           <UserStatusBadge status={user.status} />
-          <p className={cn(typography.labelSm, "font-medium text-foreground")}>
-            Turno Activo: {user.shift}
-          </p>
+          <AccountStatusTag user={user} />
+          {/* El turno solo aplica a supervisores. */}
+          {user.roleGroup === "supervisor" ? (
+            <p
+              className={cn(typography.labelSm, "font-medium text-foreground")}
+            >
+              Turno: {user.shift ? SHIFT_LABEL[user.shift] : "—"}
+            </p>
+          ) : null}
         </div>
       </section>
 
@@ -194,7 +204,9 @@ const UserDetailContent = ({ user }: { user: UserDetail }) => {
             >
               {user.availability.label}
             </p>
-            <p className={noteClass}>{user.availability.note}</p>
+            {user.availability.note ? (
+              <p className={noteClass}>{user.availability.note}</p>
+            ) : null}
           </div>
         </div>
 
@@ -240,14 +252,23 @@ const UserDetailContent = ({ user }: { user: UserDetail }) => {
                 )}
               >
                 {/* Enlace tel: en el celular abre la llamada directamente. */}
-                <a
-                  href={`tel:${user.phone.number.replace(/\s/g, "")}`}
-                  className="rounded-sm hover:underline focus-visible:ring-2 focus-visible:ring-brand-tertiary focus-visible:outline-hidden"
-                >
-                  {user.phone.number}
-                </a>
+                {user.phone.number ? (
+                  <a
+                    href={`tel:${user.phone.number.replace(/\s/g, "")}`}
+                    className="rounded-sm hover:underline focus-visible:ring-2 focus-visible:ring-brand-tertiary focus-visible:outline-hidden"
+                  >
+                    {user.phone.number}
+                  </a>
+                ) : (
+                  <>
+                    <span aria-hidden="true">—</span>
+                    <span className="sr-only">Sin celular registrado</span>
+                  </>
+                )}
               </dd>
-              <dd className={noteClass}>{user.phone.note}</dd>
+              {user.phone.note ? (
+                <dd className={noteClass}>{user.phone.note}</dd>
+              ) : null}
             </div>
           </dl>
 
@@ -308,6 +329,7 @@ interface UserDetailDialogProps {
 // la clave ["users", "detail", id] guarda cada ficha, así reabrir la misma no repite la petición.
 // Se cierra con la X, con Esc o al pulsar fuera, y el foco vuelve a «Ver más información».
 const UserDetailDialog = ({ userId, onClose }: UserDetailDialogProps) => {
+  const { getUserDetail } = useUsersApi()
   // Último usuario abierto: al cerrar, userId pasa a null, pero la ficha sigue visible
   // durante la animación de salida en lugar de cambiar a «Cargando…».
   const [shownUserId, setShownUserId] = useState(userId)
@@ -361,21 +383,6 @@ const UserDetailDialog = ({ userId, onClose }: UserDetailDialogProps) => {
           ) : (
             <UserDetailContent user={data} />
           )}
-        </div>
-
-        {/* Pie: solo «Descargar Ficha PDF», visible pero sin función hasta que exista. */}
-        <div className="flex justify-end border-t border-brand-border bg-card px-5 py-3">
-          <button
-            type="button"
-            aria-disabled="true"
-            className={cn(
-              typography.labelMd,
-              "inline-flex min-h-11 cursor-not-allowed items-center gap-2 rounded-md bg-brand-secondary px-4 font-semibold text-white lg:min-h-9"
-            )}
-          >
-            <PrintIcon aria-hidden="true" className="size-4" />
-            Descargar Ficha PDF
-          </button>
         </div>
       </DialogContent>
     </Dialog>
