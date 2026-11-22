@@ -1,3 +1,5 @@
+import * as demo from "./supervisorHome.demo"
+import { withDemo } from "@/modules/shared/session/demoSession"
 import {
   getMyBase,
   type ApiMyBase,
@@ -21,7 +23,7 @@ const CONDITION_LABEL: Record<ApiMyBase["operational_condition"], string> = {
 }
 
 // Encabezado: dependencia, sede y condición operacional.
-export const getSupervisionCenter = async (): Promise<SupervisionCenter> => {
+const getSupervisionCenterFromApi = async (): Promise<SupervisionCenter> => {
   const base = await getMyBase()
   return {
     unit: base.unit,
@@ -41,9 +43,9 @@ interface ApiCurrentShift {
 }
 
 // Banner: estado del turno en la base. Los textos fijos son del diseño, no del backend.
-export const getShiftStatus = async (): Promise<ShiftStatus> => {
+const getShiftStatusFromApi = async (): Promise<ShiftStatus> => {
   const base = await getMyBase()
-  const { data } = await apiClient.get<ApiCurrentShift>("/crew/shifts/current", {
+  const { data } = await apiClient.get<ApiCurrentShift>("/api/crew/shifts/current", {
     params: { base: base.iata },
   })
   return {
@@ -68,10 +70,10 @@ interface ApiAbsenceStats {
 }
 
 const getAbsenceStats = async () =>
-  (await apiClient.get<ApiAbsenceStats>("/crew/absences/stats")).data
+  (await apiClient.get<ApiAbsenceStats>("/api/crew/absences/stats")).data
 
 // Tarjeta de recomendaciones: por aprobar y tasa de resolución (30 días).
-export const getReplacementRequestsSummary =
+const getReplacementRequestsSummaryFromApi =
   async (): Promise<ReplacementRequestsSummary> => {
     const stats = await getAbsenceStats()
     return {
@@ -88,8 +90,8 @@ interface ApiOpenAbsence {
 const CRITICAL_WINDOW_MS = 2 * 60 * 60 * 1000
 
 // Tarjeta de ausencias: sin resolver y las que afectan una salida en menos de 2 h.
-export const getAbsencesSummary = async (): Promise<AbsencesSummary> => {
-  const { data } = await apiClient.get<ApiOpenAbsence[]>("/crew/absences")
+const getAbsencesSummaryFromApi = async (): Promise<AbsencesSummary> => {
+  const { data } = await apiClient.get<ApiOpenAbsence[]>("/api/crew/absences")
   const open = data.filter(
     (absence) => absence.status === "reported" || absence.status === "pending_ack"
   )
@@ -105,7 +107,7 @@ export const getAbsencesSummary = async (): Promise<AbsencesSummary> => {
 
 // Tarjeta de tripulación: en servicio (guardia, en vuelo o programados) y qué parte
 // de la tripulación del turno no está ausente.
-export const getCrewSummary = async (): Promise<CrewSummary> => {
+const getCrewSummaryFromApi = async (): Promise<CrewSummary> => {
   const { members } = await getShiftCrew()
   const onDuty = members.filter((member) =>
     ["guardia", "en_vuelo", "programado"].includes(member.status)
@@ -117,3 +119,10 @@ export const getCrewSummary = async (): Promise<CrewSummary> => {
       onDuty + absent === 0 ? 0 : Math.round((onDuty / (onDuty + absent)) * 100),
   }
 }
+
+// Cuenta demo → datos de ejemplo (D4); sesión real → backend.
+export const getSupervisionCenter = withDemo(getSupervisionCenterFromApi, demo.getSupervisionCenter)
+export const getShiftStatus = withDemo(getShiftStatusFromApi, demo.getShiftStatus)
+export const getReplacementRequestsSummary = withDemo(getReplacementRequestsSummaryFromApi, demo.getReplacementRequestsSummary)
+export const getAbsencesSummary = withDemo(getAbsencesSummaryFromApi, demo.getAbsencesSummary)
+export const getCrewSummary = withDemo(getCrewSummaryFromApi, demo.getCrewSummary)

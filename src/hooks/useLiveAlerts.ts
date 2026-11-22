@@ -5,7 +5,7 @@ import { toast } from "sonner"
 import { ROLES } from "@/App/types/auth.types"
 import { connectAlerts } from "@/lib/socket"
 import { useAlertsStore } from "@/stores/alerts.store"
-import { useAuthStore } from "@/stores/auth.store"
+import { isDemoUser, useAuthStore } from "@/stores/auth.store"
 
 // Lo que trae cada evento del servicio de notificaciones (todos traen message y sent_at).
 interface AlertPayload {
@@ -61,18 +61,22 @@ const notify: Record<Tone, (message: string) => void> = {
   error: (message) => toast.error(message),
 }
 
-// Alertas en vivo del supervisor: con sesión real (token), abre el socket, avisa con un
+// Alertas en vivo del supervisor: con sesión real (cookie), abre el socket, avisa con un
 // toast, guarda la alerta para la campana y refresca las pantallas afectadas.
-// Las sesiones simuladas de los tests no tienen token, así que no se conectan.
+// Las cuentas demo y el selector «Rol (dev)» no tienen sesión en el backend: no se conectan.
 export const useLiveAlerts = () => {
   const queryClient = useQueryClient()
-  const role = useAuthStore((state) => state.user?.role)
-  const token = useAuthStore((state) => state.token)
+  // id del supervisor con sesión real; null en cualquier otro caso.
+  const supervisorId = useAuthStore((state) =>
+    state.user?.role === ROLES.SUPER_VISOR && !isDemoUser(state.user)
+      ? state.user.id
+      : null
+  )
 
   useEffect(() => {
-    if (role !== ROLES.SUPER_VISOR || !token) return
+    if (!supervisorId) return
 
-    const socket = connectAlerts(token)
+    const socket = connectAlerts()
 
     for (const event of EVENTS) {
       socket.on(event.name, (payload: AlertPayload) => {
@@ -94,8 +98,10 @@ export const useLiveAlerts = () => {
       useAuthStore.getState().logout()
     })
 
+    // Al cerrar sesión o cambiar de usuario, las alertas de esta sesión ya no aplican.
     return () => {
       socket.disconnect()
+      useAlertsStore.getState().clear()
     }
-  }, [role, token, queryClient])
+  }, [supervisorId, queryClient])
 }

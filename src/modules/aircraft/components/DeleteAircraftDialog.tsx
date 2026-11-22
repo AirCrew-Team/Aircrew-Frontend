@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
+import { AircraftRequestError } from "@/App/actions/aircraft/aircraft.actions"
 import { DeleteIcon } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
 import {
@@ -15,8 +16,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { cn } from "@/lib/utils"
-import { deleteAircraft } from "@/modules/aircraft/data/aircraft.data"
-import type { Aircraft } from "@/modules/aircraft/types/aircraft.types"
+import { useAircraftApi } from "@/modules/aircraft/hooks/useAircraftApi"
+import type { Aircraft } from "@/App/types/aircraft.types"
 
 interface DeleteAircraftDialogProps {
   // Aeronave que se elimina; null con la ventana cerrada.
@@ -30,13 +31,15 @@ const buttonClass = cn(
 )
 
 // Confirmación antes de eliminar una aeronave de la flota (como en Certificaciones).
-// «Eliminar» la quita con su mantenimiento e historial (con la API, un DELETE).
+// «Eliminar» la quita con su mantenimiento e historial (DELETE). Si tiene vuelos, el
+// backend no la borra y se muestra su mensaje.
 // «Cancelar», Esc o pulsar fuera cierran sin hacer nada.
 const DeleteAircraftDialog = ({
   aircraft,
   onClose,
 }: DeleteAircraftDialogProps) => {
   const queryClient = useQueryClient()
+  const { deleteAircraft } = useAircraftApi()
   // Última aeronave abierta: el texto no cambia durante la animación de cierre.
   const [shown, setShown] = useState(aircraft)
   if (aircraft !== null && aircraft !== shown) setShown(aircraft)
@@ -54,6 +57,13 @@ const DeleteAircraftDialog = ({
       onClose()
     },
   })
+
+  // 409 del backend (p. ej. «La aeronave tiene vuelos registrados: no se puede
+  // eliminar.»): su texto tal cual.
+  const errorText =
+    mutation.error instanceof AircraftRequestError
+      ? mutation.error.message
+      : "No se pudo eliminar la aeronave. Intenta de nuevo."
 
   return (
     <AlertDialog
@@ -87,7 +97,7 @@ const DeleteAircraftDialog = ({
             role="alert"
             className={cn(typography.bodySm, "text-center text-destructive")}
           >
-            No se pudo eliminar la aeronave. Intenta de nuevo.
+            {errorText}
           </p>
         ) : null}
         <AlertDialogFooter>

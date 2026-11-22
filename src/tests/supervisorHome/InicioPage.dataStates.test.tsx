@@ -32,10 +32,8 @@ const data = vi.hoisted(() => ({
 // envoltorio: los overrides van por nombre de función (no chocan con los de supervisorHome).
 vi.mock(
   "@/modules/shared/flightAssignment/data/flightAssignment.data",
-  async () => {
-    const actual: Record<string, unknown> = await import(
-      "@/tests/fixtures/flightAssignment.fixtures"
-    )
+  async (importOriginal) => {
+    const actual = await importOriginal<Record<string, unknown>>()
     return Object.fromEntries(
       Object.entries(actual).map(([name, value]) => {
         if (typeof value !== "function") return [name, value]
@@ -54,10 +52,8 @@ vi.mock(
 
 vi.mock(
   "@/modules/supervisorHome/data/supervisorHome.data",
-  async () => {
-    const actual: Record<string, unknown> = await import(
-      "@/tests/fixtures/supervisorHome.fixtures"
-    )
+  async (importOriginal) => {
+    const actual = await importOriginal<Record<string, unknown>>()
     return Object.fromEntries(
       Object.entries(actual).map(([name, value]) => {
         if (typeof value !== "function") return [name, value]

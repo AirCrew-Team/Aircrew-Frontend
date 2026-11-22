@@ -22,13 +22,28 @@ import MisVuelosPage from "@/pages/tripulante/MisVuelosPage"
 import { PATHS } from "./paths"
 import ProtectedRoute from "./ProtectedRoute"
 import RootRedirect from "./RootRedirect"
+import SessionGate from "./SessionGate"
 
 // Cada rol tiene su grupo: protección por rol → diseño base → páginas.
 // Las páginas comunes a los tres roles van en un grupo propio, sin prefijo de rol.
-// Se exporta para que los tests monten las rutas reales con createMemoryRouter.
-export const routes: RouteObject[] = [
+const appRoutes: RouteObject[] = [
   { path: PATHS.root, element: <RootRedirect /> },
   { path: PATHS.login, element: <LoginPage /> },
+  // Públicas y en diferido: react-hook-form + zod, igual que /configuracion.
+  {
+    path: PATHS.activarCuenta,
+    HydrateFallback: () => null,
+    lazy: async () => ({
+      Component: (await import("@/pages/ActivarCuentaPage")).default,
+    }),
+  },
+  {
+    path: PATHS.restablecerContrasena,
+    HydrateFallback: () => null,
+    lazy: async () => ({
+      Component: (await import("@/pages/RestablecerContrasenaPage")).default,
+    }),
+  },
   {
     element: <ProtectedRoute allowedRoles={[ROLES.TRIPULANTE]} />,
     children: [
@@ -120,6 +135,12 @@ export const routes: RouteObject[] = [
     ],
   },
   { path: "*", element: <NotFoundPage /> },
+]
+
+// SessionGate envuelve todas las rutas: restaura la sesión con /auth/me al arrancar.
+// Se exporta para que los tests monten las rutas reales con createMemoryRouter.
+export const routes: RouteObject[] = [
+  { element: <SessionGate />, children: appRoutes },
 ]
 
 const router = createBrowserRouter(routes)

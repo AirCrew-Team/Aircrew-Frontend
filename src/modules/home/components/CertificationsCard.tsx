@@ -8,6 +8,7 @@ import { getCertifications } from "@/modules/shared/certifications/data/certific
 import type { Certification } from "@/modules/shared/certifications/types/certifications.types"
 import { getExpiryInfo } from "@/modules/shared/certifications/utils/expiry"
 import { PATHS } from "@/routes/paths"
+import { isDemoUser, useAuthStore } from "@/stores/auth.store"
 
 // Aptas = vigentes y vitalicias; la próxima es la de menos días que aún no venció.
 const summarize = (certifications: Certification[], today: Date) => {
@@ -29,7 +30,9 @@ const formatDays = (days: number) =>
   days === 0 ? "Hoy" : days === 1 ? "En 1 día" : `En ${days} días`
 
 // Tarjeta 2: resumen calculado de certificaciones y acceso a las licencias.
+// Con la sesión real aún no hay certificaciones: estado vacío y sin consulta.
 const CertificationsCard = () => {
+  const demo = useAuthStore((state) => isDemoUser(state.user))
   const {
     data: certifications,
     isPending,
@@ -37,15 +40,29 @@ const CertificationsCard = () => {
   } = useQuery({
     queryKey: ["certifications", "list"],
     queryFn: getCertifications,
+    enabled: demo,
   })
-  const summary = certifications
-    ? summarize(certifications, new Date())
-    : undefined
+  const summary =
+    demo && certifications ? summarize(certifications, new Date()) : undefined
 
   return (
     <article className="flex flex-col justify-between gap-6 rounded-xl bg-card p-6 shadow-sm">
       <div className="flex flex-col gap-2">
-        {isPending ? (
+        {!demo ? (
+          <div className="flex flex-col pt-2">
+            <h2
+              className={cn(
+                typography.headlineMd,
+                "font-bold text-brand-primary"
+              )}
+            >
+              Certificaciones
+            </h2>
+            <p className={cn(typography.bodySm, "text-muted-foreground")}>
+              Aún no tienes certificaciones registradas.
+            </p>
+          </div>
+        ) : isPending ? (
           <p
             role="status"
             className={cn(typography.bodySm, "pt-2 text-muted-foreground")}

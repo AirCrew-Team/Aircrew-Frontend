@@ -1,145 +1,47 @@
-import { useState, type FormEvent } from "react"
+import { useId, useState, type FormEvent } from "react"
+
+import { InfoIcon } from "@/App/utils/icons"
 import { Button } from "@/components/custom/Button"
 import { Dialog } from "@/components/custom/Dialog"
-import { PasswordChangeForm } from "@/components/custom/PasswordChangeForm"
-import type { RecoveryChannel } from "./types"
-import type { RecoveryFlow, RecoveryStep } from "./useRecoveryFlow"
-import { dialogInputClass, dialogPrimaryButtonClass } from "./styles"
+import {
+  dialogInputClass,
+  dialogPrimaryButtonClass,
+  infoNoticeClass,
+} from "@/modules/shared/auth/styles"
 
-// Título y descripción del diálogo según el paso actual
-const STEP_COPY: Record<RecoveryStep, { title: string; description: string }> =
-  {
-    identify: {
-      title: "Recuperar contraseña",
-      description: "Ingresa el correo asociado a tu cuenta.",
-    },
-    channel: {
-      title: "Verifica tu identidad",
-      description: "Elige dónde recibir el código de verificación.",
-    },
-    code: {
-      title: "Verifica tu identidad",
-      description: "Ingresa el código de verificación para continuar.",
-    },
-    password: {
-      title: "Crea una contraseña nueva",
-      description: "Crea y confirma tu nueva contraseña.",
-    },
-  }
+import { INVALID_EMAIL_MESSAGE, type RecoveryFlow } from "./useRecoveryFlow"
 
-/** Diálogo de recuperación; todo el estado vive en `useRecoveryFlow`. */
+/** Diálogo de recuperación en dos pasos; todo el estado vive en `useRecoveryFlow`. */
 export function RecoveryDialog({ flow }: { flow: RecoveryFlow }) {
-  // Textos del paso actual (identify si el diálogo está cerrado)
-  const copy = STEP_COPY[flow.step ?? "identify"]
+  const isSent = flow.step === "sent"
 
   return (
     // Se abre cuando hay un paso activo
     <Dialog
-      description={copy.description}
+      description={
+        isSent
+          ? undefined
+          : "Ingresa el correo asociado a tu cuenta y te enviaremos un enlace para crear una contraseña nueva."
+      }
       isOpen={flow.step !== null}
       onClose={flow.close}
-      title={copy.title}
+      title={isSent ? "Revisa tu correo" : "Recuperar contraseña"}
     >
-      {/* Solo se muestra el componente del paso actual */}
-      {flow.step === "identify" && <IdentifyStep flow={flow} />}
-      {flow.step === "channel" && <ChannelStep flow={flow} />}
-      {flow.step === "code" && <CodeStep flow={flow} />}
-      {flow.step === "password" && (
-        <PasswordChangeForm
-          onSave={flow.savePassword}
-          onSuccess={flow.close}
-        />
-      )}
+      {isSent ? <SentStep flow={flow} /> : <EmailStep flow={flow} />}
     </Dialog>
   )
 }
 
-function ChannelStep({ flow }: { flow: RecoveryFlow }) {
-  const options: {
-    channel: RecoveryChannel
-    label: string
-    hint: string
-  }[] = [
-    {
-      channel: "email",
-      label: "Correo electrónico",
-      hint: flow.contacts?.email ?? "",
-    },
-    {
-      channel: "sms",
-      label: "Mensaje de texto (SMS)",
-      hint: flow.contacts?.phone ?? "",
-    },
-  ]
-
-  return (
-    <div className="grid gap-3">
-      {options.map((option) => (
-        <button
-          className="rounded-xl border border-[#d8e2ee] bg-white p-4 text-left hover:border-[#4aa5d4] disabled:opacity-60"
-          disabled={flow.isBusy}
-          key={option.channel}
-          onClick={() => void flow.selectChannel(option.channel)}
-          type="button"
-        >
-          <span className="block font-semibold">{option.label}</span>
-          <span className="mt-1 block text-sm text-[#8192a8]">
-            {option.hint}
-          </span>
-        </button>
-      ))}
-    </div>
-  )
-}
-
-function CodeStep({ flow }: { flow: RecoveryFlow }) {
-  const target =
-    flow.channel === "sms"
-      ? `el teléfono ${flow.contacts?.phone ?? ""}`
-      : `el correo ${flow.contacts?.email ?? ""}`
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    void flow.submitCode()
-  }
-
-  return (
-    <form className="grid gap-4" noValidate onSubmit={handleSubmit}>
-      <p className="m-0 rounded-lg bg-[#e8f4fb] p-3 text-sm text-[#245475]">
-        Ingresa el código de verificación enviado a {target}.
-      </p>
-      <label className="grid gap-2 text-sm font-semibold">
-        Código de verificación
-        <input
-          autoComplete="one-time-code"
-          autoFocus
-          className={`${dialogInputClass} tracking-[.25em]`}
-          inputMode="numeric"
-          maxLength={6}
-          onChange={(event) => flow.updateCode(event.target.value)}
-          required
-          value={flow.code}
-        />
-      </label>
-      {flow.error && (
-        <p className="m-0 text-sm text-[#b42318]" role="alert">
-          {flow.error}
-        </p>
-      )}
-      <Button
-        className={`${dialogPrimaryButtonClass} justify-self-end`}
-        disabled={flow.isBusy || flow.code.length < 6}
-        type="submit"
-      >
-        Validar código
-      </Button>
-    </form>
-  )
-}
-
 // Paso 1: pide el correo de la cuenta
-function IdentifyStep({ flow }: { flow: RecoveryFlow }) {
+function EmailStep({ flow }: { flow: RecoveryFlow }) {
   const [email, setEmail] = useState(flow.email)
+  const errorId = useId()
+  const limitId = useId()
+  // El campo se describe con el aviso del límite y con el error, si los hay
+  const describedBy =
+    [flow.limitMessage && limitId, flow.error && errorId]
+      .filter(Boolean)
+      .join(" ") || undefined
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -151,6 +53,8 @@ function IdentifyStep({ flow }: { flow: RecoveryFlow }) {
       <label className="grid gap-2 text-sm font-semibold">
         Correo electrónico
         <input
+          aria-describedby={describedBy}
+          aria-invalid={flow.error === INVALID_EMAIL_MESSAGE ? true : undefined}
           autoComplete="email"
           autoFocus
           className={dialogInputClass}
@@ -159,9 +63,15 @@ function IdentifyStep({ flow }: { flow: RecoveryFlow }) {
           value={email}
         />
       </label>
-      {/* Mensaje de error del flujo */}
+      {/* Límite (429): aviso informativo, nunca a la vez que el error */}
+      {flow.limitMessage && (
+        <p className={infoNoticeClass} id={limitId} role="status">
+          <InfoIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          {flow.limitMessage}
+        </p>
+      )}
       {flow.error && (
-        <p className="m-0 text-sm text-[#b42318]" role="alert">
+        <p className="m-0 text-sm text-[#b42318]" id={errorId} role="alert">
           {flow.error}
         </p>
       )}
@@ -170,8 +80,36 @@ function IdentifyStep({ flow }: { flow: RecoveryFlow }) {
         disabled={flow.isBusy}
         type="submit"
       >
-        Continuar
+        {flow.isBusy ? "Enviando…" : "Enviar enlace"}
       </Button>
     </form>
+  )
+}
+
+// Paso 2: confirma el envío. Estado persistente: sin toast ni región viva.
+function SentStep({ flow }: { flow: RecoveryFlow }) {
+  const messageId = useId()
+
+  return (
+    <div className="grid gap-6">
+      <p
+        className="m-0 text-[15px] leading-relaxed text-[#245475]"
+        id={messageId}
+      >
+        Si <strong className="font-semibold">{flow.email}</strong> corresponde a
+        una cuenta activa, te enviamos un enlace para crear una contraseña
+        nueva. Vence en 10 minutos. Revisa también la carpeta de spam.
+      </p>
+      {/* El foco pasa aquí al desaparecer el formulario; la descripción lee el aviso */}
+      <Button
+        aria-describedby={messageId}
+        autoFocus
+        className={`${dialogPrimaryButtonClass} justify-self-end`}
+        onClick={flow.close}
+        type="button"
+      >
+        Entendido
+      </Button>
+    </div>
   )
 }

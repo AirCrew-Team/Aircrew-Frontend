@@ -9,6 +9,7 @@ import CertificationItem from "@/modules/certifications/components/Certification
 import { LICENSE_COLUMNS_CLASS } from "@/modules/certifications/components/columns"
 import { getCertifications } from "@/modules/shared/certifications/data/certifications.data"
 import type { Certification } from "@/modules/shared/certifications/types/certifications.types"
+import { isDemoUser, useAuthStore } from "@/stores/auth.store"
 
 const COLUMN_HEADERS = [
   "Certificación / Licencia",
@@ -35,13 +36,17 @@ const licenses = (count: number) =>
   `${count} ${count === 1 ? "licencia" : "licencias"}`
 
 // L: barra con el total y el buscador, estado de resultados para el lector y la lista.
+// Con la sesión real aún no hay certificaciones: lista vacía y sin consulta.
 const CertificationsBrowser = () => {
   const id = useId()
   const [search, setSearch] = useState("")
-  const { data, isPending, isError } = useQuery({
+  const demo = useAuthStore((state) => isDemoUser(state.user))
+  const { data: demoData, isPending } = useQuery({
     queryKey: ["certifications", "list"],
     queryFn: getCertifications,
+    enabled: demo,
   })
+  const data = demo ? demoData : []
 
   const query = search.trim()
   const normalizedQuery = normalizeForSearch(query)
@@ -108,7 +113,7 @@ const CertificationsBrowser = () => {
         {visible ? licenses(visible.length) : ""}
       </p>
 
-      {isPending ? (
+      {!data && isPending ? (
         <p
           role="status"
           className={cn(
@@ -119,7 +124,7 @@ const CertificationsBrowser = () => {
         >
           Cargando licencias…
         </p>
-      ) : isError ? (
+      ) : !data ? (
         <p
           role="alert"
           className={cn(typography.bodySm, messageClass, "text-destructive")}

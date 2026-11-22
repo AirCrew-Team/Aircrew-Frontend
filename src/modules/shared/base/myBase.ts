@@ -17,7 +17,7 @@ export interface ApiMyBase {
 export const myBaseQuery = queryOptions({
   queryKey: ["base", "me"],
   queryFn: async () =>
-    (await apiClient.get<ApiMyBase>("/admin/bases/me")).data,
+    (await apiClient.get<ApiMyBase>("/api/admin/bases/me")).data,
   // La base no cambia durante la sesión.
   staleTime: Infinity,
 })

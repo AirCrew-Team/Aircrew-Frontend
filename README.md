@@ -29,6 +29,7 @@ Interfaz web para gestionar tripulaciones aéreas: tripulantes, supervisores y a
 - [Configuración](#configuración)
 - [Arquitectura](#arquitectura)
 - [Pruebas](#pruebas)
+- [Despliegue en Railway](#despliegue-en-railway)
 - [Hoja de ruta](#hoja-de-ruta)
 - [Contribuir](#contribuir)
 - [Licencia](#licencia)
@@ -92,7 +93,7 @@ La app arranca en el Login. Cada rol (tripulante, supervisor y administrador) ve
 Para recorrerla en desarrollo (`pnpm dev`), usa el selector **«Rol (dev)»** del Login: entra con el rol que elijas sin escribir credenciales y te deja cambiar de rol al instante. No se incluye en el build de producción.
 
 > [!NOTE]
-> Por ahora no hay backend conectado: las cuentas y todos los datos son simulados y viven en memoria, así que se reinician al recargar la página.
+> El Login está conectado al backend de AirCrew a través de su API gateway. La sesión vive en una cookie `httpOnly` que crea el backend, así que sigue abierta al recargar la página hasta que vence el token. Las cuentas demo y el selector «Rol (dev)» siguen disponibles y no llaman al backend. El resto de pantallas todavía usa datos simulados en memoria, que se reinician al recargar.
 
 <details>
 <summary>Generar y revisar el build de producción</summary>
@@ -110,7 +111,7 @@ Las variables se leen desde `.env` (plantilla en [`.env.template`](.env.template
 
 | Variable | Descripción | Por defecto | Obligatoria |
 | --- | --- | --- | --- |
-| `VITE_URL_API_BACKEND` | URL del API gateway que usa el cliente HTTP (`src/service/api-client.ts`). | — | Sí, cuando se conecte la API. Hoy la app funciona con datos simulados y no la usa. |
+| `VITE_URL_API_BACKEND` | URL del API gateway que usa el cliente HTTP (`src/service/api-client.ts`). Sin ella, la app no arranca. | `http://localhost:3000` (en `.env.template`) | Sí |
 
 > [!TIP]
 > Las variables con prefijo `VITE_` terminan dentro del bundle que descarga el navegador. Nunca guardes claves ni secretos en ellas.
@@ -204,6 +205,49 @@ pnpm exec playwright show-report       # abre el reporte HTML de la última ejec
 
 > [!NOTE]
 > Playwright compila la app (`pnpm build`) y la sirve con `vite preview` en el puerto 4173 antes de probar; no hace falta tener `pnpm dev` abierto. Si una prueba falla, el reporte guarda la captura, el video y la traza del fallo. En el CI se sube como artefacto `playwright-report`.
+
+## Despliegue en Railway
+
+En producción, la app se publica en Railway como **el único servicio con dominio público**. El `Dockerfile` la compila y la sirve con [Caddy](https://caddyserver.com/), que además reenvía `/api/*` al gateway del backend por la red privada de Railway:
+
+```text
+Navegador ──► dominio del frontend
+                 ├─ /, /supervisor/programacion, /assets/...  → la app (dist/)
+                 └─ /api/...  ──(red privada)──► gateway ──► servicios
+```
+
+El navegador habla con un solo dominio, así que la cookie de sesión (`SameSite=Lax`) funciona en todos los navegadores, también en Safari. El backend, PostgreSQL y sus variables se configuran según el README del repositorio del backend.
+
+**Servicio `frontend` en Railway:**
+
+- **Origen:** este repositorio. Railway detecta el `Dockerfile` de la raíz.
+- **Dominio público:** sí, en el puerto `8080`.
+- **Healthcheck path:** `/`.
+- **Variables:**
+
+| Variable | Valor | Obligatoria |
+| --- | --- | --- |
+| `PORT` | `8080` | Sí |
+| `GATEWAY_URL` | `http://${{gateway.RAILWAY_PRIVATE_DOMAIN}}:3000` (URL privada del gateway) | Sí: sin ella, el contenedor no arranca |
+| `VITE_URL_API_BACKEND` | `/` (ya es el valor por defecto del `Dockerfile`) | No |
+
+**Qué hace Caddy (`Caddyfile`):**
+
+- `/api/*` va al gateway con el prefijo intacto, incluido el WebSocket de las alertas.
+- Cualquier otra ruta devuelve `index.html`, así que recargar con F5 en una pantalla no da 404.
+- Caché:
+  - `index.html` y las rutas de la app van con `Cache-Control: no-cache`, para que tras un despliegue nadie se quede con chunks viejos;
+  - los archivos de `/assets/` van con caché de un año (`immutable`), porque Vite les pone un hash en el nombre;
+  - un archivo de `/assets/` que no existe da 404.
+
+**Probar la imagen en local** (con el backend corriendo en el equipo):
+
+```bash
+docker build -t aircrew-frontend .
+docker run --rm -p 8080:8080 -e PORT=8080 -e GATEWAY_URL=http://host.docker.internal:3000 aircrew-frontend
+```
+
+Y abrir `http://localhost:8080`. En local la cookie no lleva `Secure`, así que funciona por http.
 
 ## Hoja de ruta
 

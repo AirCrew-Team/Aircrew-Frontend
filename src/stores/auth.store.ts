@@ -2,10 +2,9 @@ import { create } from "zustand"
 
 import { ROLES, type AuthUser, type Role } from "@/App/types/auth.types"
 import { queryClient } from "@/lib/query-client"
-import { useAlertsStore } from "@/stores/alerts.store"
 
-// Usuarios simulados: los usan los tests (setMockRole) y el login demo de los tests.
-export const MOCK_USERS: Record<Role, AuthUser> = {
+// Usuarios simulados de las cuentas demo y del selector «Rol (dev)» (D4).
+const MOCK_USERS: Record<Role, AuthUser> = {
   [ROLES.TRIPULANTE]: {
     id: "mock-tripulante",
     displayName: "Juan Pablo",
@@ -29,49 +28,43 @@ export const MOCK_USERS: Record<Role, AuthUser> = {
   },
 }
 
-// Solo el token se guarda en el navegador; el usuario se pide a /auth/me al recargar.
-const TOKEN_KEY = "aircrew.token"
+const DEMO_USER_IDS = new Set(Object.values(MOCK_USERS).map((user) => user.id))
 
-export const readStoredToken = (): string | null => {
-  try {
-    return localStorage.getItem(TOKEN_KEY)
-  } catch {
-    return null
-  }
-}
-
-const writeStoredToken = (token: string | null) => {
-  try {
-    if (token) localStorage.setItem(TOKEN_KEY, token)
-    else localStorage.removeItem(TOKEN_KEY)
-  } catch {
-    // Sin almacenamiento (modo privado): la sesión dura hasta recargar.
-  }
-}
+// true si la sesión es de una cuenta demo o del selector «Rol (dev)»: esas pantallas
+// usan datos de ejemplo en lugar del backend.
+export const isDemoUser = (user: AuthUser | null): boolean =>
+  user !== null && DEMO_USER_IDS.has(user.id)
 
 interface AuthState {
   user: AuthUser | null
-  token: string | null
-  // Sesión real: usuario del backend y su JWT.
-  setSession: (user: AuthUser, token: string) => void
-  // Usuario simulado del rol, sin token. Solo para tests.
+  // "checking" mientras SessionGate pregunta al backend si la cookie sigue viva.
+  status: "checking" | "ready"
+  // Usuario real que devuelve el backend (login o /auth/me).
+  setUser: (user: AuthUser) => void
+  // Pone el usuario simulado del rol indicado. Lo usan el Login (cuentas demo) y el
+  // selector «Rol (dev)».
   setMockRole: (role: Role) => void
-  // Cierra la sesión y vacía los datos del servidor en caché.
   logout: () => void
 }
 
-export const useAuthStore = create<AuthState>()((set) => ({
-  user: null,
-  token: null,
-  setSession: (user, token) => {
-    writeStoredToken(token)
-    set({ user, token })
-  },
-  setMockRole: (role) => set({ user: MOCK_USERS[role] }),
-  logout: () => {
-    writeStoredToken(null)
-    queryClient.clear()
-    useAlertsStore.getState().clear()
-    set({ user: null, token: null })
-  },
-}))
+// Arranca comprobando la sesión: SessionGate pide /auth/me y deja el estado en "ready".
+// La caché de TanStack Query se vacía al cerrar sesión y al pasar a otro usuario, para
+// que nadie vea datos del anterior (spec cierre-tareas-johan, D3). Restaurar la misma
+// sesión (mismo id) la conserva.
+export const useAuthStore = create<AuthState>()((set, get) => {
+  const setSessionUser = (user: AuthUser) => {
+    if (get().user?.id !== user.id) queryClient.clear()
+    set({ user, status: "ready" })
+  }
+
+  return {
+    user: null,
+    status: "checking",
+    setUser: setSessionUser,
+    setMockRole: (role) => setSessionUser(MOCK_USERS[role]),
+    logout: () => {
+      queryClient.clear()
+      set({ user: null, status: "ready" })
+    },
+  }
+})

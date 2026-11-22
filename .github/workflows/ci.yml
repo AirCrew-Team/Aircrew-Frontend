@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main, develop]
 
+# URL del gateway del backend. La app la necesita al compilar (api-client.ts falla sin ella).
+# En CI no hay backend: las peticiones fallan por red y la app trata eso como «sin sesión».
+env:
+  VITE_URL_API_BACKEND: http://localhost:3000
+
 jobs:
   security-check:
     name: Escaneo de secretos

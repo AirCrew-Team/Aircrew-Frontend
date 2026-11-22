@@ -29,10 +29,8 @@ const data = vi.hoisted(() => ({
 
 vi.mock(
   "@/modules/recommendations/data/recommendations.data",
-  async () => {
-    const actual: Record<string, unknown> = await import(
-      "@/tests/fixtures/recommendations.fixtures"
-    )
+  async (importOriginal) => {
+    const actual = await importOriginal<Record<string, unknown>>()
     return Object.fromEntries(
       Object.entries(actual).map(([name, value]) => {
         if (typeof value !== "function") return [name, value]

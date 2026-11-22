@@ -1,16 +1,32 @@
 import { useQuery } from "@tanstack/react-query"
 
+import { getAircraftStats } from "@/App/actions/aircraft/aircraft.actions"
+import type { FleetSummary } from "@/modules/adminHome/types/adminHome.types"
 import { FlightIcon } from "@/App/utils/icons"
 import ModuleCard from "@/modules/shared/opsHome/components/ModuleCard"
 import { getFleetSummary } from "@/modules/adminHome/data/adminHome.data"
 import { PATHS } from "@/routes/paths"
+import { isDemoUser, useAuthStore } from "@/stores/auth.store"
 
-// Tarjeta 2: estado de la flota.
+// Sesión real: el resumen sale de los indicadores de la flota (GET /aircraft/stats).
+// Activas = operativas; los modelos en línea son los de las operativas, unidos con « / ».
+const getRealFleetSummary = async (): Promise<FleetSummary> => {
+  const stats = await getAircraftStats()
+  return {
+    activeAircraft: stats.operational,
+    models: stats.modelsInService.join(" / "),
+    operational: stats.operational,
+    total: stats.total,
+  }
+}
+
+// Tarjeta 2: estado de la flota. Las cuentas demo ven los datos de ejemplo.
 const FleetCard = () => {
+  const isDemo = useAuthStore((state) => isDemoUser(state.user))
   // Consulta propia: si este servicio falla, solo esta tarjeta muestra el error.
   const { data, isPending, isError } = useQuery({
     queryKey: ["fleet", "summary"],
-    queryFn: getFleetSummary,
+    queryFn: isDemo ? getFleetSummary : getRealFleetSummary,
   })
 
   return (
@@ -29,7 +45,10 @@ const FleetCard = () => {
       metric={
         data
           ? {
-              label: `${data.models} en línea`,
+              // Sin aeronaves operativas no hay modelos en línea.
+              label: data.models
+                ? `${data.models} en línea`
+                : "Sin modelos en línea",
               value: `${data.operational} / ${data.total} Operativas`,
             }
           : undefined

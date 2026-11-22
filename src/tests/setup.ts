@@ -1,38 +1,31 @@
 import "@testing-library/jest-dom/vitest"
 import { cleanup, configure } from "@testing-library/react"
 import { toast } from "sonner"
-import { afterEach, vi } from "vitest"
+import { afterAll, afterEach, beforeAll } from "vitest"
 
 import { useAlertsStore } from "@/stores/alerts.store"
 import { useAuthStore } from "@/stores/auth.store"
 
-// Módulos de datos ya conectados al backend: los tests de pantalla usan los datos
-// simulados originales (src/tests/fixtures) en lugar de llamar a la API.
-vi.mock(
-  "@/modules/supervisorHome/data/supervisorHome.data",
-  () => import("@/tests/fixtures/supervisorHome.fixtures")
-)
-vi.mock(
-  "@/modules/shiftCrew/data/shiftCrew.data",
-  () => import("@/tests/fixtures/shiftCrew.fixtures")
-)
-vi.mock(
-  "@/modules/absenceTracking/data/absenceTracking.data",
-  () => import("@/tests/fixtures/absenceTracking.fixtures")
-)
-vi.mock(
-  "@/modules/recommendations/data/recommendations.data",
-  () => import("@/tests/fixtures/recommendations.fixtures")
-)
-vi.mock(
-  "@/modules/shared/flightAssignment/data/flightAssignment.data",
-  () => import("@/tests/fixtures/flightAssignment.fixtures")
-)
+import { server } from "./utils/server"
 
 // Las rutas lazy (Configuración, Reportar Ausencia) transforman su chunk en frío la
 // primera vez: con la máquina cargada, 1 s por defecto no siempre basta y el test falla
 // de forma intermitente. Solo amplía la espera máxima de findBy/waitFor.
 configure({ asyncUtilTimeout: 3000 })
+
+// jsdom no implementa showModal/close de <dialog>, que usa src/components/custom/Dialog.tsx
+// (p. ej. la recuperación que abre el Login al tercer intento fallido).
+HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
+  this.open = true
+}
+HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) {
+  this.open = false
+}
+
+// MSW simula el backend. Una petición sin handler es un error: así ningún test llama a
+// la red real y LR-05 detecta si una cuenta demo llama al backend.
+// MSW 3 llama a esta opción onUnhandledFrame (en MSW 2 era onUnhandledRequest).
+beforeAll(() => server.listen({ onUnhandledFrame: "error" }))
 
 afterEach(() => {
   cleanup()
@@ -44,4 +37,8 @@ afterEach(() => {
   useAuthStore.setState(useAuthStore.getInitialState(), true)
   // Las alertas en vivo de la campana también son globales.
   useAlertsStore.setState(useAlertsStore.getInitialState(), true)
+  // Quita los handlers que añadió el test con server.use(...).
+  server.resetHandlers()
 })
+
+afterAll(() => server.close())

@@ -26,10 +26,8 @@ const data = vi.hoisted(() => ({
   overrides: {} as Record<string, DataFn | undefined>,
 }))
 
-vi.mock("@/modules/shiftCrew/data/shiftCrew.data", async () => {
-    const actual: Record<string, unknown> = await import(
-      "@/tests/fixtures/shiftCrew.fixtures"
-    )
+vi.mock("@/modules/shiftCrew/data/shiftCrew.data", async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
   return Object.fromEntries(
     Object.entries(actual).map(([name, value]) => {
       if (typeof value !== "function") return [name, value]
@@ -144,7 +142,7 @@ const findMain = async () => {
 const loadRealCrew = async () => {
   const actual = await vi.importActual<{
     getShiftCrew: () => Promise<ShiftCrewLike>
-  }>("@/tests/fixtures/shiftCrew.fixtures")
+  }>("@/modules/shiftCrew/data/shiftCrew.data")
   return actual.getShiftCrew()
 }
 

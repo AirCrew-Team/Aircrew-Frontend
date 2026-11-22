@@ -3,9 +3,8 @@ import type {
   AircraftCategory,
   AircraftFilter,
   AircraftStatus,
-  MaintenanceType,
   MinimumCrew,
-} from "@/modules/aircraft/types/aircraft.types"
+} from "@/App/types/aircraft.types"
 
 // Etiqueta y colores de cada estado, como en la referencia.
 export const AIRCRAFT_STATUS: Record<
@@ -46,19 +45,16 @@ export const CATEGORY_LABEL: Record<AircraftCategory, string> = {
   regional: "Regional",
 }
 
-// Motivo del mantenimiento en palabras claras.
-export const MAINTENANCE_LABEL: Record<MaintenanceType, string> = {
-  motor: "Problemas con el motor",
-  ala: "Daño en el ala",
-  tren_aterrizaje: "Falla en el tren de aterrizaje",
-  fuselaje: "Daño en el fuselaje",
-  electrico: "Falla eléctrica o de instrumentos",
-  hidraulico: "Falla en el sistema hidráulico",
-  revision_programada: "Revisión general programada",
-}
-
 // «2 Pilotos + 4 Auxiliares».
 export const crewText = ({ pilots, cabin }: MinimumCrew) =>
   `${pilots} ${pilots === 1 ? "Piloto" : "Pilotos"} + ${cabin} ${
     cabin === 1 ? "Auxiliar" : "Auxiliares"
   }`
+
+// Categoría del modelo, o «—» en aeronaves antiguas sin modelo del catálogo.
+export const categoryLabel = (category: AircraftCategory | null) =>
+  category ? CATEGORY_LABEL[category] : "—"
+
+// Tripulación mínima, o «—» si el backend no la conoce.
+export const crewTextOf = (crew: MinimumCrew | null) =>
+  crew ? crewText(crew) : "—"

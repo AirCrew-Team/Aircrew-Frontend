@@ -33,13 +33,6 @@ const statusChip = (absence: TrackedAbsence) => {
           className: "bg-brand-neutral text-brand-secondary",
         }
       }
-      if (absence.suggestions === "error") {
-        return {
-          label: "La IA no respondió",
-          Icon: CriticalAlertIcon,
-          className: "bg-error-container text-on-error-container",
-        }
-      }
       if (absence.suggestions === "sin_candidatos") {
         return {
           label: "Sin candidatos",
@@ -139,9 +132,7 @@ const AbsenceTrackingCard = ({ absence }: AbsenceTrackingCardProps) => {
         <p className={cn(typography.bodySm, "text-muted-foreground")}>
           {absence.suggestions === "listas"
             ? `La IA propuso ${absence.candidateCount} ${absence.candidateCount === 1 ? "candidato" : "candidatos"}`
-            : absence.suggestions === "error"
-              ? "Pide nuevas sugerencias en Recomendaciones."
-              : "Ningún tripulante cumple los requisitos."}
+            : "Ningún tripulante cumple los requisitos."}
         </p>
       ) : null}
 

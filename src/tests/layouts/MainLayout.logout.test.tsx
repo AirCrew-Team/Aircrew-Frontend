@@ -37,14 +37,18 @@ describe("CA-16: cerrar sesión", () => {
     )
   })
 
-  // Con el login real, el selector «Rol (dev)» ya no se muestra (no tendría token).
-  it("CA-16: en /login no aparece el selector «Rol (dev)»", async () => {
+  it("CA-16: en /login sin sesión, el selector «Rol (dev)» permite entrar como superVisor", async () => {
     useAuthStore.setState({ user: null })
-    renderRoute(PATHS.login)
+    const user = userEvent.setup()
+    const router = renderRoute(PATHS.login)
 
-    await screen.findByRole("button", { name: "Iniciar sesión" })
-    expect(
-      screen.queryByRole("combobox", { name: /rol \(dev\)/i })
-    ).not.toBeInTheDocument()
+    const roleSelect = await screen.findByRole("combobox", {
+      name: /rol \(dev\)/i,
+    })
+    await user.selectOptions(roleSelect, ROLES.SUPER_VISOR)
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(PATHS.superVisor.inicio)
+    )
   })
 })

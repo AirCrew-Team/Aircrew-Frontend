@@ -1,3 +1,5 @@
+import * as demo from "./recommendations.demo"
+import { withDemo } from "@/modules/shared/session/demoSession"
 import { utcClock } from "@/modules/shared/base/myBase"
 import {
   ABSENCE_REASON_LABEL,
@@ -67,10 +69,10 @@ const toRequest = (absence: ApiReportedAbsence): ReplacementRequest => ({
 })
 
 // Cola: ausencias que necesitan reemplazo, de la salida más próxima a la más lejana.
-export const getPendingReplacementRequests = async (): Promise<
+const getPendingReplacementRequestsFromApi = async (): Promise<
   ReplacementRequest[]
 > => {
-  const { data } = await apiClient.get<ApiReportedAbsence[]>("/crew/absences", {
+  const { data } = await apiClient.get<ApiReportedAbsence[]>("/api/crew/absences", {
     params: { status: "reported" },
   })
   return [...data]
@@ -135,11 +137,11 @@ const toCandidates = (result: ApiCandidatesResult) =>
     .map(toCandidate)
 
 // Candidatos que propuso la IA para una solicitud, en orden.
-export const getRecommendedCandidates = async (
+const getRecommendedCandidatesFromApi = async (
   requestId: string
 ): Promise<Candidate[]> => {
   const { data } = await apiClient.get<ApiCandidatesResult>(
-    `/recommendation/absences/${requestId}/candidates`
+    `/api/recommendation/absences/${requestId}/candidates`
   )
   return toCandidates(data)
 }
@@ -148,13 +150,13 @@ export const getRecommendedCandidates = async (
 const AI_TIMEOUT_MS = 90_000
 
 // Otra ronda de la IA. El motivo (opcional, máx. 300) orienta la búsqueda; vacío, se omite.
-export const regenerateCandidates = async (
+const regenerateCandidatesFromApi = async (
   requestId: string,
   reason: string
 ): Promise<Candidate[]> => {
   const trimmed = reason.trim()
   const { data } = await apiClient.post<ApiCandidatesResult>(
-    `/recommendation/absences/${requestId}/regenerate`,
+    `/api/recommendation/absences/${requestId}/regenerate`,
     trimmed ? { reason: trimmed } : {},
     { timeout: AI_TIMEOUT_MS }
   )
@@ -162,14 +164,20 @@ export const regenerateCandidates = async (
 }
 
 // Confirma un candidato: el backend revalida las reglas y le avisa al tripulante.
-export const confirmCandidate = async (
+const confirmCandidateFromApi = async (
   requestId: string,
   candidateUserId: string
 ): Promise<{ deadlineAt: string }> => {
   const { data } = await apiClient.post<{ deadline_at: string }>(
-    `/recommendation/absences/${requestId}/confirm`,
+    `/api/recommendation/absences/${requestId}/confirm`,
     { candidate_user_id: candidateUserId },
     { timeout: AI_TIMEOUT_MS }
   )
   return { deadlineAt: data.deadline_at }
 }
+
+// Cuenta demo → datos de ejemplo (D4); sesión real → backend.
+export const getPendingReplacementRequests = withDemo(getPendingReplacementRequestsFromApi, demo.getPendingReplacementRequests)
+export const getRecommendedCandidates = withDemo(getRecommendedCandidatesFromApi, demo.getRecommendedCandidates)
+export const regenerateCandidates = withDemo(regenerateCandidatesFromApi, demo.regenerateCandidates)
+export const confirmCandidate = withDemo(confirmCandidateFromApi, demo.confirmCandidate)

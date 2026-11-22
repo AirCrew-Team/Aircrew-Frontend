@@ -7,7 +7,7 @@ import { typography } from "@/App/utils/typography"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import UserDialogHeader from "@/modules/users/components/UserDialogHeader"
-import { createUser, getUserCatalogs } from "@/modules/users/data/users.data"
+import { useUsersApi } from "@/modules/users/hooks/useUsersApi"
 import { fullName } from "@/modules/users/utils/userName"
 
 // Carga diferida: el formulario (con react-phone-number-input y los datos de teléfonos
@@ -31,11 +31,13 @@ interface CreateUserDialogProps {
   onClose: () => void
 }
 
-// Ventana «Añadir usuario». Pide las opciones de las listas al abrirse
-// (["users", "catalogs"]) y, ya cargadas, muestra el formulario.
+// Ventana «Añadir usuario». Pide los catálogos al abrirse (["users", "catalogs"]) y, ya
+// cargados, muestra el formulario. La cuenta nace pendiente de activación: la persona
+// recibe un correo para crear su contraseña.
 // Se cierra con la X, con Esc o al pulsar fuera, y el foco vuelve a «Añadir usuario».
 const CreateUserDialog = ({ open, onClose }: CreateUserDialogProps) => {
-  // Opciones de las listas (bases, cargos y certificados). Misma consulta que la edición.
+  const { createUser, getUserCatalogs } = useUsersApi()
+  // Opciones de las listas (bases, cargos y turnos). Misma consulta que la edición.
   const { data, isPending, isError } = useQuery({
     queryKey: ["users", "catalogs"],
     queryFn: getUserCatalogs,
@@ -81,12 +83,12 @@ const CreateUserDialog = ({ open, onClose }: CreateUserDialogProps) => {
               catalogs={data}
               submitLabel="Crear usuario"
               pendingLabel="Creando usuario…"
-              // Alta (POST) con su clave de idempotencia (ADR 003).
               onSave={createUser}
-              // Al crear: aviso con el ID que asignó el backend y se cierra la ventana.
+              // Al crear: aviso del correo de activación y se cierra la ventana. El
+              // usuario aparece en la lista como pendiente de activación.
               onSaved={(user) => {
                 toast.success("Usuario creado", {
-                  description: `${fullName(user)} quedó registrado con el ID ${user.id}.`,
+                  description: `Se envió un correo a ${user.email} para que ${fullName(user)} active la cuenta.`,
                 })
                 onClose()
               }}

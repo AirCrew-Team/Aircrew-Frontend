@@ -1,3 +1,5 @@
+import * as demo from "./flightAssignment.demo"
+import { withDemo } from "@/modules/shared/session/demoSession"
 import { utcClock } from "@/modules/shared/base/myBase"
 import type {
   Assignee,
@@ -108,10 +110,10 @@ const toPlannedFlight = (flight: ApiPlannedFlight): PlannedFlight => ({
 })
 
 // Resumen de los próximos 7 días: vuelos y cuántos faltan por confirmar.
-export const getScheduleDays = async (): Promise<ScheduleDay[]> => {
+const getScheduleDaysFromApi = async (): Promise<ScheduleDay[]> => {
   const { data } = await apiClient.get<
     { date: string; flight_count: number; pending_count: number }[]
-  >("/recommendation/schedule/days", { params: { days: 7 } })
+  >("/api/recommendation/schedule/days", { params: { days: 7 } })
   return data.map((day) => ({
     date: day.date,
     flightCount: day.flight_count,
@@ -120,9 +122,9 @@ export const getScheduleDays = async (): Promise<ScheduleDay[]> => {
 }
 
 // Vuelos de un día (hora de Colombia), ordenados por salida.
-export const getDayFlights = async (date: string): Promise<PlannedFlight[]> => {
+const getDayFlightsFromApi = async (date: string): Promise<PlannedFlight[]> => {
   const { data } = await apiClient.get<ApiPlannedFlight[]>(
-    "/recommendation/schedule",
+    "/api/recommendation/schedule",
     { params: { date } }
   )
   return [...data]
@@ -134,14 +136,14 @@ export const getDayFlights = async (date: string): Promise<PlannedFlight[]> => {
 }
 
 // Elegibles (ya ordenados por puntaje) y no elegibles con el primer motivo que falla.
-export const getSlotCandidates = async (
+const getSlotCandidatesFromApi = async (
   flightId: string,
   slotId: string
 ): Promise<SlotCandidates> => {
   const { data } = await apiClient.get<{
     eligible: { crew_id: string; full_name: string; summary: string }[]
     ineligible: { crew_id: string; full_name: string; reason: string }[]
-  }>(`/recommendation/flights/${flightId}/slots/${slotId}/candidates`)
+  }>(`/api/recommendation/flights/${flightId}/slots/${slotId}/candidates`)
   return {
     eligible: data.eligible.map((candidate) => ({
       crewId: candidate.crew_id,
@@ -157,24 +159,24 @@ export const getSlotCandidates = async (
 }
 
 // Asigna a mano. Si no cumple una regla, el backend responde 409 con el motivo.
-export const assignCrew = async (
+const assignCrewFromApi = async (
   flightId: string,
   slotId: string,
   crewId: string
 ): Promise<PlannedFlight> => {
   const { data } = await apiClient.put<ApiPlannedFlight>(
-    `/recommendation/flights/${flightId}/slots/${slotId}`,
+    `/api/recommendation/flights/${flightId}/slots/${slotId}`,
     { crew_id: crewId }
   )
   return toPlannedFlight(data)
 }
 
-export const unassignCrew = async (
+const unassignCrewFromApi = async (
   flightId: string,
   slotId: string
 ): Promise<PlannedFlight> => {
   const { data } = await apiClient.delete<ApiPlannedFlight>(
-    `/recommendation/flights/${flightId}/slots/${slotId}`
+    `/api/recommendation/flights/${flightId}/slots/${slotId}`
   )
   return toPlannedFlight(data)
 }
@@ -191,14 +193,14 @@ const AI_TIMEOUT_MS = 90_000
 
 // La IA (Claude, en el backend) elige a la mejor persona para cada puesto vacío.
 // El vuelo nunca se confirma solo.
-export const suggestCrew = async (
+const suggestCrewFromApi = async (
   flightId: string
 ): Promise<PlannedFlight & { unfilled?: UnfilledSlot[] }> => {
   const { data } = await apiClient.post<
     ApiPlannedFlight & {
       unfilled?: { slot_id: string; label: string; reason: string }[]
     }
-  >(`/recommendation/flights/${flightId}/suggest`, undefined, {
+  >(`/api/recommendation/flights/${flightId}/suggest`, undefined, {
     timeout: AI_TIMEOUT_MS,
   })
   return {
@@ -212,11 +214,20 @@ export const suggestCrew = async (
 }
 
 // Confirma la tripulación (todos los puestos cubiertos) y avisa a cada tripulante.
-export const confirmFlightCrew = async (
+const confirmFlightCrewFromApi = async (
   flightId: string
 ): Promise<PlannedFlight> => {
   const { data } = await apiClient.post<ApiPlannedFlight>(
-    `/recommendation/flights/${flightId}/confirm`
+    `/api/recommendation/flights/${flightId}/confirm`
   )
   return toPlannedFlight(data)
 }
+
+// Cuenta demo → datos de ejemplo (D4); sesión real → backend.
+export const getScheduleDays = withDemo(getScheduleDaysFromApi, demo.getScheduleDays)
+export const getDayFlights = withDemo(getDayFlightsFromApi, demo.getDayFlights)
+export const getSlotCandidates = withDemo(getSlotCandidatesFromApi, demo.getSlotCandidates)
+export const assignCrew = withDemo(assignCrewFromApi, demo.assignCrew)
+export const unassignCrew = withDemo(unassignCrewFromApi, demo.unassignCrew)
+export const suggestCrew = withDemo(suggestCrewFromApi, demo.suggestCrew)
+export const confirmFlightCrew = withDemo(confirmFlightCrewFromApi, demo.confirmFlightCrew)

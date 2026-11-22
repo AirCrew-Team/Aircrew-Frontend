@@ -7,6 +7,8 @@ import { connectAlerts } from "@/lib/socket"
 import { PATHS } from "@/routes/paths"
 import { useAuthStore } from "@/stores/auth.store"
 
+import { mockAbsencesList } from "../mocks/absencesApi"
+import { API_USERS } from "../mocks/authApi"
 import { renderRoute } from "../utils/renderRoute"
 import { findToast } from "../utils/toasts"
 
@@ -25,6 +27,7 @@ vi.mock("@/lib/socket", () => ({
 }))
 
 const REPORTED = "EMP-004 no podrá volar AV-9344 (incapacidad)."
+const SCREEN = PATHS.superVisor.solicitudesReemplazo
 
 const emit = (name: string, payload: object) =>
   act(() => {
@@ -33,26 +36,32 @@ const emit = (name: string, payload: object) =>
     handler?.(payload)
   })
 
-// Sesión real de supervisor: con token, como tras el login.
+// Sesión real de supervisor (cookie), como tras el login. La pantalla de prueba es
+// Recomendaciones: su cola (GET /api/crew/absences) responde vacía con MSW.
 const loginAsSupervisor = () => {
-  useAuthStore.getState().setMockRole(ROLES.SUPER_VISOR)
-  useAuthStore.setState({ token: "token-de-prueba" })
+  mockAbsencesList([])
+  useAuthStore.getState().setUser({
+    id: API_USERS.supervisor.id,
+    displayName: "Sara Gómez",
+    fullName: "Sara Gómez Ruiz",
+    position: "Supervisor",
+    role: ROLES.SUPER_VISOR,
+  })
 }
 
 describe("Alertas en vivo del supervisor", () => {
-  it("con sesión de supervisor se conecta con su token", async () => {
+  it("con sesión real de supervisor se conecta (la cookie viaja sola)", async () => {
+    vi.mocked(connectAlerts).mockClear()
     loginAsSupervisor()
-    renderRoute(PATHS.superVisor.inicio)
+    renderRoute(SCREEN)
 
-    await waitFor(() =>
-      expect(connectAlerts).toHaveBeenCalledWith("token-de-prueba")
-    )
+    await waitFor(() => expect(connectAlerts).toHaveBeenCalled())
   })
 
-  it("sin token (sesión simulada) o con otro rol no se conecta", async () => {
+  it("con una cuenta demo (sin sesión en el backend) no se conecta", async () => {
     vi.mocked(connectAlerts).mockClear()
     useAuthStore.getState().setMockRole(ROLES.SUPER_VISOR)
-    renderRoute(PATHS.superVisor.inicio)
+    renderRoute(SCREEN)
     await screen.findByRole("main")
 
     expect(connectAlerts).not.toHaveBeenCalled()
@@ -60,7 +69,7 @@ describe("Alertas en vivo del supervisor", () => {
 
   it("absence:reported muestra el toast y la campana dice «1 sin leer» con la alerta", async () => {
     loginAsSupervisor()
-    renderRoute(PATHS.superVisor.inicio)
+    renderRoute(SCREEN)
     await waitFor(() => expect(connectAlerts).toHaveBeenCalled())
 
     await emit("absence:reported", {
@@ -82,7 +91,7 @@ describe("Alertas en vivo del supervisor", () => {
 
   it("auth:expired cierra la sesión y lleva al login", async () => {
     loginAsSupervisor()
-    const router = renderRoute(PATHS.superVisor.inicio)
+    const router = renderRoute(SCREEN)
     await waitFor(() => expect(connectAlerts).toHaveBeenCalled())
 
     await emit("auth:expired", {

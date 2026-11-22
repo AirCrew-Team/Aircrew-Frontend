@@ -18,6 +18,29 @@ const FIRST_OFFICER = {
   note: "Copiloto",
 }
 
+// Sesión real sin vuelos asignados: métricas en cero o «—», sin consulta.
+export const EMPTY_FLIGHT_METRICS: FlightMetrics = {
+  fdp: {
+    usedHours: 0,
+    maxHours: 90,
+    regulation: "RAC 121.465",
+    cycleClosesInDays: null,
+  },
+  rest: {
+    guaranteed: "—",
+    status: "Sin datos",
+    note: "Sin vuelos registrados.",
+    endsAt: "—",
+  },
+  month: {
+    label: "—",
+    completedSectors: 0,
+    crewDelays: 0,
+    domestic: 0,
+    international: 0,
+  },
+}
+
 export const getFlightMetrics = (): Promise<FlightMetrics> =>
   Promise.resolve({
     fdp: {

@@ -1,8 +1,7 @@
-import type { Aircraft } from "@/modules/aircraft/types/aircraft.types"
+import type { Aircraft, MaintenanceType } from "@/App/types/aircraft.types"
 import {
-  CATEGORY_LABEL,
-  MAINTENANCE_LABEL,
-  crewText,
+  categoryLabel,
+  crewTextOf,
   statusLabelOf,
 } from "@/modules/aircraft/utils/aircraftStatus"
 
@@ -23,24 +22,30 @@ const COLUMNS = [
 const cell = (value: string | number) =>
   `"${String(value).replace(/"/g, '""')}"`
 
-// Tipo de mantenimiento, o «—» si está operativa.
-const maintenanceOf = (aircraft: Aircraft) =>
-  aircraft.maintenanceType ? MAINTENANCE_LABEL[aircraft.maintenanceType] : "—"
+// Motivo del mantenimiento (texto del catálogo), o «—» si está operativa.
+const maintenanceOf = (
+  aircraft: Aircraft,
+  maintenanceLabel: (code: MaintenanceType) => string
+) =>
+  aircraft.maintenanceType ? maintenanceLabel(aircraft.maintenanceType) : "—"
 
 // Manifiesto en CSV (una fila por aeronave). Empieza con BOM para que Excel lea bien
 // las tildes.
-export const toManifestCsv = (fleet: Aircraft[]) => {
+export const toManifestCsv = (
+  fleet: Aircraft[],
+  maintenanceLabel: (code: MaintenanceType) => string
+) => {
   const rows = fleet.map((aircraft) =>
     [
       aircraft.registration,
       aircraft.modelName,
       aircraft.msn,
-      CATEGORY_LABEL[aircraft.category],
+      categoryLabel(aircraft.category),
       aircraft.capacity,
-      crewText(aircraft.minimumCrew),
+      crewTextOf(aircraft.minimumCrew),
       aircraft.baseName,
       statusLabelOf(aircraft),
-      maintenanceOf(aircraft),
+      maintenanceOf(aircraft, maintenanceLabel),
     ]
       .map(cell)
       .join(",")

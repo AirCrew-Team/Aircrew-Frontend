@@ -1,3 +1,5 @@
+import * as demo from "./shiftCrew.demo"
+import { withDemo } from "@/modules/shared/session/demoSession"
 import { getMyBase, utcClock } from "@/modules/shared/base/myBase"
 import type {
   CrewMember,
@@ -119,9 +121,9 @@ const toCrewMember = (member: ApiShiftMember): CrewMember | null => {
 }
 
 // Tripulación de la base del supervisor durante su turno.
-export const getShiftCrew = async (): Promise<ShiftCrew> => {
+const getShiftCrewFromApi = async (): Promise<ShiftCrew> => {
   const myBase = await getMyBase()
-  const { data } = await apiClient.get<ApiShiftCrew>("/crew/shift-crew", {
+  const { data } = await apiClient.get<ApiShiftCrew>("/api/crew/shift-crew", {
     params: { base: myBase.iata },
   })
   return {
@@ -131,3 +133,6 @@ export const getShiftCrew = async (): Promise<ShiftCrew> => {
       .filter((member): member is CrewMember => member !== null),
   }
 }
+
+// Cuenta demo → datos de ejemplo (D4); sesión real → backend.
+export const getShiftCrew = withDemo(getShiftCrewFromApi, demo.getShiftCrew)

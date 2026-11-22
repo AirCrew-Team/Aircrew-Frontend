@@ -3,8 +3,8 @@
 export type Availability = "disponible" | "vacaciones" | "incapacitado"
 
 export interface CrewStatus {
-  // Base y aeropuerto, ej. "BOG / SKBO".
-  base: string
+  // Base y aeropuerto, ej. "BOG / SKBO". null si el tripulante real no tiene base.
+  base: string | null
   operationalCondition: string
   availability: Availability
 }

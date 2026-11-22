@@ -1,3 +1,7 @@
+import {
+  AircraftFieldError,
+  AircraftRequestError,
+} from "@/App/actions/aircraft/aircraft.actions"
 import fleetPhoto from "@/App/utils/images/Airplane.png"
 import type {
   Aircraft,
@@ -13,10 +17,15 @@ import type {
   AircraftReport,
   MaintenanceHistoryEntry,
   MaintenanceRecord,
-} from "@/modules/aircraft/types/aircraft.types"
+  MaintenanceTypeOption,
+} from "@/App/types/aircraft.types"
 
-// Datos simulados con la forma de las acciones reales: se moverán a App/actions cuando
-// exista la API. Las funciones ya reciben los parámetros que se enviarán al backend.
+export { AircraftFieldError, AircraftRequestError }
+
+// Datos de ejemplo de las cuentas demo y del selector «Rol (dev)»: no llaman al backend.
+// Tienen la misma forma y el mismo comportamiento que App/actions/aircraft (catálogos con
+// motivos y tareas, foto aparte, 409 al volver a servicio desde «Editar»). La sesión real
+// usa las acciones; el módulo elige con useAircraftApi.
 // Contexto: flota de Delta Air Lines, matrículas FAA (N…) y bases en EE. UU.
 
 // Aeronaves por página: lo enviará el frontend y lo confirmará el backend en la respuesta.
@@ -339,6 +348,8 @@ export const getAircraftStats = (): Promise<AircraftStats> => {
   const count = (status: AircraftStatus) =>
     FLEET.filter((aircraft) => aircraft.status === status).length
 
+  const operating = FLEET.filter((aircraft) => aircraft.status === "operativa")
+
   return Promise.resolve({
     total: FLEET.length,
     operational: count("operativa"),
@@ -347,10 +358,16 @@ export const getAircraftStats = (): Promise<AircraftStats> => {
       (sum, aircraft) => sum + (findModel(aircraft.modelId)?.capacity ?? 0),
       0
     ),
+    // Modelos de las operativas, sin repetir y ordenados (como el backend).
+    modelsInService: [
+      ...new Set(
+        operating.map((aircraft) => findModel(aircraft.modelId)?.name ?? "")
+      ),
+    ].sort(),
   })
 }
 
-// Catálogos del formulario: modelos y bases.
+// Catálogos del formulario: modelos, bases y motivos con sus tareas.
 export const getAircraftOptions = (): Promise<AircraftOptions> =>
   Promise.resolve({
     models: MODELS.map((model) => ({
@@ -358,18 +375,11 @@ export const getAircraftOptions = (): Promise<AircraftOptions> =>
       minimumCrew: { ...model.minimumCrew },
     })),
     bases: BASES.map((base) => ({ ...base })),
+    maintenanceTypes: MAINTENANCE_TYPES.map((type) => ({
+      ...type,
+      tasks: [...type.tasks],
+    })),
   })
-
-// Error de un campo concreto (ej. matrícula repetida): el formulario lo muestra debajo
-// de ese campo. Con la API corresponderá a un 4xx del backend.
-export class AircraftFieldError extends Error {
-  field: "registration"
-
-  constructor(field: AircraftFieldError["field"], message: string) {
-    super(message)
-    this.field = field
-  }
-}
 
 // La matrícula es única en la flota.
 const registrationTaken = (registration: string, exceptId?: string) =>
@@ -378,29 +388,19 @@ const registrationTaken = (registration: string, exceptId?: string) =>
       aircraft.registration === registration && aircraft.id !== exceptId
   )
 
-// Foto: undefined deja la que había; null la quita; un archivo es la nueva (en el
-// navegador se muestra desde la memoria; con la API, el backend devolverá su dirección).
-const photoUrlOf = (
-  photo: SaveAircraftInput["photo"],
-  current: string | null
-) => {
-  if (photo === undefined) return current
-  return photo ? URL.createObjectURL(photo) : null
-}
+const DUPLICATE_REGISTRATION = "Ya existe una aeronave con esa matrícula."
 
 let nextId = FLEET.length + 1
 
-// Registra una aeronave (con la API, un POST). Queda primera en la lista.
+// Registra una aeronave (POST). Queda primera en la lista, sin foto: la foto se sube
+// aparte con uploadAircraftPhoto.
 export const createAircraft = (input: SaveAircraftInput): Promise<Aircraft> =>
   new Promise((resolve, reject) => {
     // Simula la latencia de la red.
     setTimeout(() => {
       if (registrationTaken(input.registration)) {
         return reject(
-          new AircraftFieldError(
-            "registration",
-            `Ya existe una aeronave con la matrícula ${input.registration}.`
-          )
+          new AircraftFieldError("registration", DUPLICATE_REGISTRATION)
         )
       }
       const stored: StoredAircraft = {
@@ -419,14 +419,15 @@ export const createAircraft = (input: SaveAircraftInput): Promise<Aircraft> =>
           input.condition === "mantenimiento" ? input.maintenanceType : null,
         maintenanceNote:
           input.condition === "mantenimiento" ? input.maintenanceNote : null,
-        photoUrl: photoUrlOf(input.photo, null),
+        photoUrl: null,
       }
       FLEET.unshift(stored)
       resolve(toAircraft(stored))
     }, 400)
   })
 
-// Edita una aeronave (con la API, un PUT; repetirlo da el mismo resultado).
+// Edita una aeronave (PUT; repetirlo da el mismo resultado). Como el backend, una
+// aeronave en mantenimiento no vuelve a «operativa» por aquí: solo con «Liberar a servicio».
 export const updateAircraft = (
   id: string,
   input: SaveAircraftInput
@@ -437,9 +438,16 @@ export const updateAircraft = (
       if (!stored) return reject(new Error(`Aeronave ${id} no encontrada`))
       if (registrationTaken(input.registration, id)) {
         return reject(
-          new AircraftFieldError(
-            "registration",
-            `Ya existe una aeronave con la matrícula ${input.registration}.`
+          new AircraftFieldError("registration", DUPLICATE_REGISTRATION)
+        )
+      }
+      if (
+        stored.status === "mantenimiento" &&
+        input.condition === "operativa"
+      ) {
+        return reject(
+          new AircraftRequestError(
+            "La aeronave está en mantenimiento: completa las tareas y usa «Liberar a servicio»."
           )
         )
       }
@@ -456,10 +464,21 @@ export const updateAircraft = (
           status === "mantenimiento" ? input.maintenanceType : null,
         maintenanceNote:
           status === "mantenimiento" ? input.maintenanceNote : null,
-        photoUrl: photoUrlOf(input.photo, stored.photoUrl ?? null),
       })
       resolve(toAircraft(stored))
     }, 400)
+  })
+
+// Foto de la aeronave (PUT .../photo), después de guardarla. En el navegador se muestra
+// desde la memoria; en el backend, desde su dirección.
+export const uploadAircraftPhoto = (id: string, file: File): Promise<void> =>
+  new Promise((resolve, reject) => {
+    setTimeout(() => {
+      const stored = FLEET.find((aircraft) => aircraft.id === id)
+      if (!stored) return reject(new Error(`Aeronave ${id} no encontrada`))
+      stored.photoUrl = URL.createObjectURL(file)
+      resolve()
+    }, 200)
   })
 
 // Todas las aeronaves para el manifiesto (con la API, un GET del manifiesto o el
@@ -469,52 +488,85 @@ export const getFleetManifest = (): Promise<Aircraft[]> =>
 
 // --- Informe y mantenimiento ---
 
-// Tareas de cada motivo de mantenimiento, en el orden en que se hacen.
-const MAINTENANCE_TASKS: Record<MaintenanceType, string[]> = {
-  motor: [
-    "Inspección visual del motor y sus soportes",
-    "Revisión interna con cámara (boroscopio)",
-    "Cambio de las piezas dañadas",
-    "Prueba del motor en tierra",
-    "Vuelo de prueba y liberación a servicio",
-  ],
-  ala: [
-    "Evaluación del daño en el ala",
-    "Reparación de la estructura",
-    "Pintura y sellado",
-    "Prueba de flaps y alerones",
-  ],
-  tren_aterrizaje: [
-    "Inspección del tren de aterrizaje",
-    "Cambio de llantas y frenos",
-    "Lubricación y ajuste",
-    "Prueba de subida y bajada del tren",
-  ],
-  fuselaje: [
-    "Evaluación del daño en el fuselaje",
-    "Reparación de la estructura",
-    "Prueba de presurización de la cabina",
-    "Pintura y liberación a servicio",
-  ],
-  electrico: [
-    "Diagnóstico del sistema eléctrico",
-    "Cambio de cableado o componentes",
-    "Prueba de instrumentos de cabina",
-    "Liberación a servicio",
-  ],
-  hidraulico: [
-    "Detección de la fuga o la falla",
-    "Cambio de mangueras o bombas",
-    "Recarga del líquido hidráulico",
-    "Prueba de los mandos del avión",
-  ],
-  revision_programada: [
-    "Inspección general del avión",
-    "Revisión de motores",
-    "Revisión de equipos de emergencia",
-    "Pruebas finales y liberación a servicio",
-  ],
-}
+// Motivos de mantenimiento con sus tareas, en el orden en que se hacen. Mismos códigos,
+// textos y tareas que el catálogo del backend (GET /aircraft/options).
+const MAINTENANCE_TYPES: MaintenanceTypeOption[] = [
+  {
+    code: "motor",
+    label: "Problemas con el motor",
+    tasks: [
+      "Inspección visual del motor y sus soportes",
+      "Revisión interna con cámara (boroscopio)",
+      "Cambio de las piezas dañadas",
+      "Prueba del motor en tierra",
+      "Vuelo de prueba y liberación a servicio",
+    ],
+  },
+  {
+    code: "ala",
+    label: "Daño en el ala",
+    tasks: [
+      "Evaluación del daño en el ala",
+      "Reparación de la estructura",
+      "Pintura y sellado",
+      "Prueba de flaps y alerones",
+    ],
+  },
+  {
+    code: "tren_aterrizaje",
+    label: "Tren de aterrizaje",
+    tasks: [
+      "Inspección del tren de aterrizaje",
+      "Cambio de llantas y frenos",
+      "Lubricación y ajuste",
+      "Prueba de subida y bajada del tren",
+    ],
+  },
+  {
+    code: "fuselaje",
+    label: "Daño en el fuselaje",
+    tasks: [
+      "Evaluación del daño en el fuselaje",
+      "Reparación de la estructura",
+      "Prueba de presurización de la cabina",
+      "Pintura y liberación a servicio",
+    ],
+  },
+  {
+    code: "electrico",
+    label: "Falla eléctrica",
+    tasks: [
+      "Diagnóstico del sistema eléctrico",
+      "Cambio de cableado o componentes",
+      "Prueba de instrumentos de cabina",
+      "Liberación a servicio",
+    ],
+  },
+  {
+    code: "hidraulico",
+    label: "Falla hidráulica",
+    tasks: [
+      "Detección de la fuga o la falla",
+      "Cambio de mangueras o bombas",
+      "Recarga del líquido hidráulico",
+      "Prueba de los mandos del avión",
+    ],
+  },
+  {
+    code: "revision_programada",
+    label: "Revisión programada",
+    tasks: [
+      "Inspección general del avión",
+      "Revisión de motores",
+      "Revisión de equipos de emergencia",
+      "Pruebas finales y liberación a servicio",
+    ],
+  },
+]
+
+const MAINTENANCE_TASKS = Object.fromEntries(
+  MAINTENANCE_TYPES.map((type) => [type.code, type.tasks])
+) as Record<MaintenanceType, string[]>
 
 // Orden abierta de cada aeronave en hangar: qué tareas van hechas.
 interface StoredWorkOrder {
