@@ -56,7 +56,7 @@ const EmergencyLineCard = () => {
           <span
             className={cn(typography.headlineSm, "font-bold tracking-tight")}
           >
-            +57 (1) 414-8800
+            +1 (404) 555-0123
           </span>
           <span
             className={cn(
@@ -68,8 +68,8 @@ const EmergencyLineCard = () => {
           </span>
         </div>
         <a
-          href="tel:+5714148800"
-          aria-label="Llamar a la central OCC, +57 (1) 414-8800"
+          href="tel:+14045550123"
+          aria-label="Llamar a la central OCC, +1 (404) 555-0123"
           className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/30 bg-brand-secondary text-white shadow-sm transition-colors hover:bg-brand-tertiary focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand-primary-dark focus-visible:outline-hidden active:bg-brand-secondary-hover motion-reduce:transition-none lg:size-10"
         >
           <PhoneIcon aria-hidden="true" className="size-5" />
@@ -89,7 +89,7 @@ const EmergencyLineCard = () => {
           />
           Canal VHF 131.85 MHz
         </span>
-        <span className="font-mono">SKBO-OCC-DESP</span>
+        <span className="font-mono">OCC-DESP</span>
       </div>
     </section>
   )

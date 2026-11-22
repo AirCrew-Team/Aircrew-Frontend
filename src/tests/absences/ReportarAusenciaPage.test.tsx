@@ -30,7 +30,7 @@ const FIELD = {
 const REASON_OPTIONS = [
   { value: "", text: "Selecciona la tipología de novedad operacional…" },
   { value: "incapacidad", text: "Incapacidad médica repentina" },
-  { value: "fatiga", text: "Fatiga operacional / RAC 212" },
+  { value: "fatiga", text: "Fatiga operacional / 14 CFR 117.5" },
   { value: "calamidad", text: "Calamidad doméstica o familiar" },
   { value: "traslado", text: "Dificultad de traslado comprobada" },
 ]
@@ -48,7 +48,7 @@ const MEDICAL_SERVICE =
 
 const CRITICAL_NOTICE_TITLE = "Aviso Operacional Crítico"
 const CRITICAL_NOTICE_TEXT =
-  "Al enviar este reporte, el sistema liberará tu posición inmediatamente para que el algoritmo de supervisión OCC asigne un tripulante en guardia standby. Esta acción genera trazabilidad auditada bajo RAC 121."
+  "Al enviar este reporte, el sistema liberará tu posición inmediatamente para que el algoritmo de supervisión OCC asigne un tripulante en guardia standby. Esta acción genera trazabilidad auditada bajo 14 CFR Part 121."
 
 const loadingStatuses = (container: HTMLElement) =>
   within(container)
@@ -197,9 +197,9 @@ describe("Reportar Ausencia: columna derecha", () => {
     expect(items[1]).toHaveTextContent(POLICY_POINTS[1])
 
     const call = within(main).getByRole("link", {
-      name: "Llamar a la central OCC, +57 (1) 414-8800",
+      name: "Llamar a la central OCC, +1 (404) 555-0123",
     })
-    expect(call).toHaveAttribute("href", "tel:+5714148800")
+    expect(call).toHaveAttribute("href", "tel:+14045550123")
 
     expect(main).toHaveTextContent(MEDICAL_SERVICE)
   })
@@ -224,10 +224,10 @@ describe("Reportar Ausencia: columna derecha", () => {
       "Supervisor de Guardia",
       "Canal directo telefónico y de frecuencia con el supervisor de guardia en turno activo las 24 horas.",
       "Central Telefónica Directa",
-      "+57 (1) 414-8800",
+      "+1 (404) 555-0123",
       "Extensión 301",
       "Canal VHF 131.85 MHz",
-      "SKBO-OCC-DESP",
+      "OCC-DESP",
     ]) {
       expect(main).toHaveTextContent(text)
     }

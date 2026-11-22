@@ -25,7 +25,7 @@ const FlightsHeader = () => {
       </h1>
       <p className={cn(typography.bodyMd, "max-w-2xl text-muted-foreground")}>
         Gestión de itinerarios, vuelos programados y seguimiento de horas
-        reglamentarias FDP (RAC 121).
+        reglamentarias FDP (14 CFR Part 117).
       </p>
     </div>
   )

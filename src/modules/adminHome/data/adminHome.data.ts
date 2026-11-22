@@ -6,32 +6,45 @@ import type {
   StandbySummary,
   UsersSummary,
 } from "@/modules/adminHome/types/adminHome.types"
+import { withDemo } from "@/modules/shared/session/demoSession"
+
+import * as demo from "./adminHome.demo"
 
 // Datos simulados ("quemados") con la forma de las acciones reales: se moverán a
 // App/actions cuando exista la API, y los componentes no tendrán que cambiar.
 // Una función por sección, porque cada una vendrá de un servicio distinto del gateway.
 // Devuelven una promesa, igual que lo hará la petición HTTP real.
 
-// Encabezado: dependencia, sede y condición operacional.
-export const getOpsCenter = (): Promise<OpsCenter> =>
+// Sesión real: el admin no tiene base (bases/me es de los supervisores), así que el
+// encabezado y el banner hablan de la operación de Delta en general. El backend no da
+// condición operacional, pista ni QNH: no se inventan («—» o no se muestran).
+const getNetworkOpsCenter = (): Promise<OpsCenter> =>
   Promise.resolve({
     unit: "Jefatura de Operaciones de Vuelo",
-    hqCode: "BOG-HQ",
-    baseName: "Base Eldorado",
-    operationalCondition: "Nivel Óptimo",
+    hqCode: "DL",
+    baseName: "Delta Air Lines",
+    operationalCondition: "—",
   })
 
-// Banner: estado del aeropuerto base.
-export const getAirportStatus = (): Promise<AirportStatus> =>
+const getNetworkStatus = (): Promise<AirportStatus> =>
   Promise.resolve({
-    trafficLabel: "Tráfico Aéreo Continental",
-    location: "SKBO • Terminal 1 & 2",
-    headline: "Operaciones Normales • Base Central Bogotá Eldorado",
+    trafficLabel: "Red de operaciones",
+    location: "Delta Air Lines • EE. UU.",
+    headline: "Operaciones de la red Delta",
     summary:
-      "Vuelos en secuencia programada sin restricciones meteorológicas ni alertas de cizalladura en aproximación norte.",
-    activeRunway: "RWY 13R",
-    localQnh: "1022 hPa",
+      "Tripulaciones, flota y certificaciones de los hubs de Delta Air Lines en Estados Unidos.",
+    activeRunway: null,
+    localQnh: null,
   })
+
+// Encabezado: dependencia, sede y condición operacional.
+export const getOpsCenter = withDemo(getNetworkOpsCenter, demo.getOpsCenter)
+
+// Banner: estado de la operación (con la cuenta demo, el del aeropuerto base).
+export const getAirportStatus = withDemo(
+  getNetworkStatus,
+  demo.getAirportStatus
+)
 
 // Tarjeta de usuarios.
 export const getUsersSummary = (): Promise<UsersSummary> =>

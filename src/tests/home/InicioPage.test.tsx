@@ -184,7 +184,7 @@ describe("Inicio del tripulante: página", () => {
     },
     {
       card: "Certificaciones",
-      label: "Habilitaciones RAC",
+      label: "Habilitaciones FAA",
       badge: "Vigente",
       action: { role: "link" as const, name: "Consultar Licencias" },
     },
@@ -677,7 +677,7 @@ describe("Inicio del tripulante: tarjetas", () => {
 
     const card = await findCard("Certificaciones")
 
-    expect(card).toHaveTextContent(/habilitaciones rac/i)
+    expect(card).toHaveTextContent(/habilitaciones faa/i)
     expect(within(card).getByText("Vigente")).toBeInTheDocument()
     expect(card).toHaveTextContent("Certificaciones Aptas:")
     expect(within(card).getByText("4 Requisitos")).toBeInTheDocument()

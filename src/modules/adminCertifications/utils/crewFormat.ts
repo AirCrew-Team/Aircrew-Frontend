@@ -17,8 +17,8 @@ export const crewRoleLine = (crew: CrewCertification) =>
 // «AC-1108», o «—» si el tripulante no tiene código.
 export const crewCode = (crew: CrewCertification) => crew.code ?? "—"
 
-// «2026-08-20» → «20 ago 2026», como en la referencia. Se arma por partes porque el
-// formato de es-CO agrega «de» («20 de ago de 2026»). Una fecha sin hora va en UTC para
+// «2026-08-20» → «20 ago 2026», como en la referencia. Se arma por partes para quitar
+// el punto del mes y no depender de los separadores del locale. Una fecha sin hora va en UTC para
 // no correrse un día por la zona horaria del equipo; una con hora (el historial del
 // backend) se muestra en la hora local.
 const formatOptions: Intl.DateTimeFormatOptions = {
@@ -26,11 +26,11 @@ const formatOptions: Intl.DateTimeFormatOptions = {
   month: "short",
   year: "numeric",
 }
-const dayFormat = new Intl.DateTimeFormat("es-CO", {
+const dayFormat = new Intl.DateTimeFormat("es-US", {
   ...formatOptions,
   timeZone: "UTC",
 })
-const localFormat = new Intl.DateTimeFormat("es-CO", formatOptions)
+const localFormat = new Intl.DateTimeFormat("es-US", formatOptions)
 
 export const formatHistoryDate = (isoDate: string) => {
   const format = isoDate.includes("T") ? localFormat : dayFormat
@@ -40,8 +40,8 @@ export const formatHistoryDate = (isoDate: string) => {
   return `${part("day")} ${part("month").replace(".", "")} ${part("year")}`
 }
 
-// Tamaño de la copia: «245 KB» o «1,2 MB».
+// Tamaño de la copia: «245 KB» o «1.2 MB» (separador decimal de es-US).
 export const formatFileSize = (bytes: number) =>
   bytes < 1024 * 1024
     ? `${Math.max(1, Math.round(bytes / 1024))} KB`
-    : `${(bytes / (1024 * 1024)).toLocaleString("es-CO", { maximumFractionDigits: 1 })} MB`
+    : `${(bytes / (1024 * 1024)).toLocaleString("es-US", { maximumFractionDigits: 1 })} MB`

@@ -2,7 +2,7 @@ import { SyncIcon } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
 
-// T1: estado de la sincronización con Aerocivil. Texto fijo: no hay sincronización real.
+// T1: estado de la sincronización con la FAA. Texto fijo: no hay sincronización real.
 const SyncStatusCard = () => {
   return (
     <div className="flex flex-col gap-2 rounded-xl border border-brand-border/70 bg-card p-5 shadow-sm sm:p-6">
@@ -12,7 +12,7 @@ const SyncStatusCard = () => {
           "font-bold text-balance text-brand-primary"
         )}
       >
-        Sincronización RAC en Tiempo Real
+        Sincronización FAA en Tiempo Real
       </h2>
       <div className="order-first flex flex-wrap items-center justify-between gap-2">
         <p
@@ -22,7 +22,7 @@ const SyncStatusCard = () => {
           )}
         >
           <SyncIcon aria-hidden="true" className="size-3.5 shrink-0" />
-          API Aerocivil conectada
+          API FAA conectada
         </p>
         <span
           className={cn(
@@ -35,8 +35,8 @@ const SyncStatusCard = () => {
       </div>
       <p className={cn(typography.bodySm, "text-muted-foreground")}>
         Las horas de vuelo, calificaciones y chequeos médicos se concilian
-        automáticamente con la base de datos central de la Dirección General de
-        Aviación Civil.
+        automáticamente con la base de datos central de la Administración
+        Federal de Aviación (FAA).
       </p>
       <div
         className={cn(
@@ -44,9 +44,9 @@ const SyncStatusCard = () => {
           "mt-auto flex flex-wrap items-end justify-between gap-x-4 gap-y-1 pt-4 text-muted-foreground"
         )}
       >
-        <p className="min-w-0">Última comprobación: Hoy, 06:15 COT</p>
+        <p className="min-w-0">Última comprobación: Hoy, 06:15 UTC</p>
         <p className="min-w-0 wrap-anywhere text-brand-secondary">
-          Hash: #RAC-88192-OK
+          Hash: #FAA-88192-OK
         </p>
       </div>
     </div>

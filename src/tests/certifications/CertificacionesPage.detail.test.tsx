@@ -17,8 +17,7 @@ const TODAY = new Date(2026, 10, 10, 15, 0)
 
 const ATP = "Licencia ATP (Airline Transport Pilot)"
 const MEDICAL = "Evaluación Médica Clase 1"
-const PKI_TEXT =
-  "Documento firmado electrónicamente bajo estándar Aerocivil PKI."
+const PKI_TEXT = "Documento firmado electrónicamente bajo estándar PKI."
 const PDF_BUTTON = "Descargar PDF, próximamente"
 
 type Toggle = "certificado" | "cita agendada"

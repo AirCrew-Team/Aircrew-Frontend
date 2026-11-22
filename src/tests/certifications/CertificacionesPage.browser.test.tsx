@@ -16,7 +16,7 @@ const LAZY = { timeout: 3000 }
 const TODAY = new Date(2026, 10, 10, 15, 0)
 
 const H1 = "Certificaciones y Licencias"
-const LOADED_TEXT = "5 licencias cargadas en expediente digital (SKBO Base)"
+const LOADED_TEXT = "5 licencias cargadas en expediente digital"
 
 const ALL = [
   "Licencia ATP (Airline Transport Pilot)",
@@ -175,7 +175,7 @@ describe("Certificaciones: buscador (CE-07)", () => {
     getByFullText(main, noMatch("xyz"))
   })
 
-  it("CE-07: el texto «5 licencias cargadas en expediente digital (SKBO Base)» no cambia con la búsqueda", async () => {
+  it("CE-07: el texto «5 licencias cargadas en expediente digital» no cambia con la búsqueda", async () => {
     const user = userEvent.setup()
     renderRoute(PATHS.tripulante.certificaciones)
     const main = await findLoadedBrowser()

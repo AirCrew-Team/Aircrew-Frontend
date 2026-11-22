@@ -12,7 +12,7 @@ const formatUtc = (date: Date) =>
   `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())} UTC`
 
 // «16:12 Local». Usa getHours/getMinutes: la zona horaria del equipo del usuario
-// (en Colombia, UTC−5). Sirve de apoyo para no confundir la hora UTC con un error.
+// (p. ej. Nueva York, UTC−5 en invierno). Sirve de apoyo para no confundir la hora UTC con un error.
 const formatLocal = (date: Date) =>
   `${pad(date.getHours())}:${pad(date.getMinutes())} Local`
 

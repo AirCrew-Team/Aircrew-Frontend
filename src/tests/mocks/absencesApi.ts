@@ -22,7 +22,7 @@ export const attachmentUrl = (id: string) => `${ABSENCES_URL}/${id}/attachment`
 // Tabla única de motivos (Decisiones, punto 6).
 export const REASONS = {
   incapacidad: { api: "illness", label: "Incapacidad médica repentina" },
-  fatiga: { api: "fatigue", label: "Fatiga operacional / RAC 212" },
+  fatiga: { api: "fatigue", label: "Fatiga operacional / 14 CFR 117.5" },
   calamidad: { api: "emergency", label: "Calamidad doméstica o familiar" },
   traslado: { api: "transfer", label: "Dificultad de traslado comprobada" },
 } as const

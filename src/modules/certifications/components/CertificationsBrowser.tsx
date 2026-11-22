@@ -15,7 +15,7 @@ const COLUMN_HEADERS = [
   "Certificación / Licencia",
   "Organismo / Alcance",
   "Fecha de vencimiento",
-  "Estado RAC",
+  "Estado FAA",
   "Observación operacional",
   "Acción",
 ]
@@ -71,8 +71,8 @@ const CertificationsBrowser = () => {
             )}
           >
             {data.length === 1
-              ? "1 licencia cargada en expediente digital (SKBO Base)"
-              : `${data.length} licencias cargadas en expediente digital (SKBO Base)`}
+              ? "1 licencia cargada en expediente digital"
+              : `${data.length} licencias cargadas en expediente digital`}
           </p>
         ) : null}
         <div className="flex w-full items-center gap-2 lg:w-auto">
@@ -104,7 +104,7 @@ const CertificationsBrowser = () => {
               "shrink-0 rounded-sm border border-transparent bg-brand-border px-2 py-1 tracking-wider text-brand-primary uppercase"
             )}
           >
-            RAC 121
+            FAA Part 121
           </span>
         </div>
       </div>

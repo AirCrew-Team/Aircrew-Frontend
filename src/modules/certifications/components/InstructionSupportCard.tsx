@@ -13,7 +13,7 @@ const InstructionSupportCard = () => {
           "font-bold text-balance text-brand-primary"
         )}
       >
-        Jefatura de Instrucción y Entrenamiento Aerocivil
+        Jefatura de Instrucción y Entrenamiento
       </h2>
       <p
         className={cn(
@@ -47,7 +47,7 @@ const InstructionSupportCard = () => {
           )}
         >
           <PhoneIcon aria-hidden="true" className="size-4 shrink-0" />
-          Ext. 4022 • Operaciones Base SKBO
+          Ext. 4022 • Operaciones de Base
         </p>
       </div>
     </div>

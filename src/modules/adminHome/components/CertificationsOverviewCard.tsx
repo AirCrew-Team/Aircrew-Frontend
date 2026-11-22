@@ -19,7 +19,7 @@ const CertificationsOverviewCard = () => {
       icon={CertificationIcon}
       accent="muted"
       title="Certificaciones y Licencias"
-      description="Catálogo regulatorio de licencias aeronáuticas, vigencias y control de aptitud para vuelo según normatividad OACI y RAC vigente."
+      description="Catálogo regulatorio de licencias aeronáuticas, vigencias y control de aptitud para vuelo según normatividad OACI y FAA vigente."
       link={{
         label: "Revisar Certificaciones",
         to: PATHS.superAdmin.certificaciones,

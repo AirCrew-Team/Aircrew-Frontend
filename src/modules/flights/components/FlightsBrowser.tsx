@@ -21,11 +21,46 @@ const TABS: { value: FlightsTab; label: string }[] = [
   { value: "history", label: "Historial de Vuelos Anteriores" },
 ]
 
-const MONTHS = [
+// Meses de los datos de ejemplo (cuenta demo).
+const DEMO_MONTHS = [
   { value: "2024-09", label: "Septiembre 2024", short: "Septiembre 2024" },
   { value: "2024-10", label: "Octubre 2024 (Actual)", short: "Octubre 2024" },
   { value: "2024-11", label: "Noviembre 2024", short: "Noviembre 2024" },
 ]
+const DEMO_CURRENT_MONTH = "2024-10"
+
+const MONTH_NAMES = [
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
+]
+
+// «2026-01» con la fecha local (no toISOString: en UTC el último día del mes por la
+// noche ya sería el mes siguiente).
+const monthValue = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+
+// Sesión real: los cuatro meses anteriores (historial), el actual y el siguiente
+// (próximos vuelos), del más antiguo al más reciente, como el listado de ejemplo.
+const recentMonths = (today: Date) =>
+  [-4, -3, -2, -1, 0, 1].map((offset) => {
+    const date = new Date(today.getFullYear(), today.getMonth() + offset, 1)
+    const short = `${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`
+    return {
+      value: monthValue(date),
+      label: offset === 0 ? `${short} (Actual)` : short,
+      short,
+    }
+  })
 
 const matchesSearch = (flight: CrewFlight, search: string) =>
   [
@@ -50,7 +85,12 @@ const FlightsBrowser = () => {
   const id = useId()
   const [tab, setTab] = useState<FlightsTab>("upcoming")
   const [search, setSearch] = useState("")
-  const [month, setMonth] = useState("2024-10")
+  // «Hoy» se fija al montar: los meses no cambian mientras la pantalla está abierta.
+  const [today] = useState(() => new Date())
+  const months = demo ? DEMO_MONTHS : recentMonths(today)
+  const [month, setMonth] = useState(() =>
+    demo ? DEMO_CURRENT_MONTH : monthValue(today)
+  )
 
   const upcoming = useQuery({
     queryKey: ["flights", "upcoming"],
@@ -78,7 +118,7 @@ const FlightsBrowser = () => {
   })
 
   const active = lists.find((list) => list.value === tab)
-  const monthLabel = MONTHS.find((option) => option.value === month)?.short
+  const monthLabel = months.find((option) => option.value === month)?.short
   const results = active?.visible
     ? `${active.visible.length} ${active.visible.length === 1 ? "vuelo" : "vuelos"} en ${active.label}, ${monthLabel}`
     : ""
@@ -144,7 +184,7 @@ const FlightsBrowser = () => {
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Buscar vuelo (ej. AV-9344, MIA)…"
+              placeholder="Buscar vuelo (ej. DL1102, LAX)…"
               className={cn(
                 controlClass,
                 typography.bodySm,
@@ -166,7 +206,7 @@ const FlightsBrowser = () => {
                 "min-w-0 flex-1 px-3 py-1.5 max-lg:text-base max-lg:leading-6 sm:flex-none"
               )}
             >
-              {MONTHS.map((option) => (
+              {months.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>

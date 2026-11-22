@@ -22,10 +22,10 @@ export interface AirportStatus {
   headline: string
   // Texto corto bajo el título.
   summary: string
-  // Pista en uso, ej. "RWY 13R".
-  activeRunway: string
-  // Presión de referencia del aeropuerto, ej. "1022 hPa".
-  localQnh: string
+  // Pista en uso, ej. "RWY 13R". null: no hay dato (sesión real) y no se muestra.
+  activeRunway: string | null
+  // Presión de referencia del aeropuerto, ej. "1022 hPa". null: no hay dato.
+  localQnh: string | null
 }
 
 // Tarjeta «Gestión de Usuarios» (UsersCard).

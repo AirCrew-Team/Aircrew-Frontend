@@ -73,7 +73,8 @@ const RecurrentTrainingCard = () => {
           {/* mb-2: aire mínimo sobre el recuadro cuando la tarjeta no se estira. */}
           <p className={cn(typography.bodySm, "mb-2 text-muted-foreground")}>
             Tu próximo entrenamiento en simulador de vuelo completo para la
-            renovación anual está agendado en el centro de instrucción Bogotá.
+            renovación anual está agendado en el centro de instrucción de tu
+            base.
           </p>
           <div className="mt-auto flex items-center gap-3 rounded-md bg-brand-neutral px-3 py-2.5">
             <CalendarIcon

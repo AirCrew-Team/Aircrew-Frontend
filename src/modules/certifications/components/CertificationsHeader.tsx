@@ -13,7 +13,7 @@ const CertificationsHeader = () => {
         )}
       >
         <CertificationIcon aria-hidden="true" className="size-3.5 shrink-0" />
-        Auditoría RAC / DGAC • Expediente de Vuelo
+        Auditoría FAA • Expediente de Vuelo
       </p>
       <h1
         className={cn(
@@ -24,8 +24,9 @@ const CertificationsHeader = () => {
         Certificaciones y Licencias
       </h1>
       <p className={cn(typography.bodyMd, "max-w-2xl text-muted-foreground")}>
-        Registro oficial de aptitud técnica y médica auditado por la Aeronáutica
-        Civil (Aerocivil / RAC). Consulta oficial de solo lectura.
+        Registro oficial de aptitud técnica y médica auditado por la
+        Administración Federal de Aviación (FAA). Consulta oficial de solo
+        lectura.
       </p>
     </div>
   )

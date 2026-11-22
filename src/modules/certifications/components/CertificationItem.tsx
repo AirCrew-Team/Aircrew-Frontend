@@ -290,7 +290,7 @@ const CertificationItem = ({ certification }: CertificationItemProps) => {
                 )}
               >
                 <LockIcon aria-hidden="true" className="size-4 shrink-0" />
-                Documento firmado electrónicamente bajo estándar Aerocivil PKI.
+                Documento firmado electrónicamente bajo estándar PKI.
               </p>
               {/* aria-disabled: borde e ícono atenuados (exentos de 1.4.11), sin hover. */}
               <button

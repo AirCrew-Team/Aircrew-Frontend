@@ -146,7 +146,7 @@ const CertificationsCard = () => {
             >
               <CertificationIcon aria-hidden="true" className="size-5" />
             </span>
-            Habilitaciones RAC
+            Habilitaciones FAA
           </p>
           {summary ? (
             <p

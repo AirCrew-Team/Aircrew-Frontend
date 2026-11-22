@@ -23,10 +23,13 @@ const AirportStatusHero = () => {
               location: data.location,
               headline: data.headline,
               summary: data.summary,
+              // Solo los datos que existen (con la sesión real no hay pista ni QNH).
               stats: [
                 { label: "Pista activa", value: data.activeRunway },
                 { label: "QNH local", value: data.localQnh },
-              ],
+              ].flatMap(({ label, value }) =>
+                value === null ? [] : [{ label, value }]
+              ),
             }
           : undefined
       }

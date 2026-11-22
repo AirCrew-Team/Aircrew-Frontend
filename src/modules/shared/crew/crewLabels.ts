@@ -23,7 +23,7 @@ export type ApiAbsenceReason = "illness" | "fatigue" | "emergency" | "transfer"
 // Las mismas etiquetas del formulario de Reportar Ausencia.
 export const ABSENCE_REASON_LABEL: Record<ApiAbsenceReason, string> = {
   illness: "Incapacidad médica repentina",
-  fatigue: "Fatiga operacional / RAC 212",
+  fatigue: "Fatiga operacional / 14 CFR 117.5",
   emergency: "Calamidad doméstica o familiar",
   transfer: "Dificultad de traslado comprobada",
 }

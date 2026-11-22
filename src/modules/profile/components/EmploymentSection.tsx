@@ -18,7 +18,7 @@ const STATUS_LABELS: Record<CrewMemberStatus, string> = {
 }
 
 const formatDate = (iso: string) =>
-  new Intl.DateTimeFormat("es-CO", { dateStyle: "long" }).format(new Date(iso))
+  new Intl.DateTimeFormat("es-US", { dateStyle: "long" }).format(new Date(iso))
 
 interface EmploymentSectionProps {
   // GET /crew-members/me (la consulta es de ProfileSettings).

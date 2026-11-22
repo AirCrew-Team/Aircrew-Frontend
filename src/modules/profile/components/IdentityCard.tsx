@@ -30,7 +30,7 @@ const getInitials = (name: string) =>
     .join("")
 
 const formatMonthYear = (iso: string) =>
-  new Intl.DateTimeFormat("es-CO", { month: "long", year: "numeric" }).format(
+  new Intl.DateTimeFormat("es-US", { month: "long", year: "numeric" }).format(
     new Date(iso)
   )
 

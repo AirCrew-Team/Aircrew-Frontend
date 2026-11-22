@@ -16,7 +16,7 @@ export const profileSchemaFor = (cities: readonly string[] | undefined) =>
       z.trim(),
       z.refine(
         (value) => value === "" || PHONE_PATTERN.test(value),
-        "Formato no válido. Usa de 7 a 15 números, con espacios y un + inicial si quieres, por ejemplo +57 300 000 0000."
+        "Formato no válido. Usa de 7 a 15 números, con espacios y un + inicial si quieres, por ejemplo +1 404 555 0123."
       )
     ),
     residence: z.string().check(
