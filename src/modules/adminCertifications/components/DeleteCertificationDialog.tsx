@@ -15,8 +15,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { cn } from "@/lib/utils"
-import { deleteCertification } from "@/modules/adminCertifications/data/adminCertifications.data"
+import { useCertificationsApi } from "@/modules/adminCertifications/hooks/useCertificationsApi"
 import type { CrewCertification } from "@/modules/adminCertifications/types/adminCertifications.types"
+import {
+  certificationErrorMessage,
+  isCertificationNotFound,
+} from "@/modules/adminCertifications/utils/certificationErrors"
+import { crewName } from "@/modules/adminCertifications/utils/crewFormat"
 
 interface DeleteCertificationDialogProps {
   // Tripulante cuya certificación se elimina; null con la ventana cerrada.
@@ -30,22 +35,30 @@ const buttonClass = cn(
 )
 
 // Confirmación antes de eliminar la certificación de un tripulante. «Eliminar» borra su
-// licencia y certificados (con la API, un DELETE de la certificación): el tripulante
-// sigue en la lista como «Sin certificado». «Cancelar», Esc o pulsar fuera cierran sin
-// hacer nada.
+// licencia, certificados, copia e historial (DELETE, responde 204): el tripulante sigue
+// en la lista como «Sin certificado». «Cancelar», Esc o pulsar fuera cierran sin hacer
+// nada.
 const DeleteCertificationDialog = ({
   crew,
   onClose,
 }: DeleteCertificationDialogProps) => {
   const queryClient = useQueryClient()
+  const { deleteCertification } = useCertificationsApi()
   // Último tripulante abierto: el texto no cambia durante la animación de cierre.
   const [shownCrew, setShownCrew] = useState(crew)
   if (crew !== null && crew !== shownCrew) setShownCrew(crew)
-  const name = shownCrew ? `${shownCrew.firstName} ${shownCrew.lastName}` : ""
+  const name = shownCrew ? crewName(shownCrew) : ""
 
   const mutation = useMutation({
-    // Solo el ID: es lo que irá en la petición.
+    // Solo el ID: es lo que va en la petición.
     mutationFn: (id: string) => deleteCertification(id),
+    // 404: ya no tenía certificación (o el tripulante no existe): la lista estaba
+    // desactualizada, así que se refresca.
+    onError: (error) => {
+      if (isCertificationNotFound(error)) {
+        queryClient.invalidateQueries({ queryKey: ["certifications"] })
+      }
+    },
     onSuccess: () => {
       // Refresca la tabla, los indicadores y los conteos de los filtros.
       queryClient.invalidateQueries({ queryKey: ["certifications"] })
@@ -88,7 +101,10 @@ const DeleteCertificationDialog = ({
             role="alert"
             className={cn(typography.bodySm, "text-center text-destructive")}
           >
-            No se pudo eliminar la certificación. Intenta de nuevo.
+            {certificationErrorMessage(
+              mutation.error,
+              "No se pudo eliminar la certificación. Intenta de nuevo."
+            )}
           </p>
         ) : null}
         <AlertDialogFooter>

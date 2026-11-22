@@ -9,16 +9,21 @@ export type CertificationState =
 export type CrewArea = "cabina_mando" | "cabina"
 
 export interface CrewCertification {
-  // Código del tripulante, ej. "AC-1108".
+  // Id del tripulante (UUID del usuario); con él se piden su ficha y su copia.
   id: string
+  // Código que se muestra en la columna ID, ej. "AC-1108". null si no tiene.
+  code: string | null
+  // Primera palabra del nombre y el resto. Vacíos si el backend no trae el nombre
+  // (el servicio admin no respondió): la pantalla muestra «—».
   firstName: string
   lastName: string
-  email: string
+  email: string | null
   // Cargo de tripulación, ej. "Comandante" o "Sobrecargo Principal".
   roleTitle: string
-  area: CrewArea
-  // Código IATA de la base (hub de Delta), ej. "ATL".
-  base: string
+  // null: el cargo no está en el catálogo de certificaciones.
+  area: CrewArea | null
+  // Código IATA de la base (hub de Delta), ej. "ATL". null si no tiene.
+  base: string | null
   // Número de certificado FAA; null si todavía no tiene certificación registrada.
   licenseNumber: string | null
   // Códigos de los certificados, ej. ["ATP", "IR", "ME"] o ["CDP"].
@@ -26,22 +31,23 @@ export interface CrewCertification {
   status: CertificationState
 }
 
-// Copia del certificado (PDF o imagen). url null: la copia existe en el backend pero
-// todavía no hay dónde abrirla (datos simulados).
+// Copia del certificado (PDF o imagen). El archivo se descarga aparte, con
+// downloadCertificateFile.
 export interface CertificateFile {
   name: string
-  url: string | null
+  mimeType: string
+  sizeBytes: number
 }
 
 // Evento del historial de una certificación.
 export interface CertificationHistoryEntry {
   event: "registrado" | "verificado" | "actualizado"
-  // Quién lo hizo, ej. "Admin AirCrew".
-  by: string
-  // Fecha en ISO, ej. "2026-08-20".
+  // Quién lo hizo (nombre del super_admin); null si ya no existe.
+  by: string | null
+  // Fecha en ISO: con hora si viene del backend, ej. "2026-08-20T15:04:00.000Z".
   date: string
   // Detalle opcional, ej. "cotejado con Airmen Inquiry (registro público FAA)".
-  note?: string
+  note?: string | null
 }
 
 // Ficha de la certificación (ventana del ojo): los datos de la fila, la copia del
@@ -56,14 +62,14 @@ export interface SaveCertificationInput {
   licenseNumber: string
   certificates: string[]
   // true: el administrador cotejó los datos con la FAA → «Verificado».
-  // false: se guarda «Por verificar».
+  // false: se guarda «Por verificar» (también quita la verificación).
   verified: boolean
   // Copia del certificado: un archivo nuevo, null para quitarla o undefined para dejar
-  // la que había. Con la API irá en la misma petición (multipart).
+  // la que había.
   file?: File | null
 }
 
-// Parámetros que se enviarán al backend para pedir una página de la lista.
+// Parámetros que se envían al backend para pedir una página de la lista.
 export interface CertificationsListParams {
   page: number
   pageSize: number
@@ -83,4 +89,23 @@ export interface CertificationsListResponse {
 export interface CertificationsStats {
   total: number
   byStatus: Record<CertificationState, number>
+}
+
+// Catálogo de certificados (GET /certifications/options).
+export interface CertificateInfo {
+  code: string
+  // Nombre completo, ej. "Airline Transport Pilot (ATP)".
+  name: string
+  // Texto corto para las etiquetas de la tabla, ej. "ATP".
+  short: string
+}
+
+export interface CertificationCatalog {
+  certificates: CertificateInfo[]
+  // Área y certificados que se pueden registrar para cada cargo.
+  byPosition: Record<string, { area: CrewArea; certificates: string[] }>
+  // Licencias de piloto, de mayor a menor: IR y ME van sobre una de ellas.
+  pilotLicenses: string[]
+  // Certificado obligatorio de la tripulación de cabina (CDP).
+  cabinLicense: string
 }
