@@ -8,7 +8,8 @@ import { API_URL, AUTH_URLS, errorBody } from "../mocks/authApi"
 //   la ponen terminan en el Login como hoy;
 // - /auth/logout → 204: los tests que pulsan «Cerrar sesión» no dan petición sin handler;
 // - /users/me → 404: MainLayout pide el perfil (foto del navbar) con sesión real. Un 404
-//   deja las iniciales sin cerrar la sesión (un 401 la cerraría).
+//   deja las iniciales sin cerrar la sesión (un 401 la cerraría);
+// - /notification/notifications → campana vacía: la pide el navbar con sesión real.
 // Cada test los sobrescribe con server.use(...); setup.ts los repone tras cada test.
 export const server = setupServer(
   http.get(AUTH_URLS.me, () =>
@@ -17,5 +18,8 @@ export const server = setupServer(
   http.post(AUTH_URLS.logout, () => new HttpResponse(null, { status: 204 })),
   http.get(`${API_URL}/api/admin/users/me`, () =>
     HttpResponse.json(errorBody("No encontrado"), { status: 404 })
+  ),
+  http.get(`${API_URL}/api/notification/notifications`, () =>
+    HttpResponse.json({ items: [], unread_count: 0 })
   )
 )

@@ -1,3 +1,10 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+
+import {
+  getMyNotifications,
+  markAllNotificationsRead,
+  notificationsQueryKey,
+} from "@/App/actions/notifications/notifications.actions"
 import { NotificationsEmptyIcon, NotificationsIcon } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
 import {
@@ -8,29 +15,56 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { EVENTS_BY_ROLE } from "@/hooks/useLiveAlerts"
 import { cn } from "@/lib/utils"
-import { useAlertsStore } from "@/stores/alerts.store"
+import { isDemoUser, useAuthStore } from "@/stores/auth.store"
 
 import { barButton, popoverSurface } from "./navbar.styles"
 
-// «14:32», en la hora del navegador.
-const timeOf = (iso: string) =>
-  new Date(iso).toLocaleTimeString("es-CO", {
+// «14:32» si es de hoy; si no, «20 nov, 14:32». En la hora del navegador.
+const timeOf = (iso: string) => {
+  const date = new Date(iso)
+  const time = date.toLocaleTimeString("es-CO", {
     hour: "2-digit",
     minute: "2-digit",
   })
+  if (date.toDateString() === new Date().toDateString()) return time
+  const day = date.toLocaleDateString("es-CO", {
+    day: "numeric",
+    month: "short",
+  })
+  return `${day}, ${time}`
+}
 
-// Alertas en vivo recibidas en esta sesión (las llena useLiveAlerts). El backend no
-// guarda historial: al recargar la lista empieza vacía. Al cerrar el menú quedan leídas.
+// Avisos guardados en el backend (servicio notification): se ven aunque la persona no
+// estuviera conectada cuando llegaron. useLiveAlerts la refresca al llegar uno en vivo.
+// Al cerrar el menú quedan leídos. Las cuentas demo y el super_admin no tienen avisos.
 const NotificationsMenu = () => {
-  const alerts = useAlertsStore((state) => state.alerts)
-  const markAllRead = useAlertsStore((state) => state.markAllRead)
-  const unread = alerts.filter((alert) => !alert.read).length
+  const queryClient = useQueryClient()
+  const user = useAuthStore((state) => state.user)
+  const enabled =
+    user !== null && !isDemoUser(user) && Boolean(EVENTS_BY_ROLE[user.role])
+
+  const { data } = useQuery({
+    queryKey: notificationsQueryKey,
+    queryFn: getMyNotifications,
+    enabled,
+    retry: false,
+    refetchOnWindowFocus: false,
+  })
+  const markAllRead = useMutation({
+    mutationFn: markAllNotificationsRead,
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: notificationsQueryKey }),
+  })
+
+  const alerts = enabled ? (data?.items ?? []) : []
+  const unread = enabled ? (data?.unread_count ?? 0) : 0
 
   return (
     <DropdownMenu
       onOpenChange={(open) => {
-        if (!open && unread > 0) markAllRead()
+        if (!open && unread > 0 && !markAllRead.isPending) markAllRead.mutate()
       }}
     >
       <DropdownMenuTrigger
@@ -83,7 +117,7 @@ const NotificationsMenu = () => {
           </div>
         ) : (
           <ul
-            aria-label="Alertas de esta sesión"
+            aria-label="Notificaciones recientes"
             className="flex max-h-96 flex-col overflow-y-auto"
           >
             {alerts.map((alert) => (
@@ -105,11 +139,13 @@ const NotificationsMenu = () => {
                   {alert.message}
                 </p>
                 <time
-                  dateTime={alert.sentAt}
+                  dateTime={alert.created_at}
                   className={cn(typography.labelSm, "text-muted-foreground")}
                 >
-                  {timeOf(alert.sentAt)}
-                  {alert.read ? null : <span className="sr-only"> · nueva</span>}
+                  {timeOf(alert.created_at)}
+                  {alert.read ? null : (
+                    <span className="sr-only"> · nueva</span>
+                  )}
                 </time>
               </li>
             ))}
