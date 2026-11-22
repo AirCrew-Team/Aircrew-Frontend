@@ -5,11 +5,8 @@ import { ROLES } from "@/App/types/auth.types"
 import MainLayout from "@/layouts/MainLayout"
 import LoginPage from "@/pages/LoginPage"
 import NotFoundPage from "@/pages/NotFoundPage"
-import AeronavesPage from "@/pages/superAdmin/AeronavesPage"
-import SuperAdminCertificacionesPage from "@/pages/superAdmin/CertificacionesPage"
 import SuperAdminInicioPage from "@/pages/superAdmin/InicioPage"
 import ReportesPage from "@/pages/superAdmin/ReportesPage"
-import UsuariosPage from "@/pages/superAdmin/UsuariosPage"
 import AusenciasPage from "@/pages/superVisor/AusenciasPage"
 import SuperVisorInicioPage from "@/pages/superVisor/InicioPage"
 import ProgramacionPage from "@/pages/superVisor/ProgramacionPage"
@@ -98,13 +95,32 @@ const appRoutes: RouteObject[] = [
         element: <MainLayout />,
         children: [
           { path: PATHS.superAdmin.inicio, element: <SuperAdminInicioPage /> },
-          { path: PATHS.superAdmin.usuarios, element: <UsuariosPage /> },
+          // Carga diferida: react-hook-form + zod, igual que /configuracion.
+          {
+            path: PATHS.superAdmin.usuarios,
+            HydrateFallback: () => null,
+            lazy: async () => ({
+              Component: (await import("@/pages/superAdmin/UsuariosPage"))
+                .default,
+            }),
+          },
           { path: PATHS.superAdmin.reportes, element: <ReportesPage /> },
-          // Páginas aún sin contenido: destinos del navbar y de las tarjetas del Inicio.
-          { path: PATHS.superAdmin.aeronaves, element: <AeronavesPage /> },
+          {
+            path: PATHS.superAdmin.aeronaves,
+            HydrateFallback: () => null,
+            lazy: async () => ({
+              Component: (await import("@/pages/superAdmin/AeronavesPage"))
+                .default,
+            }),
+          },
           {
             path: PATHS.superAdmin.certificaciones,
-            element: <SuperAdminCertificacionesPage />,
+            HydrateFallback: () => null,
+            lazy: async () => ({
+              Component: (
+                await import("@/pages/superAdmin/CertificacionesPage")
+              ).default,
+            }),
           },
         ],
       },
