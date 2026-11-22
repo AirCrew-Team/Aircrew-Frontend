@@ -44,8 +44,8 @@ type NewPasswordFormProps = {
   loginToast: string
   /** El backend rechazó el token (400): el padre cambia el formulario por el aviso. */
   onInvalidLink: () => void
-  /** Límite (429), solo en el restablecimiento: recibe el texto del backend o "". */
-  onLimit?: (message: string) => void
+  /** Límite (429): recibe el texto del backend o "". */
+  onLimit: (message: string) => void
 }
 
 const errorClass = "mt-2 px-2 text-sm font-semibold text-[#b42318]"
@@ -101,7 +101,7 @@ export function NewPasswordForm({
     } catch (error) {
       if (isAxiosError(error) && error.response?.status === 400) {
         onInvalidLink()
-      } else if (error instanceof TooManyRequestsError && onLimit) {
+      } else if (error instanceof TooManyRequestsError) {
         onLimit(error.message)
       } else {
         setNetworkError(true)

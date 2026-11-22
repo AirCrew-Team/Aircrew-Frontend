@@ -475,6 +475,58 @@ describe("AC-09: error de red o 500", () => {
   )
 })
 
+// Spec cierre-pendientes, FE-1 (F5): la activación no pasa `limitFallback` a
+// NewPasswordPanel. Hoy un 429 de /activate se muestra como «No pudimos conectar…».
+// Debe tratarse como límite, igual que en el restablecimiento (PR-12b).
+describe("FE1-F5: límite (429) en la activación", () => {
+  const ACTIVATION_LIMIT =
+    "Demasiados intentos de activación. Intenta más tarde."
+
+  it("FE1-F5: con un 429 con mensaje, el formulario se cambia por ese mensaje en un role=status, sin «No pudimos conectar…», con el foco en «Ir al inicio de sesión» y sin login", async () => {
+    const bodies = mockActivate(apiError(429, ACTIVATION_LIMIT))
+    const loginBodies = mockLogin(loginOk)
+    const user = userEvent.setup()
+    await openForm()
+
+    await fillForm(user)
+    await user.click(submitButton())
+
+    await waitFor(() => expect(bodies).toHaveLength(1))
+    const notice = await screen.findByText(ACTIVATION_LIMIT, {}, WAIT)
+    expect(
+      notice.closest('[role="status"]'),
+      "el aviso debe ser role=status"
+    ).not.toBeNull()
+    expect(screen.queryByText(TEXTS.network)).toBeNull()
+    expect(screen.queryByRole("alert")).toBeNull()
+    expect(screen.queryByLabelText(/^Nueva contraseña$/)).toBeNull()
+    expect(screen.queryByRole("button", { name: "Activar cuenta" })).toBeNull()
+    const link = screen.getByRole("link", { name: "Ir al inicio de sesión" })
+    expect(link).toHaveAttribute("href", PATHS.login)
+    await waitFor(() => expect(link).toHaveFocus())
+    expect(queryAllToasts()).toHaveLength(0)
+    expect(loginBodies).toHaveLength(0)
+    expect(useAuthStore.getState().user).toBeNull()
+  })
+
+  // La spec no fija el texto de respaldo de la activación (duda abierta): solo se
+  // exige que sea un aviso de límite con texto y no el error de conexión.
+  it("FE1-F5: con un 429 sin `error` en el body, aparece un role=status con texto y no «No pudimos conectar…»", async () => {
+    mockActivate(apiError(429))
+    const user = userEvent.setup()
+    await openForm()
+
+    await fillForm(user)
+    await user.click(submitButton())
+
+    const notice = await screen.findByRole("status", {}, WAIT)
+    expect(notice.textContent?.trim()).not.toBe("")
+    expect(screen.queryByText(TEXTS.network)).toBeNull()
+    expect(screen.queryByRole("alert")).toBeNull()
+    expect(screen.queryByRole("button", { name: "Activar cuenta" })).toBeNull()
+  })
+})
+
 describe("AC-10: envío en curso", () => {
   it("AC-10 mientras se envía el botón dice «Activando…» y está deshabilitado, y un doble clic hace una sola petición", async () => {
     let release: () => void = () => {}

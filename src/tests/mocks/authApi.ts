@@ -65,3 +65,20 @@ export const meBody = (user: ApiUser) => ({
 })
 
 export const errorBody = (message: string) => ({ error: { message } })
+
+// 401 de sesión con el formato real del backend ({ error, code }, plano), como lo
+// manda verifyJwt de admin: `auth_required` sin cookie, `token_expired`,
+// `invalid_token` y `session_revoked` (cambio de contraseña o cuenta desactivada).
+export const SESSION_ERRORS = {
+  auth_required: "Se requiere autenticación.",
+  token_expired: "Tu sesión venció. Inicia sesión de nuevo.",
+  invalid_token: "El token de autenticación no es válido.",
+  session_revoked: "La sesión ya no es válida.",
+} as const
+
+export type SessionErrorCode = keyof typeof SESSION_ERRORS
+
+export const sessionErrorBody = (code: SessionErrorCode) => ({
+  error: SESSION_ERRORS[code],
+  code,
+})
