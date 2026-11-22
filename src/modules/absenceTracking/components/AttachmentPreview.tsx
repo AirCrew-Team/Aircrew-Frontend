@@ -61,6 +61,10 @@ const centerIfLoaded = (area: HTMLDivElement | null) => {
   if (area?.querySelector("img")?.complete) centerScroll(area)
 }
 
+// Margen antes de liberar la URL de la descarga: liberarla enseguida puede cortarla en
+// algunos navegadores.
+const REVOKE_DELAY_MS = 10_000
+
 // Sin blob (tipo no previsualizable), el navegador guarda el archivo pedido con apiClient.
 const saveWithLink = (blob: Blob, fileName: string) => {
   const url = URL.createObjectURL(blob)
@@ -68,7 +72,7 @@ const saveWithLink = (blob: Blob, fileName: string) => {
   link.href = url
   link.download = fileName
   link.click()
-  setTimeout(() => URL.revokeObjectURL(url), 0)
+  setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS)
 }
 
 const secondaryAction = cn(
@@ -86,6 +90,8 @@ const AttachmentPreview = ({ id, attachment }: AttachmentPreviewProps) => {
   const [file, setFile] = useState<{ url: string; blob: Blob } | null>(null)
   const [zoom, setZoom] = useState<Zoom>("fit")
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle")
+  // Pidiendo o guardando el archivo: «Descargar» queda aria-disabled y no admite otro clic.
+  const [isSaving, setIsSaving] = useState(false)
   const { file_name: fileName, mime_type: mimeType } = attachment
   const isImage = IMAGE_TYPES.includes(mimeType)
   const canPreview = Object.hasOwn(EXTENSIONS, mimeType)
@@ -131,9 +137,15 @@ const AttachmentPreview = ({ id, attachment }: AttachmentPreviewProps) => {
   // Con blob y sin «Guardar como», el enlace al blob sigue su curso.
   const saveAs = async (event: MouseEvent<HTMLAnchorElement>) => {
     const picker = window as Window & SavePickerWindow
+    // Ocupado: tampoco navega (sin blob, el href es el del gateway).
+    if (isSaving) {
+      event.preventDefault()
+      return
+    }
     if (!picker.showSaveFilePicker && file) return
     event.preventDefault()
     setSaveStatus("idle")
+    setIsSaving(true)
     try {
       if (!picker.showSaveFilePicker) {
         const response = await downloadAbsenceAttachment(id)
@@ -166,6 +178,8 @@ const AttachmentPreview = ({ id, attachment }: AttachmentPreviewProps) => {
       )
         return
       setSaveStatus("error")
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -288,8 +302,9 @@ const AttachmentPreview = ({ id, attachment }: AttachmentPreviewProps) => {
             <a
               href={file?.url ?? absenceAttachmentUrl(id)}
               download={file ? fileName : undefined}
+              aria-disabled={isSaving || undefined}
               onClick={saveAs}
-              className={secondaryAction}
+              className={cn(secondaryAction, "aria-disabled:opacity-60")}
             >
               <DownloadIcon aria-hidden="true" className="size-4 shrink-0" />
               Descargar

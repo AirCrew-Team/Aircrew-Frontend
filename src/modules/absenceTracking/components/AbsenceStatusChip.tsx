@@ -1,5 +1,10 @@
 import type { Absence } from "@/App/types/absences.types"
-import { ClockIcon, ConfirmedIcon, DurationIcon } from "@/App/utils/icons"
+import {
+  ClockIcon,
+  CloseIcon,
+  ConfirmedIcon,
+  DurationIcon,
+} from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
 
@@ -28,9 +33,15 @@ const CHIP: Record<
     Icon: ConfirmedIcon,
     className: "text-brand-primary",
   },
+  // Solo en el popup: una ausencia cancelada después de cargar el tablero.
+  cancelled: {
+    label: "Cancelada",
+    Icon: CloseIcon,
+    className: "text-muted-foreground",
+  },
 }
 
-// Estado de una ausencia real (tarjeta y popup).
+// Estado de una ausencia real (tarjeta, popup y cada vuelo del popup).
 const AbsenceStatusChip = ({ status }: AbsenceStatusChipProps) => {
   const { label, Icon, className } = CHIP[status]
   return (

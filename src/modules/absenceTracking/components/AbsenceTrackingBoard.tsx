@@ -53,21 +53,23 @@ const matchesSearch = (absence: TrackedAbsence, search: string) =>
     absence.status === "por_aprobar" ? "" : absence.replacement.fullName,
   ].some((value) => normalizeForSearch(value).includes(search))
 
-// Ausencias reales: sin vuelo, se busca en el tripulante, su código y el reemplazo (los
-// tres pueden llegar en null).
+// Ausencias reales: sin vuelo, se busca en el tripulante, su código y el reemplazo, el
+// de la ausencia o el de sus vuelos (todos pueden llegar en null).
 const matchesRealSearch = (absence: Absence, search: string) =>
   [
     absence.crew_name ?? "",
     absence.employee_code ?? "",
     absence.replacement_name ?? "",
+    ...absence.flights.map((flight) => flight.replacement_name ?? ""),
   ].some((value) => normalizeForSearch(value).includes(search))
 
-// Estado del backend → columna: pending_ack espera el «Enterado» del reemplazo. Las
-// canceladas ya no llegan (las quita getAbsences).
-const REAL_COLUMN: Record<Absence["status"], TrackingStatus> = {
+// Estado (el de sus vuelos, si los tiene) → columna: pending_ack espera el «Enterado» del
+// reemplazo. Las canceladas no llegan (las quita getAbsences).
+const REAL_COLUMN: Record<Absence["status"], TrackingStatus | null> = {
   reported: "por_aprobar",
   pending_ack: "esperando_confirmacion",
   covered: "cubierta",
+  cancelled: null,
 }
 
 const absencesLabel = (count: number) =>
@@ -244,7 +246,13 @@ const AbsenceTrackingBoard = () => {
             <AbsenceDetailHeader />
             {/* Cuerpo con su propio desplazamiento: el encabezado queda fijo. */}
             <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
-              {detailId ? <AbsenceDetail key={detailId} id={detailId} /> : null}
+              {detailId ? (
+                <AbsenceDetail
+                  key={detailId}
+                  id={detailId}
+                  listed={real.data?.find((absence) => absence.id === detailId)}
+                />
+              ) : null}
             </div>
           </DialogContent>
         </Dialog>

@@ -996,7 +996,30 @@ describe("AU-13 a AU-17: comprobante con vista previa", () => {
         expect(region.scrollTop).toBe(40)
       })
 
+      // Revisión final: liberar la URL enseguida puede cortar la descarga en algunos
+      // navegadores. Los temporizadores de 10 s a 1 min se guardan sin programarlos (así
+      // tampoco saltan después del test, con revokeObjectURL ya restaurado); los demás
+      // (waitFor, TanStack Query) siguen siendo reales. También se guardan los 10 s de
+      // timeout de cada petición de Axios, que así no vencen.
+      const holdLongTimeouts = () => {
+        const held: { callback: () => void; delay: number }[] = []
+        const realSetTimeout = globalThis.setTimeout
+        vi.spyOn(globalThis, "setTimeout").mockImplementation(((
+          callback: () => void,
+          delay?: number,
+          ...args: unknown[]
+        ) => {
+          if (delay !== undefined && delay >= 10_000 && delay <= 60_000) {
+            held.push({ callback, delay })
+            return 0
+          }
+          return realSetTimeout(callback, delay, ...args)
+        }) as typeof setTimeout)
+        return held
+      }
+
       it("F11c: sin blob (tipo no previsualizable) y sin showSaveFilePicker, «Descargar» sigue siendo un enlace, pide el adjunto con apiClient y lo descarga como blob con el nombre de la ausencia", async () => {
+        holdLongTimeouts()
         const clicks: { href: string; download: string }[] = []
         vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(
           function (this: HTMLAnchorElement) {
@@ -1029,10 +1052,76 @@ describe("AU-13 a AU-17: comprobante con vista previa", () => {
           href: createdUrls()[0],
           download: GIF_NAME,
         })
-        await waitFor(() =>
-          expect(revokeObjectURL).toHaveBeenCalledWith(createdUrls()[0])
-        )
         expect(within(dialog).queryAllByRole("alert")).toEqual([])
+      })
+
+      it("Revisión: tras la descarga sin blob, la URL temporal se libera a los 10 s, no enseguida", async () => {
+        const held = holdLongTimeouts()
+        // Temporizadores guardados hasta el clic del <a> temporal de la descarga.
+        let heldAtClick = -1
+        vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(
+          function (this: HTMLAnchorElement) {
+            programmaticClicks.push(this.getAttribute("href") ?? "")
+            heldAtClick = held.length
+          }
+        )
+        const { user, dialog } = await openAttachment(
+          ACCENTED_GIF,
+          fileResponse(PNG, "image/gif")
+        )
+        await user.click(previewButton(dialog))
+        await waitFor(() => expect(dialog).toHaveTextContent(CANNOT_PREVIEW))
+        trackNavigation()
+
+        await user.click(within(dialog).getByRole("link", { name: DOWNLOAD }))
+
+        await waitFor(() => expect(programmaticClicks).toHaveLength(1))
+        const url = createdUrls()[0]
+        await new Promise((resolve) => setTimeout(resolve, 50))
+        expect(revokeObjectURL).not.toHaveBeenCalledWith(url)
+        // Después del clic solo se programa la liberación de la URL.
+        const afterClick = held.slice(heldAtClick)
+        expect(afterClick).toHaveLength(1)
+        expect(afterClick[0].delay).toBeGreaterThanOrEqual(10_000)
+
+        afterClick[0].callback()
+
+        expect(revokeObjectURL).toHaveBeenCalledWith(url)
+      })
+
+      it("Revisión: mientras se descarga sin blob, «Descargar» queda aria-disabled y otro clic no pide el adjunto otra vez ni navega", async () => {
+        let release = () => {}
+        const gate = new Promise<void>((resolve) => {
+          release = resolve
+        })
+        onTestFinished(() => release())
+        holdLongTimeouts()
+        const { user, dialog, attachmentIds } = await openAttachment(
+          ACCENTED_GIF,
+          async () => {
+            await gate
+            return fileResponse(PNG, "image/gif")()
+          }
+        )
+        await user.click(previewButton(dialog))
+        await waitFor(() => expect(dialog).toHaveTextContent(CANNOT_PREVIEW))
+        const link = within(dialog).getByRole("link", { name: DOWNLOAD })
+        const navigation = trackNavigation()
+
+        await user.click(link)
+        await waitFor(() => expect(attachmentIds).toHaveLength(1))
+        expect(link).toHaveAttribute("aria-disabled", "true")
+
+        await user.click(link)
+        expect(navigation.preventedByApp).toBe(true)
+        await new Promise((resolve) => setTimeout(resolve, 50))
+        expect(attachmentIds).toHaveLength(1)
+
+        release()
+
+        await waitFor(() => expect(programmaticClicks).toHaveLength(1))
+        await waitFor(() => expect(link).not.toHaveAttribute("aria-disabled"))
+        expect(attachmentIds).toHaveLength(1)
       })
 
       it("F11c: con la sesión vencida, «Descargar» sin blob no navega al gateway: el 401 cierra la sesión con un único toast «Tu sesión venció…»", async () => {
