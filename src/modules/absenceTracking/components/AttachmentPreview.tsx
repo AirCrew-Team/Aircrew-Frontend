@@ -27,7 +27,7 @@ interface AttachmentPreviewProps {
 interface SavePickerWindow {
   showSaveFilePicker?: (options: {
     suggestedName: string
-    types: { accept: Record<string, string[]> }[]
+    types?: { accept: Record<string, string[]> }[]
   }) => Promise<FileSystemFileHandle>
 }
 
@@ -48,15 +48,39 @@ type Preview = "closed" | "open" | "error"
 type Zoom = "fit" | "actual"
 type SaveStatus = "idle" | "saved" | "error"
 
+// Tamaño real: centra el scroll del área en la imagen. Se llama al montar el área (imagen
+// ya cargada) y al cargar la imagen. Es una función de módulo, así React no la vuelve a
+// llamar en cada render y no pisa el scroll del usuario.
+const centerScroll = (area: HTMLElement | null) => {
+  if (!area) return
+  area.scrollLeft = (area.scrollWidth - area.clientWidth) / 2
+  area.scrollTop = (area.scrollHeight - area.clientHeight) / 2
+}
+
+const centerIfLoaded = (area: HTMLDivElement | null) => {
+  if (area?.querySelector("img")?.complete) centerScroll(area)
+}
+
+// Sin blob (tipo no previsualizable), el navegador guarda el archivo pedido con apiClient.
+const saveWithLink = (blob: Blob, fileName: string) => {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement("a")
+  link.href = url
+  link.download = fileName
+  link.click()
+  setTimeout(() => URL.revokeObjectURL(url), 0)
+}
+
 const secondaryAction = cn(
   typography.labelLg,
   "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-md border border-brand-secondary bg-white px-4 py-2 text-brand-secondary transition-colors hover:bg-brand-secondary hover:text-white focus-visible:ring-2 focus-visible:ring-brand-tertiary focus-visible:ring-offset-2 focus-visible:ring-offset-muted focus-visible:outline-hidden motion-reduce:transition-none lg:min-h-9"
 )
 
 // Bloque «Comprobante» del detalle: nombre, tamaño y «Previsualizar». La vista previa
-// se muestra aquí mismo y, debajo, sus acciones. «Descargar» es un enlace nativo (la
-// descarga la hace el navegador con el Content-Disposition del backend); si el navegador
-// tiene «Guardar como», el clic lo abre y escribe el blob que ya cargó la vista previa.
+// se muestra aquí mismo y, debajo, sus acciones. «Descargar» es un enlace: con la vista
+// previa cargada, descarga su blob (no pide nada, así una sesión vencida no lleva al JSON
+// del gateway); sin blob, el clic pide el archivo con apiClient (un 401 cierra la sesión
+// con su toast). Si el navegador tiene «Guardar como», el clic lo abre y escribe el blob.
 const AttachmentPreview = ({ id, attachment }: AttachmentPreviewProps) => {
   const [preview, setPreview] = useState<Preview>("closed")
   const [file, setFile] = useState<{ url: string; blob: Blob } | null>(null)
@@ -104,20 +128,31 @@ const AttachmentPreview = ({ id, attachment }: AttachmentPreviewProps) => {
     }
   }
 
-  // Sin «Guardar como» o sin blob (tipo no previsualizable), el enlace sigue su curso.
+  // Con blob y sin «Guardar como», el enlace al blob sigue su curso.
   const saveAs = async (event: MouseEvent<HTMLAnchorElement>) => {
     const picker = window as Window & SavePickerWindow
-    if (!picker.showSaveFilePicker || !file) return
+    if (!picker.showSaveFilePicker && file) return
     event.preventDefault()
     setSaveStatus("idle")
     try {
-      // La ventana se pide antes de cualquier await: el navegador exige el gesto del usuario.
+      if (!picker.showSaveFilePicker) {
+        const response = await downloadAbsenceAttachment(id)
+        saveWithLink(new Blob([response], { type: mimeType }), fileName)
+        return
+      }
+      // La ventana se pide antes de cualquier await: el navegador exige el gesto del
+      // usuario. Sin extensión conocida (tipo no previsualizable) no se fija el tipo.
       const handle = await picker.showSaveFilePicker({
         suggestedName: fileName,
-        types: [{ accept: { [mimeType]: [EXTENSIONS[mimeType]] } }],
+        ...(file && {
+          types: [{ accept: { [mimeType]: [EXTENSIONS[mimeType]] } }],
+        }),
       })
+      const blob =
+        file?.blob ??
+        new Blob([await downloadAbsenceAttachment(id)], { type: mimeType })
       const writable = await handle.createWritable()
-      await writable.write(file.blob)
+      await writable.write(blob)
       await writable.close()
       setSaveStatus("saved")
     } catch (error) {
@@ -142,6 +177,11 @@ const AttachmentPreview = ({ id, attachment }: AttachmentPreviewProps) => {
       src={file.url}
       alt={`Comprobante: ${fileName}`}
       data-zoom={zoom}
+      onLoad={
+        zoom === "actual"
+          ? (event) => centerScroll(event.currentTarget.parentElement)
+          : undefined
+      }
       className={
         zoom === "actual" ? "max-w-none" : "h-auto w-full rounded-md bg-white"
       }
@@ -199,8 +239,10 @@ const AttachmentPreview = ({ id, attachment }: AttachmentPreviewProps) => {
             </p>
           ) : isImage ? (
             zoom === "actual" ? (
-              // Tamaño real: se desplaza en los dos ejes (también con el teclado).
+              // Tamaño real: se desplaza en los dos ejes (también con el teclado) y
+              // arranca centrado en la imagen.
               <div
+                ref={centerIfLoaded}
                 role="region"
                 aria-label="Comprobante a tamaño real"
                 tabIndex={0}
@@ -244,7 +286,8 @@ const AttachmentPreview = ({ id, attachment }: AttachmentPreviewProps) => {
               </a>
             ) : null}
             <a
-              href={absenceAttachmentUrl(id)}
+              href={file?.url ?? absenceAttachmentUrl(id)}
+              download={file ? fileName : undefined}
               onClick={saveAs}
               className={secondaryAction}
             >
