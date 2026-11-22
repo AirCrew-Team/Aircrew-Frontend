@@ -9,6 +9,8 @@
 import { onTestFinished } from "vitest"
 import { http, HttpResponse } from "msw"
 
+import type { Absence } from "@/App/types/absences.types"
+
 import { server } from "../utils/server"
 
 import { API_URL } from "./authApi"
@@ -30,35 +32,21 @@ export const OVERLAP_MESSAGE =
 export const GENERIC_SUBMIT_ERROR =
   "No pudimos enviar el reporte. Intenta de nuevo."
 
-export interface ApiAbsenceAttachment {
-  file_name: string
-  mime_type: string
-  size_bytes: number
-}
-
-export interface ApiAbsence {
-  id: string
+// Ausencia tal como la manda el backend: el tipo real (Absence, con sus null) con el
+// motivo en inglés, todos los estados del backend y los ids que el frontend no usa.
+export type ApiAbsence = Omit<Absence, "reason" | "status"> & {
   crew_user_id: string
-  crew_name: string
-  employee_code: string
-  position: string
-  start_date: string
-  end_date: string
   reason: string
-  notes: string | null
-  status: "reported" | "covered"
+  status: "reported" | "pending_ack" | "covered" | "cancelled"
   replacement_user_id: string | null
-  replacement_name: string | null
-  covered_at: string | null
-  created_at: string
-  flight_id: null
-  flight_number: null
-  flight_departure_at: null
-  attachment: ApiAbsenceAttachment | null
+  flight_id: string | null
+  flight_departure_at: string | null
 }
 
+// Los ejemplos van con satisfies (no con anotación): conservan sus tipos literales, así
+// crew_name sigue siendo string para los tests que lo usan como nombre de la tarjeta.
 // Las fechas del tablero solo se muestran (nada las compara con hoy): pueden ser fijas.
-export const REPORTED_ABSENCE: ApiAbsence = {
+export const REPORTED_ABSENCE = {
   id: "abs-1",
   crew_user_id: "u-real-crew-1",
   crew_name: "Laura Méndez Ríos",
@@ -81,9 +69,9 @@ export const REPORTED_ABSENCE: ApiAbsence = {
     mime_type: "application/pdf",
     size_bytes: 2048,
   },
-}
+} satisfies ApiAbsence
 
-export const COVERED_ABSENCE: ApiAbsence = {
+export const COVERED_ABSENCE = {
   id: "abs-2",
   crew_user_id: "u-real-crew-2",
   crew_name: "Pedro Gómez Ruiz",
@@ -102,7 +90,7 @@ export const COVERED_ABSENCE: ApiAbsence = {
   flight_number: null,
   flight_departure_at: null,
   attachment: null,
-}
+} satisfies ApiAbsence
 
 export const absenceError = (status: number, message: string) =>
   HttpResponse.json({ error: message }, { status })
@@ -169,7 +157,9 @@ export const mockAttachment = (respond?: Respond) => {
       return new HttpResponse(new TextEncoder().encode("%PDF-1.4 prueba"), {
         headers: {
           "Content-Type": "application/pdf",
-          "Content-Disposition": 'attachment; filename="incapacidad.pdf"',
+          // Formato del backend (RFC 6266): nombre en ASCII y el real en UTF-8.
+          "Content-Disposition":
+            "attachment; filename=\"incapacidad-medica.pdf\"; filename*=UTF-8''incapacidad-m%C3%A9dica.pdf",
         },
       })
     })

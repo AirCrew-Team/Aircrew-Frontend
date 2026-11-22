@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { http, HttpResponse } from "msw"
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it } from "vitest"
 
 import { ROLES } from "@/App/types/auth.types"
 import { getShiftCrew } from "@/modules/shiftCrew/data/shiftCrew.data"
@@ -20,13 +20,6 @@ import { server } from "../utils/server"
 // datos de ejemplo; el ajuste de TC-07 y TC-21 (TS-08) va en los archivos de la spec
 // original. La ampliación «Inicio y texto de la guardia» suma TS-12 (nota de la guardia) al
 // final; TS-09 a TS-11 van en src/tests/supervisorHome/InicioPage.crewSummary.test.tsx.
-
-// Con la sesión real del supervisor, MainLayout abre el socket de alertas en vivo
-// (useLiveAlerts). No es parte de esta spec: se sustituye por uno inerte, como en
-// LiveAlerts.test.tsx, para que no salga a la red.
-vi.mock("@/lib/socket", () => ({
-  connectAlerts: () => ({ on: () => {}, disconnect: () => {} }),
-}))
 
 type User = ReturnType<typeof userEvent.setup>
 

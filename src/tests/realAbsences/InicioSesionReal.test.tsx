@@ -74,6 +74,8 @@ describe("AU-01: Inicio con sesión real", () => {
       availability: "Incapacitado",
       condition: "Incapacidad médica",
     },
+    // FE-2 (cierre-pendientes): el backend también tiene «vacation».
+    { status: "vacation", availability: "Vacaciones", condition: "Vacaciones" },
   ])(
     "AU-01: con status «$status» la disponibilidad es «$availability» y la condición operacional «$condition»",
     async ({ status, availability, condition }) => {

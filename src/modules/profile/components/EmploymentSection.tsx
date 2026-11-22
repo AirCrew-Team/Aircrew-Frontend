@@ -14,6 +14,7 @@ const STATUS_LABELS: Record<CrewMemberStatus, string> = {
   on_duty: "En servicio",
   in_flight: "En vuelo",
   medical_leave: "Incapacidad médica",
+  vacation: "Vacaciones",
 }
 
 const formatDate = (iso: string) =>

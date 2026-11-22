@@ -95,7 +95,7 @@ const AbsenceTrackingBoard = () => {
     enabled: !isDemo,
   })
   // La consulta deshabilitada se queda en «pending»: cuenta solo la de la sesión.
-  const { data, isPending, isError } = isDemo ? demo : real
+  const { data, isPending } = isDemo ? demo : real
 
   const query = search.trim()
   const normalizedQuery = normalizeForSearch(query)
@@ -115,6 +115,8 @@ const AbsenceTrackingBoard = () => {
         {data?.length ? absencesLabel(visibleCount) : ""}
       </p>
 
+      {/* Sin datos tras la carga es el error de carga. Una recarga en segundo plano que
+          falla (p. ej. tras un aviso en vivo) conserva los datos: el tablero sigue igual. */}
       {isPending ? (
         <p
           role="status"
@@ -126,7 +128,7 @@ const AbsenceTrackingBoard = () => {
         >
           Cargando ausencias…
         </p>
-      ) : isError ? (
+      ) : !data ? (
         <p
           role="alert"
           className={cn(typography.bodyMd, messageClass, "text-destructive")}

@@ -367,9 +367,10 @@ describe("AU-13 a AU-17: comprobante con vista previa", () => {
   const fileResponse = (body: Uint8Array, mimeType: string) => () =>
     new HttpResponse(body, { headers: { "Content-Type": mimeType } })
 
-  // Abre el detalle ya cargado de una ausencia con el comprobante dado.
+  // Abre el detalle ya cargado de una ausencia (con nombre: es el de su tarjeta) con el
+  // comprobante dado.
   const openAttachment = async (
-    absence: ApiAbsence,
+    absence: ApiAbsence & { crew_name: string },
     respond: () => Response | Promise<Response> = fileResponse(
       PDF,
       "application/pdf"

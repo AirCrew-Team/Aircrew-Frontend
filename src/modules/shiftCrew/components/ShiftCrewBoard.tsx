@@ -53,7 +53,7 @@ const ShiftCrewBoard = () => {
   const [search, setSearch] = useState("")
   const [filter, setFilter] = useState<CrewStatus | null>(null)
   const [limit, setLimit] = useState(LIMIT)
-  const { data, isPending, isError } = useQuery({
+  const { data, isPending } = useQuery({
     queryKey: ["crew", "shift"],
     queryFn: getShiftCrew,
   })
@@ -77,6 +77,8 @@ const ShiftCrewBoard = () => {
         {members.length ? crewLabel(visible.length) : ""}
       </p>
 
+      {/* Sin datos tras la carga es el error de carga. Una recarga en segundo plano que
+          falla (p. ej. tras un aviso en vivo) conserva los datos: el tablero sigue igual. */}
       {isPending ? (
         <p
           role="status"
@@ -88,7 +90,7 @@ const ShiftCrewBoard = () => {
         >
           Cargando tripulación…
         </p>
-      ) : isError ? (
+      ) : !data ? (
         <p
           role="alert"
           className={cn(typography.bodyMd, messageClass, "text-destructive")}

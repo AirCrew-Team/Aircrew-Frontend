@@ -181,6 +181,8 @@ describe("CF-02: bloques propios de cada rol", () => {
     ["on_duty", "En servicio"],
     ["in_flight", "En vuelo"],
     ["medical_leave", "Incapacidad médica"],
+    // FE-2 (cierre-pendientes): el backend también tiene «vacation».
+    ["vacation", "Vacaciones"],
   ])(
     "CF-02: con status «%s», «Estado operativo» dice «%s»",
     async (status, label) => {

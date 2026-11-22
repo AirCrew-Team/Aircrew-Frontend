@@ -22,6 +22,7 @@ const CONDITION_LABELS: Record<CrewMemberStatus, string> = {
   on_duty: "En servicio",
   in_flight: "En vuelo",
   medical_leave: "Incapacidad médica",
+  vacation: "Vacaciones",
 }
 
 // Sesión real: el estado sale de GET /api/crew/crew-members/me.
@@ -30,7 +31,12 @@ export const getMyCrewStatus = async (): Promise<CrewStatus> => {
   return {
     base: current_location,
     operationalCondition: CONDITION_LABELS[status],
-    availability: status === "medical_leave" ? "incapacitado" : "disponible",
+    availability:
+      status === "medical_leave"
+        ? "incapacitado"
+        : status === "vacation"
+          ? "vacaciones"
+          : "disponible",
   }
 }
 

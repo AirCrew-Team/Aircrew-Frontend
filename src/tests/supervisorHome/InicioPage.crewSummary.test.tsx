@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react"
 import { http, HttpResponse } from "msw"
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it } from "vitest"
 
 import { getCrewSummary } from "@/modules/supervisorHome/data/supervisorHome.data"
 import { PATHS } from "@/routes/paths"
@@ -18,12 +18,6 @@ import { server } from "../utils/server"
 // - Apto = round((total − ausentes) / total × 100), y 0 con total 0.
 // TS-13 (datos de ejemplo: «34 en servicio», «92% Apto») ya lo cubren IS-05 en
 // InicioPage.test.tsx y TC-20 en shiftCrew.data.test.ts.
-
-// Con la sesión real del supervisor, MainLayout abre el socket de alertas en vivo
-// (useLiveAlerts). No es parte de esta spec: se sustituye por uno inerte.
-vi.mock("@/lib/socket", () => ({
-  connectAlerts: () => ({ on: () => {}, disconnect: () => {} }),
-}))
 
 interface ApiMemberLike {
   id: string
