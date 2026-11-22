@@ -29,6 +29,10 @@ const REASON_BY_API = Object.fromEntries(
   Object.entries(API_REASON).map(([reason, api]) => [api, reason])
 ) as Record<string, AbsenceReason>
 
+// Motivo del backend («fatigue») → el de la app («fatiga»); null si no es uno conocido.
+export const reasonFromApi = (reason: string): AbsenceReason | null =>
+  REASON_BY_API[reason] ?? null
+
 // parent_absence_id: la ausencia por fechas de la que salió una ausencia por vuelo.
 type ApiAbsence = Omit<Absence, "reason" | "status" | "flights"> & {
   reason: string
