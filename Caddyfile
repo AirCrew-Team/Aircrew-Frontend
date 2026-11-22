@@ -6,12 +6,16 @@
 }
 
 :{$PORT:8080} {
-	encode zstd gzip
+	# Los avisos en vivo (SSE) no se comprimen: la compresión los retiene en el búfer.
+	@compress not path /api/notification/stream
+	encode @compress zstd gzip
 
 	# El gateway espera el prefijo /api/<servicio> intacto: handle, no handle_path.
-	# reverse_proxy también reenvía el WebSocket de las alertas.
+	# flush_interval -1: cada aviso en vivo (SSE) sale al navegador apenas llega.
 	handle /api/* {
-		reverse_proxy {$GATEWAY_URL}
+		reverse_proxy {$GATEWAY_URL} {
+			flush_interval -1
+		}
 	}
 
 	# Vite pone un hash en el nombre de cada archivo de /assets/: caché de un año.

@@ -20,6 +20,11 @@ const FLIGHTS_H1 = "Mis Vuelos Asignados"
 
 // GET del perfil que hace MainLayout con sesión real (foto del navbar, configuracion-real A4).
 const ME_REQUEST = `GET ${API_URL}/api/admin/users/me`
+// La campana del navbar pide los avisos guardados: tampoco es de la pantalla.
+const BELL_REQUEST = `GET ${API_URL}/api/notification/notifications?limit=30`
+// Peticiones del navbar (foto y campana), que no son de la pantalla.
+const isNavbarRequest = (request: string) =>
+  request === ME_REQUEST || request === BELL_REQUEST
 const CERTIFICATIONS_H1 = "Certificaciones y Licencias"
 
 // Supuesto: el estado vacío de cada lista dice «No hay vuelos…» o «No tienes vuelos…»
@@ -90,7 +95,7 @@ describe("AU-02: Mis vuelos con sesión real", () => {
     expect(main).not.toHaveTextContent("AV-9102")
 
     // La única petición es la del perfil del navbar (MainLayout, foto de perfil).
-    expect(requests.filter((request) => request !== ME_REQUEST)).toEqual([])
+    expect(requests.filter((request) => !isNavbarRequest(request))).toEqual([])
   })
 })
 
@@ -117,7 +122,7 @@ describe("AU-02: Certificaciones con sesión real", () => {
     }
     expect(within(main).queryAllByRole("alert")).toHaveLength(0)
     // La única petición es la del perfil del navbar (MainLayout, foto de perfil).
-    expect(requests.filter((request) => request !== ME_REQUEST)).toEqual([])
+    expect(requests.filter((request) => !isNavbarRequest(request))).toEqual([])
   })
 })
 

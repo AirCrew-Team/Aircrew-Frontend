@@ -17,7 +17,7 @@ import { isDemoUser, useAuthStore } from "@/stores/auth.store"
 const MainLayout = () => {
   const user = useAuthStore((state) => state.user)
   const isRealUser = user !== null && !isDemoUser(user)
-  // Alertas en vivo del supervisor (socket); no hace nada en los demás roles.
+  // Avisos en vivo (SSE) del supervisor y del tripulante; no hace nada en los demás roles.
   useLiveAlerts()
   const { pathname, state } = useLocation()
   const mainRef = useRef<HTMLElement>(null)

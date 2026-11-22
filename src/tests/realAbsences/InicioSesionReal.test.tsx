@@ -26,6 +26,11 @@ const NO_FLIGHTS = "No tienes vuelos programados."
 const NO_CERTIFICATIONS = "Aún no tienes certificaciones registradas."
 const STATUS_ERROR = "No se pudo cargar el estado de asignación."
 const ME_REQUEST = `GET ${API_URL}/api/admin/users/me`
+// La campana del navbar pide los avisos guardados: tampoco es de la pantalla.
+const BELL_REQUEST = `GET ${API_URL}/api/notification/notifications?limit=30`
+// Peticiones del navbar (foto y campana), que no son de la pantalla.
+const isNavbarRequest = (request: string) =>
+  request === ME_REQUEST || request === BELL_REQUEST
 const NEXT_FLIGHT = "Próximo vuelo"
 const DEMO_FLIGHT_LABEL = "Itinerario Confirmado"
 
@@ -157,9 +162,9 @@ describe("AU-01: Inicio con sesión real", () => {
     const main = await openRealHome()
     await within(main).findByText(NO_FLIGHTS)
 
-    // El navbar pide el perfil para la foto (spec configuracion-real, CF-12): no es del
-    // Inicio, así que se quita antes de comprobar.
-    const homeRequests = requests.filter((request) => request !== ME_REQUEST)
+    // El navbar pide el perfil para la foto (spec configuracion-real, CF-12) y la campana:
+    // no son del Inicio, así que se quitan antes de comprobar.
+    const homeRequests = requests.filter((request) => !isNavbarRequest(request))
     expect(homeRequests.length).toBeGreaterThan(0)
     expect(
       homeRequests.filter(

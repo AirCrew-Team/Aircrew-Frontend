@@ -2,57 +2,81 @@ import { useEffect } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
-import { ROLES } from "@/App/types/auth.types"
-import { connectAlerts } from "@/lib/socket"
-import { useAlertsStore } from "@/stores/alerts.store"
+import { notificationsQueryKey } from "@/App/actions/notifications/notifications.actions"
+import { ROLES, type Role } from "@/App/types/auth.types"
+import { connectAlerts } from "@/lib/alertsStream"
 import { isDemoUser, useAuthStore } from "@/stores/auth.store"
 
-// Lo que trae cada evento del servicio de notificaciones (todos traen message y sent_at).
+// Lo que trae cada evento del servicio de notificaciones (todos traen message).
 interface AlertPayload {
   message: string
-  sent_at?: string
   // Solo en absence:suggestions_ready.
   state?: "ready" | "none" | "error"
 }
 
 type Tone = "info" | "success" | "warning" | "error"
 
-// Qué datos refresca cada evento (prefijos de queryKey) y con qué tono se avisa.
-const EVENTS: {
+interface LiveEvent {
   name: string
+  // Qué datos refresca (prefijos de queryKey).
   refresh: string[][]
   tone: (payload: AlertPayload) => Tone
-}[] = [
-  {
-    // Un tripulante reportó una ausencia: cola, seguimiento y tarjetas del Inicio.
-    name: "absence:reported",
-    refresh: [["replacements"], ["absences"], ["crew"]],
-    tone: () => "warning",
-  },
-  {
-    // La IA terminó de buscar candidatos.
-    name: "absence:suggestions_ready",
-    refresh: [["replacements"], ["absences"]],
-    tone: (payload) =>
-      payload.state === "error"
-        ? "error"
-        : payload.state === "none"
-          ? "warning"
-          : "success",
-  },
-  {
-    // El reemplazo dio «Enterado»: también cambia la tripulación del vuelo.
-    name: "absence:covered",
-    refresh: [["replacements"], ["absences"], ["crew"], ["assignment"]],
-    tone: () => "success",
-  },
-  {
-    // El reemplazo dejó vencer su plazo: la ausencia vuelve a la cola.
-    name: "absence:deadline_missed",
-    refresh: [["replacements"], ["absences"], ["crew"], ["assignment"]],
-    tone: () => "warning",
-  },
-]
+}
+
+// Eventos que escucha cada rol. El super_admin no recibe notificaciones.
+export const EVENTS_BY_ROLE: Partial<Record<Role, LiveEvent[]>> = {
+  [ROLES.SUPER_VISOR]: [
+    {
+      // Un tripulante reportó una ausencia: cola, seguimiento y tarjetas del Inicio.
+      name: "absence:reported",
+      refresh: [["replacements"], ["absences"], ["crew"]],
+      tone: () => "warning",
+    },
+    {
+      // La IA terminó de buscar candidatos.
+      name: "absence:suggestions_ready",
+      refresh: [["replacements"], ["absences"]],
+      tone: (payload) =>
+        payload.state === "error"
+          ? "error"
+          : payload.state === "none"
+            ? "warning"
+            : "success",
+    },
+    {
+      // El reemplazo dio «Enterado»: también cambia la tripulación del vuelo.
+      name: "absence:covered",
+      refresh: [["replacements"], ["absences"], ["crew"], ["assignment"]],
+      tone: () => "success",
+    },
+    {
+      // El reemplazo dejó vencer su plazo: la ausencia vuelve a la cola.
+      name: "absence:deadline_missed",
+      refresh: [["replacements"], ["absences"], ["crew"], ["assignment"]],
+      tone: () => "warning",
+    },
+  ],
+  [ROLES.TRIPULANTE]: [
+    {
+      // Lo eligieron como reemplazo en un vuelo.
+      name: "assignment:replacement",
+      refresh: [["replacements"], ["crew"]],
+      tone: () => "warning",
+    },
+    {
+      // El super_admin le registró la certificación.
+      name: "certification:registered",
+      refresh: [["certifications"]],
+      tone: () => "info",
+    },
+    {
+      // El super_admin verificó su certificación.
+      name: "certification:verified",
+      refresh: [["certifications"]],
+      tone: () => "success",
+    },
+  ],
+}
 
 const notify: Record<Tone, (message: string) => void> = {
   info: (message) => toast.info(message),
@@ -61,47 +85,41 @@ const notify: Record<Tone, (message: string) => void> = {
   error: (message) => toast.error(message),
 }
 
-// Alertas en vivo del supervisor: con sesión real (cookie), abre el socket, avisa con un
-// toast, guarda la alerta para la campana y refresca las pantallas afectadas.
+// Avisos en vivo (SSE) del supervisor y del tripulante: con sesión real (cookie), abre la
+// conexión, avisa con un toast, refresca la campana (el backend ya guardó el aviso) y las
+// pantallas afectadas.
 // Las cuentas demo y el selector «Rol (dev)» no tienen sesión en el backend: no se conectan.
 export const useLiveAlerts = () => {
   const queryClient = useQueryClient()
-  // id del supervisor con sesión real; null en cualquier otro caso.
-  const supervisorId = useAuthStore((state) =>
-    state.user?.role === ROLES.SUPER_VISOR && !isDemoUser(state.user)
-      ? state.user.id
-      : null
-  )
+  // Rol e id del usuario con sesión real que recibe avisos; null en cualquier otro caso.
+  const user = useAuthStore((state) => state.user)
+  const role =
+    user && !isDemoUser(user) && EVENTS_BY_ROLE[user.role] ? user.role : null
+  const userId = role ? user?.id : null
 
   useEffect(() => {
-    if (!supervisorId) return
+    if (!role || !userId) return
+    const connection = connectAlerts()
 
-    const socket = connectAlerts()
-
-    for (const event of EVENTS) {
-      socket.on(event.name, (payload: AlertPayload) => {
-        useAlertsStore.getState().add({
-          type: event.name,
-          message: payload.message,
-          sentAt: payload.sent_at ?? new Date().toISOString(),
-        })
+    for (const event of EVENTS_BY_ROLE[role] ?? []) {
+      connection.on(event.name, (data) => {
+        const payload = data as AlertPayload
         notify[event.tone(payload)](payload.message)
+        void queryClient.invalidateQueries({ queryKey: notificationsQueryKey })
         for (const queryKey of event.refresh) {
           void queryClient.invalidateQueries({ queryKey })
         }
       })
     }
 
-    // El servidor avisa antes de que venza el token y luego desconecta.
-    socket.on("auth:expired", (payload: AlertPayload) => {
-      toast.error(payload.message)
+    // El servidor avisa antes de que venza el token y luego cierra la conexión.
+    connection.on("auth:expired", (data) => {
+      connection.close()
+      toast.error((data as AlertPayload).message)
       useAuthStore.getState().logout()
     })
 
-    // Al cerrar sesión o cambiar de usuario, las alertas de esta sesión ya no aplican.
-    return () => {
-      socket.disconnect()
-      useAlertsStore.getState().clear()
-    }
-  }, [supervisorId, queryClient])
+    // Al cerrar sesión o cambiar de usuario se cierra la conexión.
+    return () => connection.close()
+  }, [role, userId, queryClient])
 }
