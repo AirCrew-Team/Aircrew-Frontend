@@ -1,5 +1,5 @@
 import { useId, useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
 
 import { EditIcon } from "@/App/utils/icons"
@@ -8,20 +8,26 @@ import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import CertificationDialogHeader from "@/modules/adminCertifications/components/CertificationDialogHeader"
 import CertificationStatusBadge from "@/modules/adminCertifications/components/CertificationStatusBadge"
-import { getCertificationDetail } from "@/modules/adminCertifications/data/adminCertifications.data"
+import {
+  useCertificationCatalog,
+  useCertificationsApi,
+} from "@/modules/adminCertifications/hooks/useCertificationsApi"
 import type {
   CertificationDetail,
   CertificationHistoryEntry,
 } from "@/modules/adminCertifications/types/adminCertifications.types"
+import { certificationErrorMessage } from "@/modules/adminCertifications/utils/certificationErrors"
 import {
   certificateName,
   primaryCertificate,
   ratings,
 } from "@/modules/adminCertifications/utils/certificates"
 import {
+  crewCode,
   crewInitials,
   crewName,
   crewRoleLine,
+  formatFileSize,
   formatHistoryDate,
 } from "@/modules/adminCertifications/utils/crewFormat"
 
@@ -42,6 +48,26 @@ const HISTORY_EVENT: Record<
   actualizado: { title: "Certificado actualizado", dot: "bg-brand-tertiary" },
 }
 
+// La dirección temporal del archivo se libera después de un minuto, cuando la pestaña
+// ya lo cargó.
+const OBJECT_URL_LIFETIME_MS = 60_000
+
+const openBlob = (blob: Blob, fileName: string) => {
+  const url = URL.createObjectURL(blob)
+  // Sin "noopener" en las opciones: con él window.open siempre devuelve null y no se
+  // sabría si la pestaña se abrió. Se corta el vínculo con esta página a mano.
+  const opened = window.open(url, "_blank")
+  if (opened) {
+    opened.opener = null
+  } else {
+    const link = document.createElement("a")
+    link.href = url
+    link.download = fileName
+    link.click()
+  }
+  window.setTimeout(() => URL.revokeObjectURL(url), OBJECT_URL_LIFETIME_MS)
+}
+
 // Certificado FAA: número, tipo, habilitaciones y la copia del certificado.
 const CertificateSection = ({
   detail,
@@ -51,9 +77,24 @@ const CertificateSection = ({
   licenseNumber: string
 }) => {
   const titleId = useId()
-  const primary = primaryCertificate(detail.certificates)
-  const extra = ratings(detail.certificates)
+  const { data: catalog } = useCertificationCatalog()
+  const primary = primaryCertificate(catalog, detail.certificates)
+  const extra = ratings(catalog, detail.certificates)
   const { file } = detail
+  const { downloadCertificateFile } = useCertificationsApi()
+
+  // Pide el archivo y lo abre en otra pestaña; si el navegador bloquea la pestaña, lo
+  // descarga con su nombre.
+  const openFile = useMutation({
+    mutationFn: async (fileName: string) => {
+      const blob = await downloadCertificateFile(detail.id)
+      openBlob(blob, fileName)
+    },
+    onError: (error) =>
+      toast.error("No se pudo abrir la copia", {
+        description: certificationErrorMessage(error, "Intenta de nuevo."),
+      }),
+  })
 
   return (
     <section aria-labelledby={titleId} className={cardClass}>
@@ -77,7 +118,9 @@ const CertificateSection = ({
           <dd
             className={cn(typography.labelLg, "font-bold text-brand-primary")}
           >
-            {primary ? certificateName(primary) : "Sin licencia principal"}
+            {primary
+              ? certificateName(catalog, primary)
+              : "Sin licencia principal"}
           </dd>
         </div>
         <div className="flex flex-col gap-1.5 sm:col-span-2">
@@ -96,7 +139,7 @@ const CertificateSection = ({
                       "rounded-full bg-brand-neutral px-2.5 py-1 text-brand-primary"
                     )}
                   >
-                    {certificateName(code)}
+                    {certificateName(catalog, code)}
                   </li>
                 ))}
               </ul>
@@ -109,7 +152,7 @@ const CertificateSection = ({
         </div>
       </dl>
 
-      {/* Copia del certificado: con la API se abrirá desde el backend. */}
+      {/* Copia del certificado: se descarga al pulsar «Abrir copia». */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-brand-border pt-3">
         {file ? (
           <>
@@ -135,39 +178,21 @@ const CertificateSection = ({
                 <span
                   className={cn(typography.bodySm, "text-muted-foreground")}
                 >
-                  Copia del certificado
+                  Copia del certificado · {formatFileSize(file.sizeBytes)}
                 </span>
               </div>
             </div>
-            {file.url ? (
-              <a
-                href={file.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={cn(
-                  typography.labelMd,
-                  "inline-flex min-h-11 items-center rounded-md bg-brand-neutral px-4 font-semibold text-brand-secondary transition-colors hover:bg-brand-border focus-visible:ring-2 focus-visible:ring-brand-tertiary focus-visible:outline-hidden lg:min-h-9"
-                )}
-              >
-                Abrir copia
-              </a>
-            ) : (
-              <button
-                type="button"
-                onClick={() =>
-                  toast.info("Próximamente", {
-                    description:
-                      "La copia se podrá abrir cuando se conecte el backend.",
-                  })
-                }
-                className={cn(
-                  typography.labelMd,
-                  "inline-flex min-h-11 items-center rounded-md bg-brand-neutral px-4 font-semibold text-brand-secondary transition-colors hover:bg-brand-border focus-visible:ring-2 focus-visible:ring-brand-tertiary focus-visible:outline-hidden lg:min-h-9"
-                )}
-              >
-                Abrir copia
-              </button>
-            )}
+            <button
+              type="button"
+              disabled={openFile.isPending}
+              onClick={() => openFile.mutate(file.name)}
+              className={cn(
+                typography.labelMd,
+                "inline-flex min-h-11 items-center rounded-md bg-brand-neutral px-4 font-semibold text-brand-secondary transition-colors hover:bg-brand-border focus-visible:ring-2 focus-visible:ring-brand-tertiary focus-visible:outline-hidden disabled:cursor-wait disabled:opacity-70 lg:min-h-9"
+              )}
+            >
+              {openFile.isPending ? "Abriendo…" : "Abrir copia"}
+            </button>
           </>
         ) : (
           <p className={cn(typography.bodySm, "text-muted-foreground")}>
@@ -219,7 +244,7 @@ const HistorySection = ({
                 <span
                   className={cn(typography.bodySm, "text-muted-foreground")}
                 >
-                  {[entry.by, formatHistoryDate(entry.date), entry.note]
+                  {[entry.by ?? "—", formatHistoryDate(entry.date), entry.note]
                     .filter(Boolean)
                     .join(" · ")}
                 </span>
@@ -251,6 +276,7 @@ const CertificationDetailDialog = ({
   // Último tripulante abierto: la ficha sigue visible durante la animación de cierre.
   const [shownId, setShownId] = useState(crewId)
   if (crewId !== null && crewId !== shownId) setShownId(crewId)
+  const { getCertificationDetail } = useCertificationsApi()
 
   const { data, isPending, isError } = useQuery({
     queryKey: ["certifications", "adminDetail", shownId],
@@ -285,7 +311,9 @@ const CertificationDetailDialog = ({
           }
           title={data ? crewName(data) : "Certificación"}
           description={
-            data ? `${crewRoleLine(data)} · ${data.id}` : "Certificaciones FAA"
+            data
+              ? `${crewRoleLine(data)} · ${crewCode(data)}`
+              : "Certificaciones FAA"
           }
           trailing={
             data ? <CertificationStatusBadge status={data.status} /> : null

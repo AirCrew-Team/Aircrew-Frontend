@@ -8,13 +8,14 @@ import {
 } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
-import { getCertificationsStats } from "@/modules/adminCertifications/data/adminCertifications.data"
+import { useCertificationsApi } from "@/modules/adminCertifications/hooks/useCertificationsApi"
 import { CERTIFICATION_STATUS } from "@/modules/adminCertifications/utils/certificationStatus"
 
 // Bloque 2: indicadores de la tripulación. Comparte la consulta
 // ["certifications", "adminStats"] con los conteos de los filtros (CertificationsToolbar):
 // TanStack Query la pide una sola vez.
 const CertificationsStats = () => {
+  const { getCertificationsStats } = useCertificationsApi()
   const { data, isPending, isError } = useQuery({
     queryKey: ["certifications", "adminStats"],
     queryFn: getCertificationsStats,

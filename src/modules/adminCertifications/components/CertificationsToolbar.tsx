@@ -8,8 +8,8 @@ import { cn } from "@/lib/utils"
 import CertificationFormDialog, {
   type CertificationFormTarget,
 } from "@/modules/adminCertifications/components/CertificationFormDialog"
-import { getCertificationsStats } from "@/modules/adminCertifications/data/adminCertifications.data"
 import { useCertificationsSearchParams } from "@/modules/adminCertifications/hooks/useCertificationsSearchParams"
+import { useCertificationsApi } from "@/modules/adminCertifications/hooks/useCertificationsApi"
 import type { CertificationState } from "@/modules/adminCertifications/types/adminCertifications.types"
 
 // Opciones del filtro por estado; «Todos» quita ?status= de la URL.
@@ -30,6 +30,7 @@ const CertificationsToolbar = () => {
   )
   const { search, filter, setSearch, setFilter } =
     useCertificationsSearchParams()
+  const { getCertificationsStats } = useCertificationsApi()
   // Conteos de los filtros: misma consulta que los indicadores (CertificationsStats).
   const { data: stats } = useQuery({
     queryKey: ["certifications", "adminStats"],

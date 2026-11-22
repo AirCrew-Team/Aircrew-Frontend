@@ -1,5 +1,6 @@
 import type {
   CertificateFile,
+  CertificationCatalog,
   CertificationDetail,
   CertificationHistoryEntry,
   CertificationState,
@@ -10,27 +11,65 @@ import type {
   SaveCertificationInput,
 } from "@/modules/adminCertifications/types/adminCertifications.types"
 
-// Datos simulados con la forma de las acciones reales: se moverán a App/actions cuando
-// exista la API. Las funciones ya reciben los parámetros que se enviarán al backend.
+// Datos de ejemplo para las cuentas demo y el selector «Rol (dev)»: misma forma y mismas
+// firmas que App/actions/certifications (la sesión real). Ver useCertificationsApi.
 // Contexto: Delta Air Lines, licencias de la FAA.
 
-// Registros por página: lo enviará el frontend y lo confirmará el backend en la respuesta.
-export const CERTIFICATIONS_PAGE_SIZE = 5
-
-// Quién hace los cambios. Con la API lo sabrá el backend por la sesión.
+// Quién hace los cambios. Con la API lo sabe el backend por la sesión.
 const CURRENT_ADMIN = "Admin AirCrew"
 
 // Con qué se coteja cada certificación al verificarla (va en el historial).
-const VERIFICATION_SOURCE: Record<CrewCertification["area"], string> = {
+const VERIFICATION_SOURCE: Record<
+  NonNullable<CrewCertification["area"]>,
+  string
+> = {
   cabina_mando: "cotejado con Airmen Inquiry (registro público FAA)",
   cabina: "cotejado con el certificado físico del tripulante",
 }
+
+// Catálogo de certificados: el mismo que devuelve GET /certifications/options.
+const PILOT_CERTIFICATES = ["PPL", "CPL", "ATP", "IR", "ME"]
+const PURSER_CERTIFICATES = ["CDP", "LID", "CONF", "ADU"]
+
+const CATALOG: CertificationCatalog = {
+  certificates: [
+    { code: "PPL", name: "Private Pilot (PPL)", short: "PPL" },
+    { code: "CPL", name: "Commercial Pilot (CPL)", short: "CPL" },
+    { code: "ATP", name: "Airline Transport Pilot (ATP)", short: "ATP" },
+    { code: "IR", name: "Instrument Rating (IR)", short: "IR" },
+    { code: "ME", name: "Multi-Engine (ME)", short: "ME" },
+    {
+      code: "CDP",
+      name: "Certificate of Demonstrated Proficiency (CDP)",
+      short: "CDP",
+    },
+    { code: "LID", name: "Liderazgo", short: "Liderazgo" },
+    { code: "CONF", name: "Manejo de conflictos", short: "Conflictos" },
+    { code: "ADU", name: "Aduanas / Inmigración", short: "Aduanas" },
+  ],
+  byPosition: {
+    Comandante: { area: "cabina_mando", certificates: PILOT_CERTIFICATES },
+    Copiloto: { area: "cabina_mando", certificates: PILOT_CERTIFICATES },
+    "Auxiliar de Vuelo": { area: "cabina", certificates: ["CDP"] },
+    "Sobrecargo Principal": {
+      area: "cabina",
+      certificates: PURSER_CERTIFICATES,
+    },
+    Sobrecargo: { area: "cabina", certificates: PURSER_CERTIFICATES },
+  },
+  pilotLicenses: ["ATP", "CPL", "PPL"],
+  cabinLicense: "CDP",
+}
+
+export const getCertificationOptions = (): Promise<CertificationCatalog> =>
+  Promise.resolve(structuredClone(CATALOG))
 
 // Tripulación con su certificación, en el orden de la referencia: primero lo que
 // requiere atención (sin certificado y por verificar), luego lo verificado.
 const CREW: CrewCertification[] = [
   {
     id: "AC-6014",
+    code: "AC-6014",
     firstName: "Laura",
     lastName: "Benítez",
     email: "l.benitez@aircrew-ops.com",
@@ -43,6 +82,7 @@ const CREW: CrewCertification[] = [
   },
   {
     id: "AC-4455",
+    code: "AC-4455",
     firstName: "Daniel",
     lastName: "Herrera",
     email: "d.herrera@aircrew-ops.com",
@@ -55,6 +95,7 @@ const CREW: CrewCertification[] = [
   },
   {
     id: "AC-2287",
+    code: "AC-2287",
     firstName: "Juan Pablo",
     lastName: "Navarro",
     email: "jp.navarro@aircrew-ops.com",
@@ -67,6 +108,7 @@ const CREW: CrewCertification[] = [
   },
   {
     id: "AC-7302",
+    code: "AC-7302",
     firstName: "Sofía",
     lastName: "Restrepo",
     email: "s.restrepo@aircrew-ops.com",
@@ -79,6 +121,7 @@ const CREW: CrewCertification[] = [
   },
   {
     id: "AC-1108",
+    code: "AC-1108",
     firstName: "Diego",
     lastName: "Salcedo",
     email: "d.salcedo@aircrew-ops.com",
@@ -91,6 +134,7 @@ const CREW: CrewCertification[] = [
   },
   {
     id: "AC-3871",
+    code: "AC-3871",
     firstName: "Andrés",
     lastName: "Mejía",
     email: "a.mejia@aircrew-ops.com",
@@ -103,6 +147,7 @@ const CREW: CrewCertification[] = [
   },
   {
     id: "AC-5520",
+    code: "AC-5520",
     firstName: "Valeria",
     lastName: "Ortiz",
     email: "v.ortiz@aircrew-ops.com",
@@ -115,6 +160,7 @@ const CREW: CrewCertification[] = [
   },
   {
     id: "AC-8120",
+    code: "AC-8120",
     firstName: "Camila",
     lastName: "Ortega",
     email: "c.ortega@aircrew-ops.com",
@@ -138,13 +184,13 @@ const normalize = (text: string) =>
 const matchesSearch = (crew: CrewCertification, search: string) =>
   [
     `${crew.firstName} ${crew.lastName}`,
-    crew.email,
-    crew.id,
+    crew.email ?? "",
+    crew.code ?? "",
     crew.licenseNumber ?? "",
   ].some((value) => normalize(value).includes(search))
 
-// Lista paginada. El backend filtrará por búsqueda y estado y devolverá solo la página
-// pedida; aquí se hace lo mismo con los datos simulados: filtra y corta de a 5.
+// Lista paginada: igual que el backend, filtra por búsqueda y estado y devuelve solo la
+// página pedida.
 export const getCertifications = (
   params: CertificationsListParams
 ): Promise<CertificationsListResponse> => {
@@ -185,7 +231,11 @@ const DETAILS: Record<
   { file: CertificateFile | null; history: CertificationHistoryEntry[] }
 > = {
   "AC-2287": {
-    file: { name: "licencia-juan-pablo.pdf", url: null },
+    file: {
+      name: "licencia-juan-pablo.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 248_310,
+    },
     history: [{ event: "registrado", by: CURRENT_ADMIN, date: "2026-11-02" }],
   },
   "AC-7302": {
@@ -193,7 +243,11 @@ const DETAILS: Record<
     history: [{ event: "registrado", by: CURRENT_ADMIN, date: "2026-11-05" }],
   },
   "AC-1108": {
-    file: { name: "licencia-diego.pdf", url: null },
+    file: {
+      name: "licencia-diego.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 248_310,
+    },
     history: [
       {
         event: "verificado",
@@ -205,7 +259,11 @@ const DETAILS: Record<
     ],
   },
   "AC-3871": {
-    file: { name: "licencia-andres.pdf", url: null },
+    file: {
+      name: "licencia-andres.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 248_310,
+    },
     history: [
       {
         event: "verificado",
@@ -217,7 +275,11 @@ const DETAILS: Record<
     ],
   },
   "AC-5520": {
-    file: { name: "cdp-valeria.jpg", url: null },
+    file: {
+      name: "cdp-valeria.jpg",
+      mimeType: "image/jpeg",
+      sizeBytes: 612_904,
+    },
     history: [
       {
         event: "verificado",
@@ -252,19 +314,41 @@ const copyCrew = (crew: CrewCertification): CrewCertification => ({
   certificates: [...crew.certificates],
 })
 
-// Ficha de la certificación (ventana del ojo). Con la API será un GET por el ID del
-// tripulante; si no existe, la promesa falla igual que fallaría la petición (404).
+// Archivos adjuntados en esta sesión (demo): se abren tal cual se subieron.
+const UPLOADED_FILES = new Map<string, Blob>()
+
+const detailOf = (crew: CrewCertification): CertificationDetail => {
+  const detail = DETAILS[crew.id] ?? { file: null, history: [] }
+  return {
+    ...copyCrew(crew),
+    file: detail.file ? { ...detail.file } : null,
+    history: detail.history.map((entry) => ({ ...entry })),
+  }
+}
+
+// Ficha de la certificación (ventana del ojo). Si el tripulante no existe, la promesa
+// falla igual que la petición (404).
 export const getCertificationDetail = (
   id: string
 ): Promise<CertificationDetail> => {
   const crew = findCrew(id)
   if (!crew) return Promise.reject(new Error(`Tripulante ${id} no encontrado`))
-  const detail = DETAILS[id] ?? { file: null, history: [] }
-  return Promise.resolve({
-    ...copyCrew(crew),
-    file: detail.file ? { ...detail.file } : null,
-    history: [...detail.history],
-  })
+  return Promise.resolve(detailOf(crew))
+}
+
+// Copia del certificado: la que se subió en esta sesión o, en los datos de ejemplo, un
+// texto que lo explica (no hay un PDF real detrás).
+export const downloadCertificateFile = (id: string): Promise<Blob> => {
+  const file = DETAILS[id]?.file
+  if (!file) {
+    return Promise.reject(new Error(`${id} no tiene copia del certificado`))
+  }
+  return Promise.resolve(
+    UPLOADED_FILES.get(id) ??
+      new Blob([`Copia de ejemplo: ${file.name} (datos demo).`], {
+        type: "text/plain",
+      })
+  )
 }
 
 // Tripulantes sin certificado: las opciones de «Tripulante» al registrar desde la barra.
@@ -276,23 +360,19 @@ export const getUncertifiedCrew = (): Promise<CrewCertification[]> =>
 // Fecha de hoy en ISO (solo el día), para el historial.
 const today = () => new Date().toISOString().slice(0, 10)
 
-// Copia nueva del certificado. En el navegador se abre desde la memoria
-// (URL.createObjectURL); con la API, el backend devolverá su dirección.
 const toCertificateFile = (file: File): CertificateFile => ({
   name: file.name,
-  url:
-    typeof URL.createObjectURL === "function"
-      ? URL.createObjectURL(file)
-      : null,
+  mimeType: file.type,
+  sizeBytes: file.size,
 })
 
-// Registra o edita la certificación de un tripulante (con la API, un PUT de su
-// certificación: repetirlo deja el mismo resultado). verified decide el estado y
-// agrega al historial quién y cuándo la registró, editó o verificó.
+// Registra o edita la certificación de un tripulante (igual que el PUT: repetirlo deja
+// el mismo resultado). verified decide el estado y agrega al historial quién y cuándo
+// la registró, editó o verificó. Responde con la ficha completa.
 export const saveCertification = (
   id: string,
   input: SaveCertificationInput
-): Promise<CrewCertification> =>
+): Promise<CertificationDetail> =>
   new Promise((resolve, reject) => {
     // Simula la latencia de la red.
     setTimeout(() => {
@@ -309,7 +389,7 @@ export const saveCertification = (
           event: "verificado",
           by: CURRENT_ADMIN,
           date,
-          note: VERIFICATION_SOURCE[crew.area],
+          note: crew.area ? VERIFICATION_SOURCE[crew.area] : null,
         })
       }
       newEntries.push({
@@ -333,12 +413,13 @@ export const saveCertification = (
               : null,
         history: [...newEntries, ...previous.history],
       }
-      resolve(copyCrew(crew))
+      if (input.file) UPLOADED_FILES.set(id, input.file)
+      if (input.file === null) UPLOADED_FILES.delete(id)
+      resolve(detailOf(crew))
     }, 400)
   })
 
-// Elimina la certificación de un tripulante (con la API, un DELETE de su certificación).
-// El tripulante sigue en la lista, sin licencia, certificados, copia ni historial:
+// Elimina la certificación de un tripulante (igual que el DELETE). El tripulante sigue en la lista, sin licencia, certificados, copia ni historial:
 // queda «Sin certificado».
 export const deleteCertification = (id: string): Promise<void> =>
   new Promise((resolve, reject) => {
@@ -352,6 +433,7 @@ export const deleteCertification = (id: string): Promise<void> =>
         status: "sin_certificado",
       })
       delete DETAILS[id]
+      UPLOADED_FILES.delete(id)
       resolve()
     }, 400)
   })
