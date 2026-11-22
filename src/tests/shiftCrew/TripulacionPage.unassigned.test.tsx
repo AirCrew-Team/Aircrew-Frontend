@@ -18,7 +18,8 @@ import { server } from "../utils/server"
 // como «sin_asignar», con su filtro, su etiqueta y su tarjeta (TS-01 a TS-07). La sesión
 // real usa MSW: GET /api/admin/bases/me y GET /api/crew/shift-crew?base=. TS-02 usa los
 // datos de ejemplo; el ajuste de TC-07 y TC-21 (TS-08) va en los archivos de la spec
-// original.
+// original. La ampliación «Inicio y texto de la guardia» suma TS-12 (nota de la guardia) al
+// final; TS-09 a TS-11 van en src/tests/supervisorHome/InicioPage.crewSummary.test.tsx.
 
 // Con la sesión real del supervisor, MainLayout abre el socket de alertas en vivo
 // (useLiveAlerts). No es parte de esta spec: se sustituye por uno inerte, como en
@@ -530,5 +531,22 @@ describe("Tripulación sin asignación: filtro y búsqueda (TS-07)", () => {
     await search(user, main, "price")
     await waitFor(() => expectCards(main, [FREE_2]))
     await expectResults(main, "1 tripulante")
+  })
+})
+
+// Ampliación «Inicio y texto de la guardia» (TS-12): la nota también nombra a los libres,
+// porque Programación y Recomendaciones los proponen. Con los datos de ejemplo va en TC-06
+// (TripulacionPage.test.tsx).
+const GUARD_NOTE =
+  "La IA propone los reemplazos con prioridad para la guardia disponible y también entre quienes están sin asignación. Quien no cumple descanso, habilitación o certificaciones queda fuera."
+
+describe("Tripulación sin asignación: nota de la guardia (TS-12)", () => {
+  it("TS-12 con la sesión real, «Guardia para reemplazos» tiene la nota nueva exacta, que nombra a quienes están sin asignación", async () => {
+    const { main } = await renderRealBoard(SHIFT)
+    const region = within(main).getByRole("region", {
+      name: "Guardia para reemplazos",
+    })
+
+    getByFullText(region, GUARD_NOTE)
   })
 })

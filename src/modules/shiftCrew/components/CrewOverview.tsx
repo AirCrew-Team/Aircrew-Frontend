@@ -87,8 +87,9 @@ const CrewOverview = ({ crew }: CrewOverviewProps) => {
           </span>
         </p>
         <p className={cn(typography.bodyMd, "max-w-[46ch] text-white/90")}>
-          La IA propone los reemplazos entre la guardia disponible. Quien no
-          cumple descanso, habilitación o certificaciones queda fuera.
+          La IA propone los reemplazos con prioridad para la guardia disponible
+          y también entre quienes están sin asignación. Quien no cumple
+          descanso, habilitación o certificaciones queda fuera.
         </p>
         <Link
           to={PATHS.superVisor.solicitudesReemplazo}

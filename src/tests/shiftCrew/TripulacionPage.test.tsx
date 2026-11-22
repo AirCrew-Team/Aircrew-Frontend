@@ -306,7 +306,7 @@ describe("Tripulación: panorama del turno (TC-05, TC-06)", () => {
     )
   })
 
-  it("TC-06 «Guardia para reemplazos» muestra el h2, «11», «de 12 disponibles» y la nota exacta de la IA", async () => {
+  it("TC-06 / TS-12 «Guardia para reemplazos» muestra el h2, «11», «de 12 disponibles» y la nota exacta de la IA (texto de la ampliación de tripulacion-sin-asignacion)", async () => {
     const { main } = await renderBoard()
     const region = within(main).getByRole("region", {
       name: "Guardia para reemplazos",
@@ -322,7 +322,7 @@ describe("Tripulación: panorama del turno (TC-05, TC-06)", () => {
     getByFullText(region, "de 12 disponibles")
     getByFullText(
       region,
-      "La IA propone los reemplazos entre la guardia disponible. Quien no cumple descanso, habilitación o certificaciones queda fuera."
+      "La IA propone los reemplazos con prioridad para la guardia disponible y también entre quienes están sin asignación. Quien no cumple descanso, habilitación o certificaciones queda fuera."
     )
   })
 

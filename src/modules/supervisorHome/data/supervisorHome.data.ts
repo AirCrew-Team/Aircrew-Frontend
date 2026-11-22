@@ -105,18 +105,17 @@ const getAbsencesSummaryFromApi = async (): Promise<AbsencesSummary> => {
   }
 }
 
-// Tarjeta de tripulación: en servicio (guardia, en vuelo o programados) y qué parte
-// de la tripulación del turno no está ausente.
+// Tarjeta de tripulación, con las mismas fórmulas que «Tu base» de Tripulación: en
+// servicio = total − ausentes − sin asignación; aptos = total − ausentes.
 const getCrewSummaryFromApi = async (): Promise<CrewSummary> => {
   const { members } = await getShiftCrew()
-  const onDuty = members.filter((member) =>
-    ["guardia", "en_vuelo", "programado"].includes(member.status)
-  ).length
-  const absent = members.filter((member) => member.status === "ausente").length
+  const total = members.length
+  const fit =
+    total - members.filter((member) => member.status === "ausente").length
   return {
-    onDuty,
-    availabilityPercent:
-      onDuty + absent === 0 ? 0 : Math.round((onDuty / (onDuty + absent)) * 100),
+    onDuty:
+      fit - members.filter((member) => member.status === "sin_asignar").length,
+    availabilityPercent: total === 0 ? 0 : Math.round((fit / total) * 100),
   }
 }
 
