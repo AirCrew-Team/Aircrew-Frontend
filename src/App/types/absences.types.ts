@@ -32,8 +32,9 @@ export interface Absence {
   // null: un motivo del backend que el frontend no conoce.
   reason: AbsenceReason | null
   notes: string | null
-  // Un estado desconocido llega como «reported».
-  status: "reported" | "covered"
+  // pending_ack: el reemplazo aún no da «Enterado». Un estado desconocido llega como
+  // «reported»; las canceladas no llegan (getAbsences las quita).
+  status: "reported" | "pending_ack" | "covered"
   replacement_name: string | null
   // ISO 8601 UTC.
   covered_at: string | null

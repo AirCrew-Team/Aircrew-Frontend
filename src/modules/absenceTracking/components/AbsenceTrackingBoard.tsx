@@ -62,9 +62,11 @@ const matchesRealSearch = (absence: Absence, search: string) =>
     absence.replacement_name ?? "",
   ].some((value) => normalizeForSearch(value).includes(search))
 
-// El backend solo tiene «reported» y «covered»: «Esperando confirmación» queda vacía.
+// Estado del backend → columna: pending_ack espera el «Enterado» del reemplazo. Las
+// canceladas ya no llegan (las quita getAbsences).
 const REAL_COLUMN: Record<Absence["status"], TrackingStatus> = {
   reported: "por_aprobar",
+  pending_ack: "esperando_confirmacion",
   covered: "cubierta",
 }
 

@@ -39,7 +39,9 @@ interface ApiReportedAbsence {
 
 const NO_DATA = "—"
 
-const AI_STATE: Partial<Record<ApiSuggestionsState, ReplacementRequest["aiState"]>> = {
+const AI_STATE: Partial<
+  Record<ApiSuggestionsState, ReplacementRequest["aiState"]>
+> = {
   searching: "buscando",
   error: "error",
 }
@@ -68,13 +70,18 @@ const toRequest = (absence: ApiReportedAbsence): ReplacementRequest => ({
     : undefined,
 })
 
-// Cola: ausencias que necesitan reemplazo, de la salida más próxima a la más lejana.
+// Cola: ausencias por vuelo que necesitan reemplazo, de la salida más próxima a la más
+// lejana. Las ausencias por fechas (kind=dates) no tienen vuelo ni candidatos: sus
+// solicitudes son las ausencias por vuelo que salen de ellas.
 const getPendingReplacementRequestsFromApi = async (): Promise<
   ReplacementRequest[]
 > => {
-  const { data } = await apiClient.get<ApiReportedAbsence[]>("/api/crew/absences", {
-    params: { status: "reported" },
-  })
+  const { data } = await apiClient.get<ApiReportedAbsence[]>(
+    "/api/crew/absences",
+    {
+      params: { status: "reported", kind: "flight" },
+    }
+  )
   return [...data]
     .sort(
       (a, b) =>
@@ -177,7 +184,19 @@ const confirmCandidateFromApi = async (
 }
 
 // Cuenta demo → datos de ejemplo (D4); sesión real → backend.
-export const getPendingReplacementRequests = withDemo(getPendingReplacementRequestsFromApi, demo.getPendingReplacementRequests)
-export const getRecommendedCandidates = withDemo(getRecommendedCandidatesFromApi, demo.getRecommendedCandidates)
-export const regenerateCandidates = withDemo(regenerateCandidatesFromApi, demo.regenerateCandidates)
-export const confirmCandidate = withDemo(confirmCandidateFromApi, demo.confirmCandidate)
+export const getPendingReplacementRequests = withDemo(
+  getPendingReplacementRequestsFromApi,
+  demo.getPendingReplacementRequests
+)
+export const getRecommendedCandidates = withDemo(
+  getRecommendedCandidatesFromApi,
+  demo.getRecommendedCandidates
+)
+export const regenerateCandidates = withDemo(
+  regenerateCandidatesFromApi,
+  demo.regenerateCandidates
+)
+export const confirmCandidate = withDemo(
+  confirmCandidateFromApi,
+  demo.confirmCandidate
+)

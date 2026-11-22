@@ -32,11 +32,15 @@ type ApiAbsence = Omit<Absence, "reason" | "status"> & {
   status: string
 }
 
-// Motivo desconocido → null; estado desconocido → «reported» (Por aprobar).
+// Motivo desconocido → null; estado desconocido → «reported» (Por aprobar). pending_ack
+// (esperando el «Enterado» del reemplazo) conserva su estado.
 const fromApi = (absence: ApiAbsence): Absence => ({
   ...absence,
   reason: REASON_BY_API[absence.reason] ?? null,
-  status: absence.status === "covered" ? "covered" : "reported",
+  status:
+    absence.status === "pending_ack" || absence.status === "covered"
+      ? absence.status
+      : "reported",
 })
 
 // Si el navegador deja File.type vacío, se deduce de la extensión (ya validada).
@@ -106,9 +110,14 @@ export const reportAbsence = async (
   }
 }
 
+// Tablero de Ausencias: solo las ausencias por fechas (kind=dates). Sin kind vendrían
+// también sus hijas por vuelo y la misma ausencia se vería varias veces. Las canceladas
+// no se muestran.
 export const getAbsences = async (): Promise<Absence[]> => {
-  const { data } = await apiClient.get<ApiAbsence[]>(ABSENCES_PATH)
-  return data.map(fromApi)
+  const { data } = await apiClient.get<ApiAbsence[]>(ABSENCES_PATH, {
+    params: { kind: "dates" },
+  })
+  return data.filter((absence) => absence.status !== "cancelled").map(fromApi)
 }
 
 export const getAbsenceById = async (id: string): Promise<Absence> => {
