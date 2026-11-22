@@ -535,9 +535,7 @@ describe("Recomendaciones: asignar (RS-07)", () => {
       "Juan Pablo Navarro asignado al vuelo AV-9344"
     )
     expect(toast).toHaveAttribute("data-type", "success")
-    expect(toastDescription(toast)).toBe(
-      "Se notificó al tripulante; falta su «Enterado»."
-    )
+    expect(toastDescription(toast)).toBe("Se notificó al tripulante.")
   })
 
   it("RS-07 después quedan «Pendientes (4)» sin AV-9344", async () => {

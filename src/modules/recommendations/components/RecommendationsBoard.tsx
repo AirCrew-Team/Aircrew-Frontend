@@ -88,7 +88,7 @@ const RecommendationsBoard = () => {
       .then(() => {
         toast.success(
           `${candidate.fullName} asignado al vuelo ${request.flightNumber}`,
-          { description: "Se notificó al tripulante; falta su «Enterado»." }
+          { description: "Se notificó al tripulante." }
         )
         refreshLists()
       })
