@@ -9,7 +9,6 @@ import CertificationItem from "@/modules/certifications/components/Certification
 import { LICENSE_COLUMNS_CLASS } from "@/modules/certifications/components/columns"
 import { getCertifications } from "@/modules/shared/certifications/data/certifications.data"
 import type { Certification } from "@/modules/shared/certifications/types/certifications.types"
-import { isDemoUser, useAuthStore } from "@/stores/auth.store"
 
 const COLUMN_HEADERS = [
   "Certificación / Licencia",
@@ -26,7 +25,9 @@ const matchesSearch = (certification: Certification, search: string) =>
     certification.code,
     certification.issuer,
     certification.scope,
-  ].some((value) => normalizeForSearch(value).includes(search))
+  ].some(
+    (value) => value !== null && normalizeForSearch(value).includes(search)
+  )
 
 // Cargando, error y sin resultados: en una tarjeta, en el sitio de la tabla.
 const messageClass =
@@ -36,17 +37,14 @@ const licenses = (count: number) =>
   `${count} ${count === 1 ? "licencia" : "licencias"}`
 
 // L: barra con el total y el buscador, estado de resultados para el lector y la lista.
-// Con la sesión real aún no hay certificaciones: lista vacía y sin consulta.
+// Con la sesión real, la lista sale de certifications/me (FE-4).
 const CertificationsBrowser = () => {
   const id = useId()
   const [search, setSearch] = useState("")
-  const demo = useAuthStore((state) => isDemoUser(state.user))
-  const { data: demoData, isPending } = useQuery({
+  const { data, isPending } = useQuery({
     queryKey: ["certifications", "list"],
     queryFn: getCertifications,
-    enabled: demo,
   })
-  const data = demo ? demoData : []
 
   const query = search.trim()
   const normalizedQuery = normalizeForSearch(query)

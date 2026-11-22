@@ -58,9 +58,9 @@ export const EVENTS_BY_ROLE: Partial<Record<Role, LiveEvent[]>> = {
   ],
   [ROLES.TRIPULANTE]: [
     {
-      // Lo eligieron como reemplazo en un vuelo.
+      // Lo eligieron como reemplazo en un vuelo: banner, estado, próximo vuelo y Mis Vuelos.
       name: "assignment:replacement",
-      refresh: [["replacements"], ["crew"]],
+      refresh: [["replacements"], ["crew"], ["flights"]],
       tone: () => "warning",
     },
     {

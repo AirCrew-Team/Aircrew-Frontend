@@ -22,8 +22,9 @@ import type {
 } from "@/modules/shared/certifications/types/certifications.types"
 import {
   formatShortDate,
-  getExpiryInfo,
+  getCertificationStatus,
 } from "@/modules/shared/certifications/utils/expiry"
+import { isDemoUser, useAuthStore } from "@/stores/auth.store"
 
 const KIND_ICON: Record<CertificationKind, typeof PositionIcon> = {
   license: PositionIcon,
@@ -31,6 +32,7 @@ const KIND_ICON: Record<CertificationKind, typeof PositionIcon> = {
   typeRating: DepartureIcon,
   language: LanguageIcon,
   lowVisibility: LowVisibilityIcon,
+  course: VerifiedIcon,
 }
 
 const STATUS_LABEL: Record<CertificationStatus, string> = {
@@ -38,6 +40,9 @@ const STATUS_LABEL: Record<CertificationStatus, string> = {
   proximo: "Próximo vencimiento",
   vencido: "Vencido",
   vitalicio: "Vitalicio",
+  verificado: "Verificado",
+  por_verificar: "Por verificar",
+  registrado: "Registrado",
 }
 
 // Referencia: vigente y vitalicio en secondary-fixed (azul), próximo en gris con borde
@@ -52,11 +57,19 @@ const STATUS_CLASS: Record<CertificationStatus, string> = {
     "border-transparent bg-error-container text-on-error-container before:bg-destructive",
   vitalicio:
     "border-transparent bg-brand-border text-brand-primary before:bg-brand-secondary",
+  verificado:
+    "border-transparent bg-brand-border text-brand-primary before:bg-brand-secondary",
+  // Como «próximo»: pide atención sin ser un error.
+  por_verificar:
+    "border-brand-border-strong bg-brand-neutral text-foreground before:bg-brand-tertiary",
+  registrado:
+    "border-transparent bg-brand-neutral text-brand-primary before:bg-brand-border-strong",
 }
 
-// Línea bajo la fecha (spec, D3).
+// Línea bajo la fecha (spec, D3). Sin fecha en la sesión real no se afirma que no expire.
 const daysLine = (status: CertificationStatus, days: number | null) => {
-  if (status === "vitalicio" || days === null) return "No expira"
+  if (status === "vitalicio") return "No expira"
+  if (days === null) return "Sin vencimiento registrado"
   if (status === "vencido") {
     return `Vencido hace ${-days} ${days === -1 ? "día" : "días"}`
   }
@@ -81,11 +94,14 @@ interface CertificationItemProps {
 const CertificationItem = ({ certification }: CertificationItemProps) => {
   const detailId = useId()
   const [open, setOpen] = useState(false)
-  const { status, days } = getExpiryInfo(certification.expiresAt, new Date())
+  // La firma PKI y la descarga son de los datos de ejemplo: el backend no las tiene.
+  const demo = useAuthStore((state) => isDemoUser(state.user))
+  const { status, days } = getCertificationStatus(certification, new Date())
   const { appointment } = certification
   const KindIcon = KIND_ICON[certification.kind]
   const ToggleIcon = appointment ? CalendarIcon : ViewIcon
-  const needsAttention = status === "proximo" || status === "vencido"
+  const needsAttention =
+    status === "proximo" || status === "vencido" || status === "por_verificar"
   const toggleText = `${open ? "Ocultar" : "Ver"} ${appointment ? "cita agendada" : "certificado"}`
   const details = appointment
     ? [
@@ -123,14 +139,16 @@ const CertificationItem = ({ certification }: CertificationItemProps) => {
           >
             {certification.name}
           </h3>
-          <p
-            className={cn(
-              typography.labelSm,
-              "break-words text-muted-foreground tabular-nums"
-            )}
-          >
-            {certification.code}
-          </p>
+          {certification.code ? (
+            <p
+              className={cn(
+                typography.labelSm,
+                "break-words text-muted-foreground tabular-nums"
+              )}
+            >
+              {certification.code}
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -142,14 +160,27 @@ const CertificationItem = ({ certification }: CertificationItemProps) => {
             "font-medium break-words text-foreground"
           )}
         >
-          {certification.issuer}
-        </span>{" "}
-        <span
-          className={cn(typography.bodySm, "break-words text-muted-foreground")}
-        >
-          <span className="sr-only">Alcance: </span>
-          {certification.scope}
+          {certification.issuer ?? (
+            <>
+              <span aria-hidden="true">—</span>
+              <span className="sr-only">Sin organismo registrado</span>
+            </>
+          )}
         </span>
+        {certification.scope ? (
+          <>
+            {" "}
+            <span
+              className={cn(
+                typography.bodySm,
+                "break-words text-muted-foreground"
+              )}
+            >
+              <span className="sr-only">Alcance: </span>
+              {certification.scope}
+            </span>
+          </>
+        ) : null}
       </p>
 
       <p className="flex min-w-0 flex-col gap-0.5">
@@ -165,7 +196,9 @@ const CertificationItem = ({ certification }: CertificationItemProps) => {
         >
           {certification.expiresAt
             ? formatShortDate(certification.expiresAt)
-            : "Permanente"}
+            : status === "vitalicio"
+              ? "Permanente"
+              : "Sin fecha"}
         </span>
         {/* Pausa para el lector entre la fecha y los días; visualmente van en dos líneas. */}
         <span className="sr-only">, </span>
@@ -281,7 +314,7 @@ const CertificationItem = ({ certification }: CertificationItemProps) => {
               </div>
             ))}
           </dl>
-          {appointment ? null : (
+          {appointment || !demo ? null : (
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p
                 className={cn(

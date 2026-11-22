@@ -42,6 +42,8 @@ const DISPATCH_ICON: Record<FlightStatus, typeof ClockIcon> = {
 
 interface FlightCardProps {
   flight: CrewFlight
+  // Estado de una ausencia propia sobre este vuelo (sesión real), p. ej. «Cubierta».
+  absence?: string
 }
 
 const Airport = ({
@@ -62,7 +64,7 @@ const Airport = ({
       {airport.code}
     </span>{" "}
     <span className={cn(typography.labelSm, "text-muted-foreground")}>
-      {airport.city}, {airport.icao}
+      {[airport.city, airport.icao].filter(Boolean).join(", ")}
     </span>
   </p>
 )
@@ -86,14 +88,16 @@ const Fact = ({
     >
       <SpokenText text={fact.value} />
     </dd>
-    <dd className={cn(typography.bodySm, "text-muted-foreground")}>
-      <SpokenText text={fact.note} />
-    </dd>
+    {fact.note ? (
+      <dd className={cn(typography.bodySm, "text-muted-foreground")}>
+        <SpokenText text={fact.note} />
+      </dd>
+    ) : null}
   </div>
 )
 
 // F: tarjeta de un vuelo. «Ver más detalle» despliega sus details debajo de la barra inferior.
-const FlightCard = ({ flight }: FlightCardProps) => {
+const FlightCard = ({ flight, absence }: FlightCardProps) => {
   const detailId = useId()
   const [open, setOpen] = useState(false)
   const isReplacement = flight.status === "reemplazo"
@@ -123,6 +127,17 @@ const FlightCard = ({ flight }: FlightCardProps) => {
               >
                 {STATUS_LABEL[flight.status]}
               </p>
+              {/* Texto visible: el lector lo oye tras el número del vuelo. */}
+              {absence ? (
+                <p
+                  className={cn(
+                    typography.labelSm,
+                    "rounded-full border border-destructive/40 bg-destructive/10 px-2.5 py-0.5 font-semibold text-destructive"
+                  )}
+                >
+                  Ausencia reportada: {absence}
+                </p>
+              ) : null}
             </div>
             <div className="flex items-center justify-between gap-3 sm:justify-start">
               <Airport airport={flight.origin} />
@@ -209,15 +224,31 @@ const FlightCard = ({ flight }: FlightCardProps) => {
               className="size-4 shrink-0 text-brand-secondary"
             />
             {flight.dispatch}
-          </span>{" "}
-          <span className={separatorClass}>Comandante: {flight.captain}</span>{" "}
-          <span className={separatorClass}>{flight.note}</span>
+          </span>
+          {flight.captain ? (
+            <>
+              {" "}
+              <span className={separatorClass}>
+                Comandante: {flight.captain}
+              </span>
+            </>
+          ) : null}
+          {flight.note ? (
+            <>
+              {" "}
+              <span className={separatorClass}>{flight.note}</span>
+            </>
+          ) : null}
         </p>
-        <p
-          className={cn(isReplacement && "font-semibold text-brand-secondary")}
-        >
-          <SpokenText text={flight.aside} />
-        </p>
+        {flight.aside ? (
+          <p
+            className={cn(
+              isReplacement && "font-semibold text-brand-secondary"
+            )}
+          >
+            <SpokenText text={flight.aside} />
+          </p>
+        ) : null}
       </div>
       {/* Solo los details: el resto ya está en la tarjeta. */}
       {open ? (

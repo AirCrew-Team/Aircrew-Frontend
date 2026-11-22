@@ -4,12 +4,10 @@ import { ArrowRightIcon, DepartureIcon } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
 import { getNextFlight } from "@/modules/home/data/home.data"
-import { isDemoUser, useAuthStore } from "@/stores/auth.store"
 
 // Tarjeta 1: próximo vuelo. El briefing aún no existe: botón aria-disabled, enfocable y sin acción.
-// Con la sesión real aún no hay vuelos: estado vacío y sin consulta.
+// Con la sesión real sale de assignments/me/next; null (404) es que no hay vuelos próximos.
 const NextFlightCard = () => {
-  const demo = useAuthStore((state) => isDemoUser(state.user))
   const {
     data: flight,
     isPending,
@@ -17,27 +15,12 @@ const NextFlightCard = () => {
   } = useQuery({
     queryKey: ["flights", "next"],
     queryFn: getNextFlight,
-    enabled: demo,
   })
 
   return (
     <article className="flex flex-col justify-between gap-6 rounded-xl bg-card p-6 shadow-sm">
       <div className="flex flex-1 flex-col gap-2">
-        {!demo ? (
-          <div className="flex flex-col pt-2">
-            <h2
-              className={cn(
-                typography.headlineMd,
-                "font-bold text-brand-primary"
-              )}
-            >
-              Próximo vuelo
-            </h2>
-            <p className={cn(typography.bodySm, "text-muted-foreground")}>
-              No tienes vuelos programados.
-            </p>
-          </div>
-        ) : isPending ? (
+        {isPending ? (
           <p
             role="status"
             className={cn(typography.bodySm, "pt-2 text-muted-foreground")}
@@ -51,6 +34,20 @@ const NextFlightCard = () => {
           >
             No se pudo cargar el próximo vuelo.
           </p>
+        ) : flight === null ? (
+          <div className="flex flex-col pt-2">
+            <h2
+              className={cn(
+                typography.headlineMd,
+                "font-bold text-brand-primary"
+              )}
+            >
+              Próximo vuelo
+            </h2>
+            <p className={cn(typography.bodySm, "text-muted-foreground")}>
+              No tienes vuelos programados.
+            </p>
+          </div>
         ) : (
           <>
             <div className="flex flex-col pt-2">
@@ -95,7 +92,7 @@ const NextFlightCard = () => {
                   Puerta Asignada
                 </dt>
                 <dd className="font-semibold text-brand-primary">
-                  Puerta {flight.gate}
+                  {flight.gate ? `Puerta ${flight.gate}` : "Por asignar"}
                 </dd>
               </div>
               <div className="col-span-2 flex items-center justify-between gap-2 pt-1">
@@ -150,10 +147,10 @@ const NextFlightCard = () => {
             >
               <DepartureIcon aria-hidden="true" className="size-5" />
             </span>
-            {/* La sesión real aún no tiene vuelos: la etiqueta es el nombre de la tarjeta. */}
-            {demo ? "Itinerario Confirmado" : "Próximo vuelo"}
+            {/* Sin vuelo, la etiqueta es el nombre de la tarjeta. */}
+            {flight === null ? "Próximo vuelo" : "Itinerario Confirmado"}
           </p>
-          {demo && flight ? (
+          {flight ? (
             <p
               className={cn(
                 typography.labelSm,

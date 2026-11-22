@@ -4,6 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { PATHS } from "@/routes/paths"
 import { useAuthStore } from "@/stores/auth.store"
 
+import {
+  mockMetrics,
+  mockMyAbsences,
+  mockMyAssignments,
+} from "../mocks/crewFlightsApi"
 import { REAL_USERS } from "../mocks/profileApi"
 import { renderRoute } from "../utils/renderRoute"
 
@@ -39,7 +44,12 @@ const monthSelect = (main: HTMLElement) =>
 const resultsStatus = (main: HTMLElement) =>
   Array.from(main.querySelectorAll<HTMLElement>('[role="status"].sr-only'))
 
+// FE-4: la sesión real ya pide sus vuelos, métricas y ausencias; aquí el backend no tiene
+// vuelos, para que solo cuenten los meses.
 beforeEach(() => {
+  mockMyAssignments([])
+  mockMetrics()
+  mockMyAbsences([])
   vi.useFakeTimers({ toFake: ["Date"] })
   vi.setSystemTime(TODAY)
 })

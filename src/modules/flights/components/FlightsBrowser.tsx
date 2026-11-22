@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 import FlightCard from "@/modules/flights/components/FlightCard"
 import {
+  getFlightAbsences,
   getFlightHistory,
   getUpcomingFlights,
 } from "@/modules/flights/data/flights.data"
@@ -79,7 +80,8 @@ const controlClass = cn(
 
 // B: pestañas, buscador, mes y filtros, con la lista de la pestaña activa.
 // Las dos listas se piden al entrar porque las pestañas muestran sus conteos.
-// Con la sesión real aún no hay vuelos: listas vacías y sin consulta.
+// La cuenta demo trae todos sus meses de una vez y filtra en el cliente; la sesión real
+// pide al backend los vuelos del mes elegido (FE-4).
 const FlightsBrowser = () => {
   const demo = useAuthStore((state) => isDemoUser(state.user))
   const id = useId()
@@ -92,24 +94,26 @@ const FlightsBrowser = () => {
     demo ? DEMO_CURRENT_MONTH : monthValue(today)
   )
 
+  const monthKey = demo ? "demo" : month
   const upcoming = useQuery({
-    queryKey: ["flights", "upcoming"],
-    queryFn: getUpcomingFlights,
-    enabled: demo,
+    queryKey: ["flights", "upcoming", monthKey],
+    queryFn: () => getUpcomingFlights(month),
   })
   const history = useQuery({
-    queryKey: ["flights", "history"],
-    queryFn: getFlightHistory,
-    enabled: demo,
+    queryKey: ["flights", "history", monthKey],
+    queryFn: () => getFlightHistory(month),
+  })
+  // Vuelo → estado de su ausencia propia. Si falla, los vuelos se ven sin la marca.
+  const absences = useQuery({
+    queryKey: ["absences", "me", "flights"],
+    queryFn: getFlightAbsences,
   })
 
   const query = search.trim()
   const normalizedQuery = normalizeForSearch(query)
   const lists = TABS.map(({ value, label }) => {
-    const result = value === "upcoming" ? upcoming : history
-    const data = demo ? result.data : []
-    const isPending = demo && result.isPending
-    const isError = demo && result.isError
+    const { data, isPending, isError } =
+      value === "upcoming" ? upcoming : history
     const monthFlights = data?.filter((flight) => flight.month === month)
     const visible = monthFlights?.filter((flight) =>
       matchesSearch(flight, normalizedQuery)
@@ -233,6 +237,12 @@ const FlightsBrowser = () => {
         </p>
       </div>
 
+      {absences.isError ? (
+        <p role="alert" className={cn(typography.bodySm, "text-destructive")}>
+          No se pudieron cargar tus ausencias reportadas.
+        </p>
+      ) : null}
+
       {lists.map(({ value, isPending, isError, monthFlights, visible }) => (
         <TabsContent
           key={value}
@@ -264,7 +274,11 @@ const FlightsBrowser = () => {
           ) : (
             <div className="flex flex-col gap-4">
               {visible?.map((flight) => (
-                <FlightCard key={flight.flightNumber} flight={flight} />
+                <FlightCard
+                  key={flight.id}
+                  flight={flight}
+                  absence={absences.data?.[flight.id]}
+                />
               ))}
             </div>
           )}

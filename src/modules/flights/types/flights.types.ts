@@ -2,8 +2,10 @@ export type FlightStatus = "reemplazo" | "programado" | "completado"
 
 export interface FlightAirport {
   code: string
+  // "" si el backend no conoce el aeropuerto.
   city: string
-  icao: string
+  // null con la sesión real: el backend no tiene el código ICAO.
+  icao: string | null
 }
 
 // Dato de la rejilla de la tarjeta: etiqueta, valor y nota.
@@ -14,6 +16,8 @@ export interface FlightFact {
 }
 
 export interface CrewFlight {
+  // Id del vuelo (en la demo, el número): los números se repiten entre días.
+  id: string
   flightNumber: string
   status: FlightStatus
   // Mes del roster, "AAAA-MM".
@@ -28,9 +32,10 @@ export interface CrewFlight {
   // Cuarto dato de la rejilla: cambia según el vuelo.
   milestone: FlightFact
   dispatch: string
-  captain: string
-  note: string
-  aside: string
+  // null con la sesión real: el backend no trae al comandante ni esas notas.
+  captain: string | null
+  note: string | null
+  aside: string | null
   details: { label: string; value: string }[]
 }
 
@@ -49,5 +54,7 @@ export interface FlightMetrics {
     crewDelays: number
     domestic: number
     international: number
+    // Texto bajo los internacionales (la demo nombra sus troncales).
+    internationalLabel: string
   }
 }

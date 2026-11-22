@@ -8,19 +8,15 @@ import {
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
 import { getCertifications } from "@/modules/shared/certifications/data/certifications.data"
-import { getExpiryInfo } from "@/modules/shared/certifications/utils/expiry"
-import { isDemoUser, useAuthStore } from "@/stores/auth.store"
+import { getCertificationStatus } from "@/modules/shared/certifications/utils/expiry"
 
 // R: contadores por estado, calculados sobre la misma query que la lista.
-// Con la sesión real aún no hay certificaciones: contadores en cero y sin consulta.
+// Lo que está por verificar (sesión real) no cuenta como al día ni como vencido.
 const CertificationsSummary = () => {
-  const demo = useAuthStore((state) => isDemoUser(state.user))
-  const { data, isPending } = useQuery({
+  const { data: certifications, isPending } = useQuery({
     queryKey: ["certifications", "list"],
     queryFn: getCertifications,
-    enabled: demo,
   })
-  const certifications = demo ? data : []
 
   if (!certifications && isPending) {
     return (
@@ -47,10 +43,10 @@ const CertificationsSummary = () => {
   const upcoming: string[] = []
   const expired: string[] = []
   for (const certification of certifications) {
-    const { status } = getExpiryInfo(certification.expiresAt, today)
+    const { status } = getCertificationStatus(certification, today)
     if (status === "vencido") expired.push(certification.name)
     else if (status === "proximo") upcoming.push(certification.name)
-    else current.push(certification.name)
+    else if (status !== "por_verificar") current.push(certification.name)
   }
 
   // Tonos de la referencia: vigente en azul de marca, próximo con el número en azul y

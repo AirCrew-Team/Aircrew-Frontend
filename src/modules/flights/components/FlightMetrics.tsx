@@ -3,11 +3,7 @@ import { useQuery } from "@tanstack/react-query"
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
 import SpokenText from "@/modules/flights/components/SpokenText"
-import {
-  EMPTY_FLIGHT_METRICS,
-  getFlightMetrics,
-} from "@/modules/flights/data/flights.data"
-import { isDemoUser, useAuthStore } from "@/stores/auth.store"
+import { getFlightMetrics } from "@/modules/flights/data/flights.data"
 
 // 45 → «45h 00m».
 const formatHours = (hours: number) =>
@@ -22,16 +18,13 @@ const titleClass = cn(
 const figureClass = cn(typography.headlineLg, "font-bold text-foreground")
 const unitClass = cn(typography.bodyMd, "text-muted-foreground")
 
-// M1 a M3: una sola query para las tres tarjetas del mes.
-// Con la sesión real aún no hay vuelos: métricas vacías y sin consulta.
+// M1 a M3: una sola query para las tres tarjetas del mes (con la sesión real, el mes
+// actual de crew-members/me/metrics).
 const FlightMetrics = () => {
-  const demo = useAuthStore((state) => isDemoUser(state.user))
-  const { data, isPending } = useQuery({
+  const { data: metrics, isPending } = useQuery({
     queryKey: ["flights", "metrics"],
     queryFn: getFlightMetrics,
-    enabled: demo,
   })
-  const metrics = demo ? data : EMPTY_FLIGHT_METRICS
 
   if (!metrics && isPending) {
     return (
@@ -55,6 +48,11 @@ const FlightMetrics = () => {
 
   const { fdp, rest, month } = metrics
   const usedPercent = Math.round((fdp.usedHours / fdp.maxHours) * 100)
+  // Un decimal, como las horas del backend (sin restos de coma flotante); nunca negativo.
+  const margin = Math.max(
+    0,
+    Math.round((fdp.maxHours - fdp.usedHours) * 10) / 10
+  )
 
   return (
     <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
@@ -85,9 +83,7 @@ const FlightMetrics = () => {
               "font-medium text-brand-secondary"
             )}
           >
-            <SpokenText
-              text={`+${fdp.maxHours - fdp.usedHours}h de margen disponible seguro`}
-            />
+            <SpokenText text={`+${margin}h de margen disponible seguro`} />
           </p>
         </div>
         <div className="flex flex-col gap-1.5">
@@ -191,7 +187,7 @@ const FlightMetrics = () => {
               {month.international} Int.
             </span>{" "}
             <span className="font-medium text-muted-foreground">
-              Troncales MIA/LIM
+              {month.internationalLabel}
             </span>
           </p>
         </div>

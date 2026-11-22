@@ -9,7 +9,16 @@ import { PATHS } from "@/routes/paths"
 import { useAuthStore } from "@/stores/auth.store"
 
 import { mockAbsencesList } from "../mocks/absencesApi"
-import { API_URL, API_USERS } from "../mocks/authApi"
+import { API_URL, API_USERS, errorBody } from "../mocks/authApi"
+import {
+  CREW_URLS,
+  mockMetrics,
+  mockMyAbsences,
+  mockMyAssignments,
+  mockMyCertification,
+  mockNextAssignment,
+} from "../mocks/crewFlightsApi"
+import { crewMemberHandler } from "../mocks/profileApi"
 import { renderRoute } from "../utils/renderRoute"
 import { server } from "../utils/server"
 import { findToast } from "../utils/toasts"
@@ -31,6 +40,7 @@ vi.mock("@/lib/alertsStream", () => ({
 const NOTIFICATIONS_URL = `${API_URL}/api/notification/notifications`
 const REPORTED = "EMP-004 no podrá volar AV-9344 (incapacidad)."
 const VERIFIED = "Tu certificado 2775981 fue verificado."
+const REPLACEMENT = "Te asignaron como reemplazo en el vuelo DL2201."
 const SCREEN = PATHS.superVisor.solicitudesReemplazo
 
 const emit = (name: string, payload: object) =>
@@ -79,6 +89,37 @@ const loginAsSupervisor = () => {
     position: "Supervisor",
     role: ROLES.SUPER_VISOR,
   })
+}
+
+// Sesión real de tripulante. El backend del Inicio (FE-4) responde sin vuelos ni
+// reemplazos y con la certificación de ejemplo.
+const loginAsCrew = () => {
+  server.use(crewMemberHandler())
+  mockMyAssignments([])
+  mockMyCertification()
+  useAuthStore.getState().setUser({
+    id: API_USERS.crew.id,
+    displayName: "Luis Pérez",
+    fullName: "Luis Pérez Mora",
+    position: "Copiloto",
+    role: ROLES.TRIPULANTE,
+  })
+}
+
+// GET /assignments/me/next (próximo vuelo del Inicio, clave ["flights", "next"]): 404 y
+// cuenta las peticiones.
+const countNextFlight = () => {
+  const state = { calls: 0 }
+  server.use(
+    http.get(CREW_URLS.next, () => {
+      state.calls += 1
+      return HttpResponse.json(
+        errorBody("No tienes vuelos próximos asignados."),
+        { status: 404 }
+      )
+    })
+  )
+  return state
 }
 
 describe("Avisos en vivo (SSE) y campana", () => {
@@ -137,13 +178,8 @@ describe("Avisos en vivo (SSE) y campana", () => {
   it("el tripulante recibe el aviso de certificado verificado", async () => {
     vi.mocked(connectAlerts).mockClear()
     const bell = mockBell([])
-    useAuthStore.getState().setUser({
-      id: API_USERS.crew.id,
-      displayName: "Luis Pérez",
-      fullName: "Luis Pérez Mora",
-      position: "Copiloto",
-      role: ROLES.TRIPULANTE,
-    })
+    loginAsCrew()
+    mockNextAssignment(null)
     renderRoute(PATHS.tripulante.inicio)
     await waitFor(() => expect(connectAlerts).toHaveBeenCalled())
 
@@ -152,6 +188,48 @@ describe("Avisos en vivo (SSE) y campana", () => {
 
     await findToast(VERIFIED)
     await screen.findByRole("button", { name: "Notificaciones (1 sin leer)" })
+  })
+
+  it("assignment:replacement vuelve a pedir el próximo vuelo del Inicio (clave flights)", async () => {
+    vi.mocked(connectAlerts).mockClear()
+    loginAsCrew()
+    const nextFlight = countNextFlight()
+    renderRoute(PATHS.tripulante.inicio)
+    await waitFor(() => expect(connectAlerts).toHaveBeenCalled())
+    await waitFor(() => expect(nextFlight.calls).toBe(1))
+
+    await emit("assignment:replacement", { message: REPLACEMENT })
+
+    await findToast(REPLACEMENT)
+    await waitFor(() => expect(nextFlight.calls).toBe(2))
+  })
+
+  it("assignment:replacement vuelve a pedir las listas y las métricas de Mis Vuelos", async () => {
+    vi.mocked(connectAlerts).mockClear()
+    loginAsCrew()
+    const assignments = mockMyAssignments([])
+    const metrics = mockMetrics()
+    mockMyAbsences([])
+    renderRoute(PATHS.tripulante.misVuelos)
+    await waitFor(() => expect(connectAlerts).toHaveBeenCalled())
+    const upcoming = () =>
+      assignments.filter((query) => query.startsWith("status=upcoming"))
+    const completed = () =>
+      assignments.filter((query) => query.startsWith("status=completed"))
+    await waitFor(() => {
+      expect(upcoming()).toHaveLength(1)
+      expect(completed()).toHaveLength(1)
+      expect(metrics).toHaveLength(1)
+    })
+
+    await emit("assignment:replacement", { message: REPLACEMENT })
+
+    await findToast(REPLACEMENT)
+    await waitFor(() => {
+      expect(upcoming()).toHaveLength(2)
+      expect(completed()).toHaveLength(2)
+      expect(metrics).toHaveLength(2)
+    })
   })
 
   it("el super_admin no se conecta ni pide la campana", async () => {
