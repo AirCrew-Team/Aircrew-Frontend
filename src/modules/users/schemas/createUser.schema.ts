@@ -71,6 +71,9 @@ export const createUserSchema = z
     base: z.string(),
     // Solo se pide a Supervisor (requiredFor); en los demás roles no se envía.
     shift: z.optional(z.string()),
+    // Estado operativo del supervisor: la lista siempre tiene uno elegido («Disponible»
+    // al crear). En los demás roles no se envía.
+    status: z.optional(z.string()),
   })
   .check(
     requiredFor("roleTitle", ["tripulacion"], "Selecciona el cargo."),

@@ -33,14 +33,21 @@ const toFormValues = (user: UserDetail): CreateUserFormValues => ({
   roleTitle: user.roleGroup === "tripulacion" ? user.roleTitle : "",
   base: user.base ?? "",
   shift: user.shift ?? "",
+  // Solo lo usa el supervisor. Sin estado (o al pasar de administrador a supervisor),
+  // «Disponible», como hace el backend.
+  status: (user.roleGroup === "supervisor" && user.status) || "disponible",
 })
 
 // Los mismos valores con la forma que envía el formulario: con ellos la acción manda
-// solo lo que cambió.
+// solo lo que cambió. Como el formulario, solo el supervisor lleva estado.
 const toInput = (values: CreateUserFormValues): CreateUserInput => ({
   ...values,
   roleGroup: values.roleGroup as UserRoleGroup,
   shift: values.shift as CreateUserInput["shift"],
+  status:
+    values.roleGroup === "supervisor"
+      ? (values.status as CreateUserInput["status"])
+      : "",
 })
 
 // El rol de un tripulante no se cambia (su perfil vive en crew). Supervisor y

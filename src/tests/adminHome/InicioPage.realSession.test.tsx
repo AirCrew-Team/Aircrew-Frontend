@@ -8,6 +8,7 @@ import { useAuthStore } from "@/stores/auth.store"
 import { recordRequests } from "../mocks/absencesApi"
 import { AIRCRAFT_URL, API_STATS as AIRCRAFT_STATS } from "../mocks/aircraftApi"
 import { API_URL } from "../mocks/authApi"
+import { CERTIFICATIONS_URL } from "../mocks/certificationsApi"
 import { REAL_USERS } from "../mocks/profileApi"
 import { API_STATS as USERS_STATS, USERS_STATS_URL } from "../mocks/usersApi"
 import { renderRoute } from "../utils/renderRoute"
@@ -33,7 +34,24 @@ beforeEach(() => {
   // Las otras tarjetas del Inicio piden sus indicadores con la sesión real.
   server.use(
     http.get(USERS_STATS_URL, () => HttpResponse.json(USERS_STATS)),
-    http.get(`${AIRCRAFT_URL}/stats`, () => HttpResponse.json(AIRCRAFT_STATS))
+    http.get(`${AIRCRAFT_URL}/stats`, () => HttpResponse.json(AIRCRAFT_STATS)),
+    // FE-5: certificaciones y guardias también son reales.
+    http.get(`${CERTIFICATIONS_URL}/stats`, () =>
+      HttpResponse.json({
+        total: 0,
+        by_status: { verified: 0, pending_verification: 0, uncertified: 0 },
+      })
+    ),
+    http.get(`${API_URL}/api/crew/shifts/current`, () =>
+      HttpResponse.json({
+        shift: "morning",
+        base: null,
+        flights_today: 0,
+        standby_total: 0,
+        standby_ready: 0,
+        staffing_delays: 0,
+      })
+    )
   )
   useAuthStore.getState().setUser(REAL_USERS.admin)
 })

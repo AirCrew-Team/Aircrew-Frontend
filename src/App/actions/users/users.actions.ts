@@ -40,16 +40,21 @@ const ROLE_BY_API: Record<ApiRole, UserRoleGroup> = {
   super_admin: "administrador",
 }
 
-// Tripulante: available / on_duty / in_flight / medical_leave.
+// Tripulante: available / on_duty / in_flight / medical_leave / vacation.
 // Supervisor: available / on_duty / off_duty / leave.
 const STATUS_BY_API: Record<string, UserStatus> = {
   available: "disponible",
   on_duty: "guardia",
   in_flight: "vuelo",
   medical_leave: "permiso_medico",
+  vacation: "vacaciones",
   off_duty: "fuera_turno",
   leave: "licencia",
 }
+// Al revés, para el operational_status del supervisor.
+const API_STATUS = Object.fromEntries(
+  Object.entries(STATUS_BY_API).map(([code, status]) => [status, code])
+) as Record<UserStatus, string>
 
 const API_SHIFT: Record<UserShift, ApiShift> = {
   turno_1: "morning",
@@ -149,6 +154,7 @@ const toApiBody = (input: CreateUserInput): Record<string, unknown> => {
   if (input.roleGroup === "supervisor") {
     body.base = input.base
     body.shift = input.shift ? API_SHIFT[input.shift] : null
+    if (input.status) body.operational_status = API_STATUS[input.status]
   }
   return body
 }

@@ -29,8 +29,10 @@ const CrewOverview = ({ crew }: CrewOverviewProps) => {
   const total = crew.members.length
   const fit =
     total - crew.members.filter(({ status }) => status === "ausente").length
-  const onDuty =
-    fit - crew.members.filter(({ status }) => status === "sin_asignar").length
+  const unassigned = crew.members.filter(
+    ({ status }) => status === "sin_asignar"
+  ).length
+  const onDuty = fit - unassigned
   const percent = Math.round((fit / total) * 100)
   const guards = crew.members.filter((member) => member.status === "guardia")
   const available = guards.filter(
@@ -62,6 +64,14 @@ const CrewOverview = ({ crew }: CrewOverviewProps) => {
         <p className={cn(typography.bodySm, "text-muted-foreground")}>
           {`${percent} % de la tripulación del turno está apta (${fit} de ${total}).`}
         </p>
+        {/* D13: por qué «en servicio» y «apta» no coinciden. Sin libres no se muestra. */}
+        {unassigned > 0 ? (
+          <p className={cn(typography.bodySm, "text-muted-foreground")}>
+            {unassigned === 1
+              ? "1 sin asignación no cuenta como en servicio."
+              : `${unassigned} sin asignación no cuentan como en servicio.`}
+          </p>
+        ) : null}
         <BaseIcon
           aria-hidden="true"
           className="absolute top-1/2 right-5 size-12 shrink-0 -translate-y-1/2 rounded-xl bg-brand-neutral p-3 text-brand-primary sm:right-6"

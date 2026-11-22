@@ -1,12 +1,14 @@
+import { getCertificationsStats } from "@/App/actions/certifications/certifications.actions"
 import type {
   AirportStatus,
-  CertificationsRenewals,
+  CertificationsOverview,
   FleetSummary,
   OpsCenter,
   StandbySummary,
   UsersSummary,
 } from "@/modules/adminHome/types/adminHome.types"
 import { withDemo } from "@/modules/shared/session/demoSession"
+import apiClient from "@/service/api-client"
 
 import * as demo from "./adminHome.demo"
 
@@ -59,15 +61,56 @@ export const getFleetSummary = (): Promise<FleetSummary> =>
     total: 18,
   })
 
-// Tarjeta de certificaciones.
-export const getCertificationsRenewals = (): Promise<CertificationsRenewals> =>
-  Promise.resolve({ toRenew: 4, expiringAlerts: 4, alertWindowDays: 30 })
+// Tarjeta de certificaciones. Sesión real: estado de verificación de la tripulación
+// (GET /certifications/stats), que no tiene vencimientos.
+const getVerificationOverview = async (): Promise<CertificationsOverview> => {
+  const { total, byStatus } = await getCertificationsStats()
+  return {
+    kind: "verification",
+    total,
+    verified: byStatus.verificado,
+    pendingVerification: byStatus.por_verificar,
+    uncertified: byStatus.sin_certificado,
+  }
+}
 
-// Resumen de guardias.
-export const getStandbySummary = (): Promise<StandbySummary> =>
-  Promise.resolve({
-    shift: "Turno de la Tarde",
-    standbyCrew: 3,
-    block: "vespertino",
-    staffingDelays: 0,
-  })
+export const getCertificationsRenewals = withDemo(
+  getVerificationOverview,
+  demo.getCertificationsRenewals
+)
+
+interface ApiCurrentShift {
+  shift: "morning" | "afternoon" | "night"
+  flights_today: number
+  standby_total: number
+  standby_ready: number
+  staffing_delays: number
+}
+
+// Nombre del turno y del bloque horario que cubre la guardia.
+const SHIFT_TEXT: Record<
+  ApiCurrentShift["shift"],
+  Pick<StandbySummary, "shift" | "block">
+> = {
+  morning: { shift: "Turno de la Mañana", block: "matutino" },
+  afternoon: { shift: "Turno de la Tarde", block: "vespertino" },
+  night: { shift: "Turno de la Noche", block: "nocturno" },
+}
+
+// Resumen de guardias. Sesión real: GET /shifts/current SIN base (el admin no tiene
+// base; el backend junta todas las bases con la hora de Nueva York).
+const getNetworkStandby = async (): Promise<StandbySummary> => {
+  const { data } = await apiClient.get<ApiCurrentShift>(
+    "/api/crew/shifts/current"
+  )
+  return {
+    ...SHIFT_TEXT[data.shift],
+    standbyCrew: data.standby_total,
+    staffingDelays: data.staffing_delays,
+  }
+}
+
+export const getStandbySummary = withDemo(
+  getNetworkStandby,
+  demo.getStandbySummary
+)

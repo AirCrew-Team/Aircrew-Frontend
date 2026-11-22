@@ -219,6 +219,7 @@ describe("Usuarios: editar", () => {
       roleTitle: "Comandante",
       base: "ATL",
       shift: "",
+      status: "",
     }
     // id, lo nuevo y lo que había: con eso la acción envía solo lo que cambió.
     const call = usersData.calls.find((entry) => entry.name === "updateUser")

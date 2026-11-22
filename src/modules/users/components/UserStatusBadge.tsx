@@ -21,6 +21,10 @@ const STATUS_STYLE: Record<UserStatus, { badge: string; dot: string }> = {
     badge: "bg-error-container text-on-error-container",
     dot: "bg-destructive",
   },
+  vacaciones: {
+    badge: "bg-muted text-muted-foreground",
+    dot: "bg-brand-tertiary",
+  },
   fuera_turno: {
     badge: "bg-muted text-muted-foreground",
     dot: "bg-muted-foreground",

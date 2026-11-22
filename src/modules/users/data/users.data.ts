@@ -52,6 +52,7 @@ const CATALOGS: UserCatalogs = {
     { value: "guardia", label: "En guardia" },
     { value: "vuelo", label: "En vuelo" },
     { value: "permiso_medico", label: "Permiso médico" },
+    { value: "vacaciones", label: "Vacaciones" },
   ],
   supervisorStatuses: [
     { value: "disponible", label: "Disponible" },
@@ -394,7 +395,10 @@ export const createUser = (input: CreateUserInput): Promise<CrewUser> =>
       id: code ?? `demo-${CREATED_USERS.length + 1}`,
       code,
       ...fields,
-      status: fields.roleGroup === "administrador" ? null : "disponible",
+      status:
+        fields.roleGroup === "administrador"
+          ? null
+          : input.status || "disponible",
       pendingActivation: true,
       isActive: true,
     }
@@ -430,7 +434,7 @@ export const updateUser = (
       status:
         fields.roleGroup === "administrador"
           ? null
-          : (user.status ?? "disponible"),
+          : input.status || (user.status ?? "disponible"),
     })
     PHONES.set(id, input.phone)
     return { ...user }

@@ -6,6 +6,7 @@ export const STATUS_LABEL: Record<UserStatus, string> = {
   guardia: "En guardia",
   vuelo: "En vuelo",
   permiso_medico: "Permiso médico",
+  vacaciones: "Vacaciones",
   fuera_turno: "Fuera de turno",
   licencia: "De licencia",
 }

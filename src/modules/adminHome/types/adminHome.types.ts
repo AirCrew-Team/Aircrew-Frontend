@@ -49,14 +49,27 @@ export interface FleetSummary {
   total: number
 }
 
-// Tarjeta «Certificaciones y Licencias» (CertificationsOverviewCard).
-export interface CertificationsRenewals {
-  // Licencias que deben renovarse.
-  toRenew: number
-  // Alertas de vencimiento dentro de los próximos `alertWindowDays` días.
-  expiringAlerts: number
-  alertWindowDays: number
-}
+// Tarjeta «Certificaciones y Licencias» (CertificationsOverviewCard). Los datos de
+// ejemplo hablan de renovaciones; la sesión real, de verificación, porque
+// GET /certifications/stats no trae vencimientos.
+export type CertificationsOverview =
+  | {
+      kind: "renewals"
+      // Licencias que deben renovarse.
+      toRenew: number
+      // Alertas de vencimiento dentro de los próximos `alertWindowDays` días.
+      expiringAlerts: number
+      alertWindowDays: number
+    }
+  | {
+      kind: "verification"
+      // Tripulantes activos y cuántos tienen el certificado verificado, por verificar
+      // o sin certificado.
+      total: number
+      verified: number
+      pendingVerification: number
+      uncertified: number
+    }
 
 // Resumen de guardias (StandbySummary).
 export interface StandbySummary {

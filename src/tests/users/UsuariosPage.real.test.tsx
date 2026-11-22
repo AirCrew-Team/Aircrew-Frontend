@@ -281,7 +281,8 @@ describe("Usuarios (sesión real): crear", () => {
     ])
   })
 
-  it("un supervisor se envía con base y turno traducido", async () => {
+  // D14 (FE-5): el estado operativo empieza en «Disponible» y se envía al crear.
+  it("un supervisor se envía con base, turno traducido y estado operativo", async () => {
     const bodies = captureBody("post", USERS_URL, () =>
       HttpResponse.json(API_ITEMS.supervisor, { status: 201 })
     )
@@ -307,6 +308,7 @@ describe("Usuarios (sesión real): crear", () => {
         phone: "+14045550142",
         base: "JFK",
         shift: "morning",
+        operational_status: "available",
       },
     ])
   })
