@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from "vitest"
 
 import { ROLES } from "@/App/types/auth.types"
+// Datos de ejemplo de Recomendaciones (los mismos que ve una cuenta demo): este test compara
+// datos simulados entre sí, sin sesión, así que no pasa por la función que elige demo o backend.
 import {
   getPendingReplacementRequests,
   getRecommendedCandidates,
-} from "@/modules/recommendations/data/recommendations.data"
+} from "@/modules/recommendations/data/recommendations.demo"
 import { useAuthStore } from "@/stores/auth.store"
 
 // Ausencias del Supervisor (spec docs/specs/ausencias-supervisor.md), AS-19: datos simulados

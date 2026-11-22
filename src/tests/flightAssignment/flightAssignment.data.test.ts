@@ -84,7 +84,7 @@ interface FlightAssignmentDataLike {
 
 const loadData = () =>
   vi.importActual<FlightAssignmentDataLike>(
-    "@/modules/shared/flightAssignment/data/flightAssignment.data"
+    "@/modules/shared/flightAssignment/data/flightAssignment.demo"
   )
 
 const DATES = [

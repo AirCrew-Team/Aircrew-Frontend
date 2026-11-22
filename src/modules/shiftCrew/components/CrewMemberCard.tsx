@@ -78,7 +78,10 @@ const contextLines = (member: CrewMember) => {
     case "guardia":
       return {
         main: member.location,
-        secondary: `a ${member.minutesToRamp} min de rampa`,
+        secondary:
+          member.minutesToRamp === null
+            ? "tiempo a rampa sin dato"
+            : `a ${member.minutesToRamp} min de rampa`,
       }
     case "en_vuelo":
       return {
@@ -93,7 +96,10 @@ const contextLines = (member: CrewMember) => {
     case "descanso":
       return { main: `Descanso hasta ${member.restUntilUtc}`, secondary: null }
     case "ausente":
-      return { main: member.reason, secondary: member.flight.flightNumber }
+      return {
+        main: member.reason,
+        secondary: member.flight?.flightNumber ?? null,
+      }
   }
 }
 

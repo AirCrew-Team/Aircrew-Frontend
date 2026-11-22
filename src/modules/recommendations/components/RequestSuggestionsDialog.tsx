@@ -1,4 +1,4 @@
-import { useId } from "react"
+import { useId, useState } from "react"
 
 import { RecalculatingIcon } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
@@ -18,19 +18,21 @@ import { cn } from "@/lib/utils"
 interface RequestSuggestionsDialogProps {
   flightNumber: string
   // Al confirmar, la solicitud pasa a recálculo y la lista (con este diálogo) se desmonta.
-  onConfirm: () => void
+  // reason: lo que escribió el supervisor; vacío si no escribió nada.
+  onConfirm: (reason: string) => void
 }
 
 const focusRing =
   "focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-brand-tertiary focus-visible:ring-offset-2 focus-visible:ring-offset-card"
 
-// «Pedir nuevas sugerencias», con su diálogo y un motivo opcional.
-// El motivo aún no se envía: se mandará con la acción real cuando exista la API.
+// «Pedir nuevas sugerencias», con su diálogo y un motivo opcional que la IA tiene en
+// cuenta al buscar. Sin motivo, la IA busca igual.
 const RequestSuggestionsDialog = ({
   flightNumber,
   onConfirm,
 }: RequestSuggestionsDialogProps) => {
   const reasonId = useId()
+  const [reason, setReason] = useState("")
 
   return (
     <Dialog>
@@ -69,6 +71,9 @@ const RequestSuggestionsDialog = ({
             id={reasonId}
             rows={3}
             maxLength={300}
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder="Ej.: preferir a alguien con experiencia en la ruta"
             className={cn(
               typography.bodyMd,
               // text-base por debajo de lg: con menos de 16 px iOS hace zoom al enfocar.
@@ -88,7 +93,7 @@ const RequestSuggestionsDialog = ({
             Cancelar
           </DialogClose>
           <Button
-            onClick={onConfirm}
+            onClick={() => onConfirm(reason)}
             className={cn(
               "min-h-11 bg-brand-secondary text-white hover:bg-brand-secondary-hover sm:min-h-9",
               focusRing

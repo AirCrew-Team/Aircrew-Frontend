@@ -1,3 +1,10 @@
+import * as demo from "./supervisorHome.demo"
+import { withDemo } from "@/modules/shared/session/demoSession"
+import {
+  getMyBase,
+  type ApiMyBase,
+} from "@/modules/shared/base/myBase"
+import { getShiftCrew } from "@/modules/shiftCrew/data/shiftCrew.data"
 import type {
   AbsencesSummary,
   CrewSummary,
@@ -5,42 +12,117 @@ import type {
   ShiftStatus,
   SupervisionCenter,
 } from "@/modules/supervisorHome/types/supervisorHome.types"
+import apiClient from "@/service/api-client"
 
-// Datos simulados ("quemados") con la forma de las acciones reales: se moverán a
-// App/actions cuando exista la API, y los componentes no tendrán que cambiar.
-// Una función por sección, porque cada una vendrá de un servicio distinto del gateway.
-// Devuelven una promesa, igual que lo hará la petición HTTP real.
+// Datos del Inicio del supervisor desde el gateway. Una función por tarjeta.
+
+const CONDITION_LABEL: Record<ApiMyBase["operational_condition"], string> = {
+  normal: "Nivel Óptimo",
+  degraded: "Nivel Degradado",
+  critical: "Nivel Crítico",
+}
 
 // Encabezado: dependencia, sede y condición operacional.
-export const getSupervisionCenter = (): Promise<SupervisionCenter> =>
-  Promise.resolve({
-    unit: "Supervisión de Guardia",
-    hqCode: "BOG-HQ",
-    baseName: "Base Eldorado",
-    operationalCondition: "Nivel Óptimo",
-  })
+const getSupervisionCenterFromApi = async (): Promise<SupervisionCenter> => {
+  const base = await getMyBase()
+  return {
+    unit: base.unit,
+    hqCode: base.hq_code,
+    baseName: base.base_name,
+    operationalCondition: CONDITION_LABEL[base.operational_condition],
+  }
+}
 
-// Banner: estado del turno en la base.
-export const getShiftStatus = (): Promise<ShiftStatus> =>
-  Promise.resolve({
+interface ApiCurrentShift {
+  shift: "morning" | "afternoon" | "night"
+  base: string | null
+  flights_today: number
+  standby_total: number
+  standby_ready: number
+  staffing_delays: number
+}
+
+// Banner: estado del turno en la base. Los textos fijos son del diseño, no del backend.
+const getShiftStatusFromApi = async (): Promise<ShiftStatus> => {
+  const base = await getMyBase()
+  const { data } = await apiClient.get<ApiCurrentShift>("/api/crew/shifts/current", {
+    params: { base: base.iata },
+  })
+  return {
     tag: "Control Operacional y Contingencias",
-    location: "SKBO • Hub Central Eldorado",
+    location: `${base.icao} • ${base.base_name}`,
     headline: "Disponibilidad y Relevos en Tiempo Real",
     summary:
       "Monitoreo permanente de turnos, guardias activas y contingencias inmediatas para garantizar la puntualidad de vuelo.",
-    flightsToday: 42,
-    standbyReadiness: 100,
-  })
+    flightsToday: data.flights_today,
+    standbyReadiness:
+      data.standby_total === 0
+        ? 0
+        : Math.round((data.standby_ready / data.standby_total) * 100),
+  }
+}
 
-// Tarjeta de solicitudes de reemplazo.
-export const getReplacementRequestsSummary =
-  (): Promise<ReplacementRequestsSummary> =>
-    Promise.resolve({ pendingApproval: 5, resolutionRate: 85.7 })
+interface ApiAbsenceStats {
+  reported: number
+  pending_ack: number
+  covered_today: number
+  resolution_rate: number | null
+}
 
-// Tarjeta de ausencias.
-export const getAbsencesSummary = (): Promise<AbsencesSummary> =>
-  Promise.resolve({ open: 3, criticalDepartures: 1 })
+const getAbsenceStats = async () =>
+  (await apiClient.get<ApiAbsenceStats>("/api/crew/absences/stats")).data
 
-// Tarjeta de tripulación.
-export const getCrewSummary = (): Promise<CrewSummary> =>
-  Promise.resolve({ onDuty: 34, availabilityPercent: 92 })
+// Tarjeta de recomendaciones: por aprobar y tasa de resolución (30 días).
+const getReplacementRequestsSummaryFromApi =
+  async (): Promise<ReplacementRequestsSummary> => {
+    const stats = await getAbsenceStats()
+    return {
+      pendingApproval: stats.reported,
+      resolutionRate: stats.resolution_rate,
+    }
+  }
+
+interface ApiOpenAbsence {
+  status: "reported" | "pending_ack" | "covered" | "cancelled"
+  flight_departure_at: string
+}
+
+const CRITICAL_WINDOW_MS = 2 * 60 * 60 * 1000
+
+// Tarjeta de ausencias: sin resolver y las que afectan una salida en menos de 2 h.
+const getAbsencesSummaryFromApi = async (): Promise<AbsencesSummary> => {
+  const { data } = await apiClient.get<ApiOpenAbsence[]>("/api/crew/absences")
+  const open = data.filter(
+    (absence) => absence.status === "reported" || absence.status === "pending_ack"
+  )
+  const now = Date.now()
+  return {
+    open: open.length,
+    criticalDepartures: open.filter((absence) => {
+      const left = new Date(absence.flight_departure_at).getTime() - now
+      return left > 0 && left < CRITICAL_WINDOW_MS
+    }).length,
+  }
+}
+
+// Tarjeta de tripulación: en servicio (guardia, en vuelo o programados) y qué parte
+// de la tripulación del turno no está ausente.
+const getCrewSummaryFromApi = async (): Promise<CrewSummary> => {
+  const { members } = await getShiftCrew()
+  const onDuty = members.filter((member) =>
+    ["guardia", "en_vuelo", "programado"].includes(member.status)
+  ).length
+  const absent = members.filter((member) => member.status === "ausente").length
+  return {
+    onDuty,
+    availabilityPercent:
+      onDuty + absent === 0 ? 0 : Math.round((onDuty / (onDuty + absent)) * 100),
+  }
+}
+
+// Cuenta demo → datos de ejemplo (D4); sesión real → backend.
+export const getSupervisionCenter = withDemo(getSupervisionCenterFromApi, demo.getSupervisionCenter)
+export const getShiftStatus = withDemo(getShiftStatusFromApi, demo.getShiftStatus)
+export const getReplacementRequestsSummary = withDemo(getReplacementRequestsSummaryFromApi, demo.getReplacementRequestsSummary)
+export const getAbsencesSummary = withDemo(getAbsencesSummaryFromApi, demo.getAbsencesSummary)
+export const getCrewSummary = withDemo(getCrewSummaryFromApi, demo.getCrewSummary)

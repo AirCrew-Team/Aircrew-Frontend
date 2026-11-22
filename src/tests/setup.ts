@@ -3,6 +3,7 @@ import { cleanup, configure } from "@testing-library/react"
 import { toast } from "sonner"
 import { afterAll, afterEach, beforeAll } from "vitest"
 
+import { useAlertsStore } from "@/stores/alerts.store"
 import { useAuthStore } from "@/stores/auth.store"
 
 import { server } from "./utils/server"
@@ -34,6 +35,8 @@ afterEach(() => {
   toast.dismiss()
   // La sesión simulada es global: se reinicia para que no pase de un test a otro.
   useAuthStore.setState(useAuthStore.getInitialState(), true)
+  // Las alertas en vivo de la campana también son globales.
+  useAlertsStore.setState(useAlertsStore.getInitialState(), true)
   // Quita los handlers que añadió el test con server.use(...).
   server.resetHandlers()
 })

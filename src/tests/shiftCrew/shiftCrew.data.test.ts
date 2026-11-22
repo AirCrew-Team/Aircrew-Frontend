@@ -4,8 +4,8 @@ import { getAbsenceTracking } from "@/modules/absenceTracking/data/absenceTracki
 import {
   getPendingReplacementRequests,
   getRecommendedCandidates,
-} from "@/modules/recommendations/data/recommendations.data"
-import { getCrewSummary } from "@/modules/supervisorHome/data/supervisorHome.data"
+} from "@/modules/recommendations/data/recommendations.demo"
+import { getCrewSummary } from "@/modules/supervisorHome/data/supervisorHome.demo"
 
 // Tripulación del Supervisor (spec docs/specs/tripulacion-supervisor.md), TC-20: datos
 // simulados de getShiftCrew, su forma por estado, su orden y su coherencia con el Inicio,
@@ -46,7 +46,7 @@ interface ShiftCrewLike {
 const loadShiftCrew = async () => {
   const data = await vi.importActual<{
     getShiftCrew: () => Promise<ShiftCrewLike>
-  }>("@/modules/shiftCrew/data/shiftCrew.data")
+  }>("@/modules/shiftCrew/data/shiftCrew.demo")
   return data.getShiftCrew()
 }
 
