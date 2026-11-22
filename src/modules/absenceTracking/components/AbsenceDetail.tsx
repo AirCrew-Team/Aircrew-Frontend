@@ -1,7 +1,8 @@
-import type { ReactNode } from "react"
+import { type ReactNode, useId } from "react"
 import { useQuery } from "@tanstack/react-query"
 
 import { getAbsenceById } from "@/App/actions/absences/absences.actions"
+import type { Absence } from "@/App/types/absences.types"
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
 import AbsenceStatusChip from "@/modules/absenceTracking/components/AbsenceStatusChip"
@@ -16,17 +17,23 @@ import { reasonLabel } from "@/modules/shared/absences/absenceReasons"
 
 interface AbsenceDetailProps {
   id: string
+  // La misma ausencia en la lista del tablero, con sus vuelos y el estado que sale de
+  // ellos (GET /absences/:id no los trae).
+  listed?: Absence
 }
 
 interface RowProps {
   term: string
+  termId?: string
   className?: string
   children: ReactNode
 }
 
-const Row = ({ term, className, children }: RowProps) => (
+const Row = ({ term, termId, className, children }: RowProps) => (
   <div className={cn("flex flex-col gap-0.5", className)}>
-    <dt className={cn(typography.labelMd, "text-muted-foreground")}>{term}</dt>
+    <dt id={termId} className={cn(typography.labelMd, "text-muted-foreground")}>
+      {term}
+    </dt>
     <dd className={cn(typography.bodyMd, "break-words text-foreground")}>
       {children}
     </dd>
@@ -34,7 +41,8 @@ const Row = ({ term, className, children }: RowProps) => (
 )
 
 // Contenido del popup «Ver detalle»: se monta al abrirlo, así el detalle se pide entonces.
-const AbsenceDetail = ({ id }: AbsenceDetailProps) => {
+const AbsenceDetail = ({ id, listed }: AbsenceDetailProps) => {
+  const flightsId = useId()
   const { data, isPending, isError } = useQuery({
     queryKey: ["absences", "detail", id],
     queryFn: () => getAbsenceById(id),
@@ -60,6 +68,14 @@ const AbsenceDetail = ({ id }: AbsenceDetailProps) => {
     )
   }
 
+  // Con vuelos, el estado es el de la tarjeta (sale de ellos); sin vuelos, el de la fila.
+  // «Cancelada» gana siempre: se canceló después de cargar el tablero.
+  const flights = listed?.flights ?? []
+  const status =
+    listed && flights.length > 0 && data.status !== "cancelled"
+      ? listed.status
+      : data.status
+
   // Tarjeta blanca sobre el fondo del popup, como en los demás detalles: así el bloque
   // «Comprobante» (bg-muted) sigue destacando.
   return (
@@ -73,7 +89,7 @@ const AbsenceDetail = ({ id }: AbsenceDetailProps) => {
             {`${data.employee_code ?? "—"} · ${data.position ?? "—"}`}
           </p>
         </div>
-        <AbsenceStatusChip status={data.status} />
+        <AbsenceStatusChip status={status} />
       </div>
 
       <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-3">
@@ -99,6 +115,34 @@ const AbsenceDetail = ({ id }: AbsenceDetailProps) => {
         <Row term="Reportada" className="sm:col-span-3">
           {formatUtcDateTime(data.created_at)}
         </Row>
+        {flights.length > 0 ? (
+          <Row term="Vuelos" termId={flightsId} className="sm:col-span-3">
+            <ul
+              role="list"
+              aria-labelledby={flightsId}
+              className="flex flex-col gap-2 pt-1"
+            >
+              {flights.map((flight) => (
+                <li
+                  key={flight.id}
+                  className="flex flex-wrap items-center gap-x-2 gap-y-1"
+                >
+                  <span className="font-semibold tabular-nums">
+                    {flight.flight_number ?? "Vuelo sin número"}
+                  </span>{" "}
+                  <AbsenceStatusChip status={flight.status} />{" "}
+                  {flight.replacement_name ? (
+                    <span className="text-muted-foreground">
+                      {`Reemplazo: ${flight.replacement_name}`}
+                    </span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </Row>
+        ) : null}
+        {/* Reemplazo de la ausencia entera (cubierta sin vuelos); con vuelos, cada uno
+            dice el suyo. */}
         {data.status === "covered" ? (
           <>
             <Row term="Reemplazo" className="sm:col-span-2">

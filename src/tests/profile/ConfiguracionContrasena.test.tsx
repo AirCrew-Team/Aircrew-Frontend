@@ -372,6 +372,44 @@ describe("CF-04 (panel actual): envío separado del perfil", () => {
     await findToast(PASSWORD_TOAST)
   })
 
+  // Spec cierre-pendientes, FE-1 (F16): «Cancelar» tenía `disabled` durante el envío y
+  // salía del orden de tabulación. Debe quedarse enfocable con aria-disabled, como
+  // «Actualizar contraseña», y no hacer nada al pulsarlo.
+  it('FE1-F16: mientras se envía, «Cancelar» tiene aria-disabled="true" (sin disabled), se alcanza con Shift+Tab desde «Actualizar contraseña» y pulsarlo no cierra el panel ni borra lo escrito', async () => {
+    const pending = gated()
+    const { user, main, backend } = await setup("crew", {
+      respond: { changePassword: pending.respond },
+    })
+    const fields = await openPanel(user, main)
+    await fillPanel(user, fields)
+    const cancel = within(fields.group).getByRole("button", {
+      name: "Cancelar",
+    })
+
+    await user.click(fields.submit)
+    await waitFor(() => expect(backend.bodies.changePassword).toHaveLength(1))
+    await waitFor(() =>
+      expect(fields.submit).toHaveAttribute("aria-disabled", "true")
+    )
+
+    expect(cancel).toHaveAttribute("aria-disabled", "true")
+    expect(cancel).not.toHaveAttribute("disabled")
+    expect(fields.submit).toHaveFocus()
+    await user.tab({ shift: true })
+    expect(cancel).toHaveFocus()
+
+    await user.click(cancel)
+    await act(() => new Promise((resolve) => setTimeout(resolve, 300)))
+    expect(fields.group).toBeInTheDocument()
+    expect(fields.current).toHaveValue(currentValue)
+    expect(fields.next).toHaveValue(nextValue)
+    expect(fields.confirm).toHaveValue(nextValue)
+    expect(backend.bodies.changePassword).toHaveLength(1)
+
+    pending.release()
+    await findToast(PASSWORD_TOAST)
+  })
+
   it("CF-04: el toast «Contraseña actualizada.» sale aunque el usuario haya salido de Configuración", async () => {
     const pending = gated()
     const { user, main, backend, router } = await setup("crew", {

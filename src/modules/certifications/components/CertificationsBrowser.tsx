@@ -11,11 +11,12 @@ import { getCertifications } from "@/modules/shared/certifications/data/certific
 import type { Certification } from "@/modules/shared/certifications/types/certifications.types"
 import { isDemoUser, useAuthStore } from "@/stores/auth.store"
 
-const COLUMN_HEADERS = [
+// Con la sesión real el estado lo pone la administración de AirCrew al cotejar, no la FAA.
+const columnHeaders = (demo: boolean) => [
   "Certificación / Licencia",
   "Organismo / Alcance",
   "Fecha de vencimiento",
-  "Estado RAC",
+  demo ? "Estado FAA" : "Estado del expediente",
   "Observación operacional",
   "Acción",
 ]
@@ -26,7 +27,9 @@ const matchesSearch = (certification: Certification, search: string) =>
     certification.code,
     certification.issuer,
     certification.scope,
-  ].some((value) => normalizeForSearch(value).includes(search))
+  ].some(
+    (value) => value !== null && normalizeForSearch(value).includes(search)
+  )
 
 // Cargando, error y sin resultados: en una tarjeta, en el sitio de la tabla.
 const messageClass =
@@ -36,17 +39,15 @@ const licenses = (count: number) =>
   `${count} ${count === 1 ? "licencia" : "licencias"}`
 
 // L: barra con el total y el buscador, estado de resultados para el lector y la lista.
-// Con la sesión real aún no hay certificaciones: lista vacía y sin consulta.
+// Con la sesión real, la lista sale de certifications/me (FE-4).
 const CertificationsBrowser = () => {
   const id = useId()
-  const [search, setSearch] = useState("")
   const demo = useAuthStore((state) => isDemoUser(state.user))
-  const { data: demoData, isPending } = useQuery({
+  const [search, setSearch] = useState("")
+  const { data, isPending } = useQuery({
     queryKey: ["certifications", "list"],
     queryFn: getCertifications,
-    enabled: demo,
   })
-  const data = demo ? demoData : []
 
   const query = search.trim()
   const normalizedQuery = normalizeForSearch(query)
@@ -71,8 +72,8 @@ const CertificationsBrowser = () => {
             )}
           >
             {data.length === 1
-              ? "1 licencia cargada en expediente digital (SKBO Base)"
-              : `${data.length} licencias cargadas en expediente digital (SKBO Base)`}
+              ? "1 licencia cargada en expediente digital"
+              : `${data.length} licencias cargadas en expediente digital`}
           </p>
         ) : null}
         <div className="flex w-full items-center gap-2 lg:w-auto">
@@ -104,7 +105,7 @@ const CertificationsBrowser = () => {
               "shrink-0 rounded-sm border border-transparent bg-brand-border px-2 py-1 tracking-wider text-brand-primary uppercase"
             )}
           >
-            RAC 121
+            FAA Part 121
           </span>
         </div>
       </div>
@@ -162,7 +163,7 @@ const CertificationsBrowser = () => {
               LICENSE_COLUMNS_CLASS
             )}
           >
-            {COLUMN_HEADERS.map((header) => (
+            {columnHeaders(demo).map((header) => (
               <span key={header} className="last:text-right">
                 {header}
               </span>

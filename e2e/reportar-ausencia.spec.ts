@@ -59,8 +59,8 @@ test("E2E-05 el tripulante envía el aviso de ausencia por fechas: sale la confi
   const hasta = await fechaLocal(page, 3)
   await inicio.fill(desde)
   await fin.fill(hasta)
-  // «Fatiga operacional / RAC 212» no exige soporte (RA-07).
-  await motivo.selectOption({ label: "Fatiga operacional / RAC 212" })
+  // «Fatiga operacional / 14 CFR 117.5» no exige soporte (RA-07).
+  await motivo.selectOption({ label: "Fatiga operacional / 14 CFR 117.5" })
   await notas.fill(NOTAS)
   await main.getByRole("button", { name: "Enviar Aviso a Despacho" }).click()
 

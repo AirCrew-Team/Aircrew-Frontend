@@ -8,6 +8,12 @@ import { useAuthStore } from "@/stores/auth.store"
 import { recordRequests } from "../mocks/absencesApi"
 import { API_URL } from "../mocks/authApi"
 import {
+  EMPTY_CERTIFICATION,
+  mockMyAssignments,
+  mockMyCertification,
+  mockNextAssignment,
+} from "../mocks/crewFlightsApi"
+import {
   crewMemberErrorHandler,
   crewMemberHandler,
   REAL_CREW_MEMBER,
@@ -19,6 +25,9 @@ import { loadingStatuses, normalize } from "./realAbsencesTestUtils"
 
 // Spec ausencias-reales, F1: Inicio del tripulante con sesión real (AU-01) y con la
 // cuenta demo (AU-03). La base y el estado salen de GET /api/crew/crew-members/me.
+// Desde FE-4 (cierre-pendientes) el Inicio real también pide el próximo vuelo, los
+// reemplazos sin «Enterado» y la certificación propia: aquí el backend responde que no
+// hay ninguno (404, lista vacía y expediente vacío), para comprobar los estados vacíos.
 
 const STATUS_REGION = "Estado de asignación"
 const BANNER = "Asignación de reemplazo"
@@ -31,6 +40,13 @@ const BELL_REQUEST = `GET ${API_URL}/api/notification/notifications?limit=30`
 // Peticiones del navbar (foto y campana), que no son de la pantalla.
 const isNavbarRequest = (request: string) =>
   request === ME_REQUEST || request === BELL_REQUEST
+// Peticiones del Inicio real (FE-4), sin repetidas y en orden alfabético.
+const HOME_REQUESTS = [
+  `GET ${API_URL}/api/crew/certifications/me`,
+  `GET ${API_URL}/api/crew/crew-members/me`,
+  `GET ${API_URL}/api/flights/assignments/me/next`,
+  `GET ${API_URL}/api/flights/assignments/me?replacement=true&acknowledged=false&status=upcoming`,
+]
 const NEXT_FLIGHT = "Próximo vuelo"
 const DEMO_FLIGHT_LABEL = "Itinerario Confirmado"
 
@@ -47,7 +63,15 @@ const conditionLine = (main: HTMLElement) => {
   return innermost[0]
 }
 
+// El backend no tiene vuelos, reemplazos ni certificaciones para el tripulante.
+const mockEmptyCrewData = () => {
+  mockMyAssignments([])
+  mockNextAssignment(null)
+  mockMyCertification(EMPTY_CERTIFICATION)
+}
+
 const openRealHome = async (crewMember: object = REAL_CREW_MEMBER) => {
+  mockEmptyCrewData()
   server.use(crewMemberHandler(crewMember))
   useAuthStore.getState().setUser(REAL_USERS.crew)
   renderRoute(PATHS.tripulante.inicio)
@@ -74,6 +98,8 @@ describe("AU-01: Inicio con sesión real", () => {
       availability: "Incapacitado",
       condition: "Incapacidad médica",
     },
+    // FE-2 (cierre-pendientes): el backend también tiene «vacation».
+    { status: "vacation", availability: "Vacaciones", condition: "Vacaciones" },
   ])(
     "AU-01: con status «$status» la disponibilidad es «$availability» y la condición operacional «$condition»",
     async ({ status, availability, condition }) => {
@@ -104,7 +130,7 @@ describe("AU-01: Inicio con sesión real", () => {
     expect(main).not.toHaveTextContent("BOG / SKBO")
   })
 
-  it("AU-01: el próximo vuelo y las certificaciones muestran sus estados vacíos, sin datos de ejemplo", async () => {
+  it("AU-01: sin próximo vuelo (404) ni certificaciones, sus tarjetas muestran los estados vacíos, sin datos de ejemplo", async () => {
     const main = await openRealHome()
 
     expect(await within(main).findByText(NO_FLIGHTS)).toBeInTheDocument()
@@ -134,7 +160,7 @@ describe("AU-01: Inicio con sesión real", () => {
     expect(main).not.toHaveTextContent(DEMO_FLIGHT_LABEL)
   })
 
-  it("AU-01: no se muestra ninguna asignación de reemplazo", async () => {
+  it("AU-01: sin reemplazos pendientes en assignments/me no se muestra ninguna asignación de reemplazo", async () => {
     const main = await openRealHome()
     // Ancla: la pantalla ya pintó los estados vacíos.
     await within(main).findByText(NO_FLIGHTS)
@@ -157,7 +183,7 @@ describe("AU-01: Inicio con sesión real", () => {
     expect(links.length).toBeGreaterThan(0)
   })
 
-  it("AU-01: la única petición del Inicio real es GET /api/crew/crew-members/me", async () => {
+  it("AU-01/FE-4: el Inicio real solo pide crew-members/me, assignments/me/next, los reemplazos sin «Enterado» y certifications/me", async () => {
     const requests = recordRequests()
     const main = await openRealHome()
     await within(main).findByText(NO_FLIGHTS)
@@ -165,15 +191,11 @@ describe("AU-01: Inicio con sesión real", () => {
     // El navbar pide el perfil para la foto (spec configuracion-real, CF-12) y la campana:
     // no son del Inicio, así que se quitan antes de comprobar.
     const homeRequests = requests.filter((request) => !isNavbarRequest(request))
-    expect(homeRequests.length).toBeGreaterThan(0)
-    expect(
-      homeRequests.filter(
-        (request) => !request.endsWith("/api/crew/crew-members/me")
-      )
-    ).toEqual([])
+    expect([...new Set(homeRequests)].sort()).toEqual(HOME_REQUESTS)
   })
 
   it("AU-01: si crew-members/me falla, la tarjeta «Estado de asignación» muestra su error en un role=alert", async () => {
+    mockEmptyCrewData()
     server.use(crewMemberErrorHandler())
     useAuthStore.getState().setUser(REAL_USERS.crew)
     renderRoute(PATHS.tripulante.inicio)

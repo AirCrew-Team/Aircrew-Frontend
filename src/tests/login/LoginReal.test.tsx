@@ -18,7 +18,7 @@ import {
 } from "../mocks/authApi"
 import { renderRoute } from "../utils/renderRoute"
 import { server } from "../utils/server"
-import { findToast, queryToast } from "../utils/toasts"
+import { findToast, queryAllToasts } from "../utils/toasts"
 
 // Spec login-real, tarea 5 (F4, F5b): el formulario de Login contra el backend real
 // (simulado con MSW). Las cuentas demo siguen sin llamar al backend (D4).
@@ -158,37 +158,51 @@ describe("LR-01: credenciales reales correctas", () => {
     expect(useAuthStore.getState().user?.role).toBe(ROLES.TRIPULANTE)
   })
 
-  it("LR-11: si el perfil de crew responde 401, el tripulante entra igual con «Tripulante» y sin el toast de sesión vencida", async () => {
+  // Spec cierre-pendientes, D12: antes LR-11 fijaba que el 401 de crew-members/me NO
+  // cerraba la sesión (el tripulante seguía en el Inicio con el error del bloque). Se
+  // quita esa exclusión: durante el login (sin sesión en el store) el 401 solo deja el
+  // cargo «Tripulante», pero el mismo 401 en el Inicio, ya con sesión, la cierra.
+  it("FE1-F2 (D12, antes LR-11): si el perfil de crew responde 401, el login entra a /tripulante y el 401 del Inicio cierra la sesión: termina en /login con un único toast «Tu sesión venció. Inicia sesión de nuevo.»", async () => {
     mockLoginSequence([loginOk(API_USERS.crew)])
-    // 401 persistente: también lo recibe la petición del Inicio real, ya con la sesión
-    // puesta. El interceptor no cierra la sesión por crew-members/me: el bloque muestra
-    // su propio error.
-    mockCrewProfile(status(401))
+    // 401 persistente: lo recibe el login (sin sesión) y la petición del Inicio real.
+    let crewProfileCalls = 0
+    server.use(
+      http.get(AUTH_URLS.crewProfile, () => {
+        crewProfileCalls += 1
+        return status(401)()
+      })
+    )
     const user = userEvent.setup()
     const router = renderRoute(PATHS.login)
+    // El paso por /tripulante es transitorio: se registra en lugar de esperarlo.
+    const visited: string[] = []
+    router.subscribe((state) => visited.push(state.location.pathname))
 
     await loginWith(user, API_USERS.crew.email, REAL_PASSWORD)
 
-    await waitForPath(router, PATHS.tripulante.inicio)
-    await findNavbarProfile("Luis Pérez Tripulante")
-    expect(useAuthStore.getState().user?.position).toBe("Tripulante")
-
-    // Ancla: el Inicio ya recibió su 401 (si no, los asserts de abajo pasarían en vacío).
-    const region = await screen.findByRole("region", {
-      name: "Estado de asignación",
-    })
+    // Ancla: el login y el Inicio pidieron el perfil (si no, el cierre no se probaría).
     await waitFor(
-      () =>
-        expect(
-          within(region)
-            .queryAllByRole("alert")
-            .map((alert) => alert.textContent?.trim())
-        ).toContain("No se pudo cargar el estado de asignación."),
+      () => expect(crewProfileCalls).toBeGreaterThanOrEqual(2),
       AFTER_LOGIN_WAIT
     )
-    expect(queryToast(TEXTS.expired)).toBeNull()
-    expect(useAuthStore.getState().user).not.toBeNull()
-    expect(router.state.location.pathname).toBe(PATHS.tripulante.inicio)
+    expect(visited, "el login llegó a entrar").toContain(
+      PATHS.tripulante.inicio
+    )
+    await waitForPath(router, PATHS.login)
+    const toast = await findToast(TEXTS.expired)
+    expect(toast).toHaveAttribute("data-type", "error")
+    expect(useAuthStore.getState().user).toBeNull()
+    // Margen para una ráfaga de 401: sigue habiendo un solo aviso de sesión vencida.
+    await new Promise((resolve) => setTimeout(resolve, 150))
+    expect(
+      queryAllToasts().filter(
+        (item) =>
+          item.querySelector("[data-title]")?.textContent?.trim() ===
+          TEXTS.expired
+      ),
+      "un solo toast de sesión vencida"
+    ).toHaveLength(1)
+    expect(router.state.location.pathname).toBe(PATHS.login)
   })
 })
 

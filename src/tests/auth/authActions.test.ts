@@ -297,6 +297,35 @@ describe("F6 y LR-08: interceptor de 401 de apiClient", () => {
     expect(toasts[0]).toHaveAttribute("data-type", "error")
   })
 
+  // Spec cierre-pendientes, D12 (F2): crew-members/me deja de estar excluido del
+  // interceptor. Sin sesión (durante el login) sigue sin toast: lo fijan los casos
+  // «F3 (LR-11)» de arriba, que llaman a toAuthUser con el store vacío.
+  it("FE1-F2 (D12): con un tripulante en el store, un 401 de GET /api/crew/crew-members/me cierra la sesión con el toast «Tu sesión venció. Inicia sesión de nuevo.»", async () => {
+    mountToaster()
+    const calls = mockCrewProfile(() =>
+      HttpResponse.json(errorBody("Token vencido"), { status: 401 })
+    )
+    useAuthStore.getState().setUser({
+      id: API_USERS.crew.id,
+      displayName: "Luis Pérez",
+      fullName: API_USERS.crew.name,
+      position: "Capitán #EMP-001",
+      role: ROLES.TRIPULANTE,
+    })
+
+    const error = await getMyCrewProfile().catch((e: unknown) => e)
+
+    expect(calls, "la petición llegó al perfil de crew").toHaveLength(1)
+    expect(isAxiosError(error) && error.response?.status).toBe(401)
+    expect(useAuthStore.getState().user).toBeNull()
+    const toast = await waitFor(() => {
+      const found = queryToast(EXPIRED_TEXT)
+      expect(found).not.toBeNull()
+      return found as HTMLElement
+    })
+    expect(toast).toHaveAttribute("data-type", "error")
+  })
+
   it("F6: un 401 de /api/admin/auth/me con usuario en el store no cierra la sesión ni da toast", async () => {
     mountToaster()
     useAuthStore.getState().setMockRole(ROLES.SUPER_VISOR)

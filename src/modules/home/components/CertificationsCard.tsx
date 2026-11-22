@@ -6,18 +6,24 @@ import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
 import { getCertifications } from "@/modules/shared/certifications/data/certifications.data"
 import type { Certification } from "@/modules/shared/certifications/types/certifications.types"
-import { getExpiryInfo } from "@/modules/shared/certifications/utils/expiry"
+import { getCertificationStatus } from "@/modules/shared/certifications/utils/expiry"
 import { PATHS } from "@/routes/paths"
-import { isDemoUser, useAuthStore } from "@/stores/auth.store"
 
-// Aptas = vigentes y vitalicias; la próxima es la de menos días que aún no venció.
+// Aptas = vigentes, vitalicias y, con la sesión real, verificadas o registradas en el
+// perfil; la próxima es la de menos días que aún no venció.
 const summarize = (certifications: Certification[], today: Date) => {
   let validCount = 0
   let expiredCount = 0
   let next: { name: string; days: number } | null = null
   for (const certification of certifications) {
-    const { status, days } = getExpiryInfo(certification.expiresAt, today)
-    if (status === "vigente" || status === "vitalicio") validCount += 1
+    const { status, days } = getCertificationStatus(certification, today)
+    if (
+      status === "vigente" ||
+      status === "vitalicio" ||
+      status === "verificado" ||
+      status === "registrado"
+    )
+      validCount += 1
     if (status === "vencido") expiredCount += 1
     if (days !== null && days >= 0 && (next === null || days < next.days)) {
       next = { name: certification.name, days }
@@ -30,9 +36,8 @@ const formatDays = (days: number) =>
   days === 0 ? "Hoy" : days === 1 ? "En 1 día" : `En ${days} días`
 
 // Tarjeta 2: resumen calculado de certificaciones y acceso a las licencias.
-// Con la sesión real aún no hay certificaciones: estado vacío y sin consulta.
+// Con la sesión real sale de certifications/me; una lista vacía es que aún no tiene ninguna.
 const CertificationsCard = () => {
-  const demo = useAuthStore((state) => isDemoUser(state.user))
   const {
     data: certifications,
     isPending,
@@ -40,29 +45,15 @@ const CertificationsCard = () => {
   } = useQuery({
     queryKey: ["certifications", "list"],
     queryFn: getCertifications,
-    enabled: demo,
   })
-  const summary =
-    demo && certifications ? summarize(certifications, new Date()) : undefined
+  const summary = certifications?.length
+    ? summarize(certifications, new Date())
+    : undefined
 
   return (
     <article className="flex flex-col justify-between gap-6 rounded-xl bg-card p-6 shadow-sm">
       <div className="flex flex-col gap-2">
-        {!demo ? (
-          <div className="flex flex-col pt-2">
-            <h2
-              className={cn(
-                typography.headlineMd,
-                "font-bold text-brand-primary"
-              )}
-            >
-              Certificaciones
-            </h2>
-            <p className={cn(typography.bodySm, "text-muted-foreground")}>
-              Aún no tienes certificaciones registradas.
-            </p>
-          </div>
-        ) : isPending ? (
+        {isPending ? (
           <p
             role="status"
             className={cn(typography.bodySm, "pt-2 text-muted-foreground")}
@@ -104,7 +95,7 @@ const CertificationsCard = () => {
                     className="size-2 shrink-0 rounded-full bg-brand-secondary"
                   />
                   Certificaciones Aptas:
-                </span>
+                </span>{" "}
                 <span className="font-semibold text-brand-primary">
                   {summary.validCount} Requisitos
                 </span>
@@ -130,7 +121,21 @@ const CertificationsCard = () => {
               ) : null}
             </div>
           </>
-        ) : null}
+        ) : (
+          <div className="flex flex-col pt-2">
+            <h2
+              className={cn(
+                typography.headlineMd,
+                "font-bold text-brand-primary"
+              )}
+            >
+              Certificaciones
+            </h2>
+            <p className={cn(typography.bodySm, "text-muted-foreground")}>
+              Aún no tienes certificaciones registradas.
+            </p>
+          </div>
+        )}
 
         {/* Después del h2 en el DOM (orden de lectura); order-first lo muestra arriba. */}
         <div className="order-first flex items-center justify-between gap-2">
@@ -146,7 +151,7 @@ const CertificationsCard = () => {
             >
               <CertificationIcon aria-hidden="true" className="size-5" />
             </span>
-            Habilitaciones RAC
+            Habilitaciones FAA
           </p>
           {summary ? (
             <p

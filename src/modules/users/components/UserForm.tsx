@@ -24,6 +24,7 @@ import type {
   UserCatalogs,
   UserRoleGroup,
   UserShift,
+  UserStatus,
 } from "@/modules/users/types/users.types"
 import { SHIFT_OPTIONS } from "@/modules/users/utils/userLabels"
 
@@ -115,6 +116,8 @@ const EMPTY_USER_FORM: CreateUserFormValues = {
   roleTitle: "",
   base: "",
   shift: "",
+  // El supervisor empieza disponible, como en el backend.
+  status: "disponible",
 }
 
 // Texto del aviso general (errores que no son de un campo).
@@ -183,6 +186,8 @@ const UserForm = ({
     !catalogs.crewPositions.includes(defaultValues.roleTitle)
       ? [defaultValues.roleTitle, ...catalogs.crewPositions]
       : catalogs.crewPositions
+  // Supervisor guardado sin estado operativo: la lista ofrece «Sin estado» y no se exige.
+  const withoutStatus = defaultValues.status === ""
 
   // Envío al backend (crear o editar, según la ventana). Las mutaciones no se reintentan
   // solas (ADR 003): si falla, el usuario decide si vuelve a intentar.
@@ -220,6 +225,7 @@ const UserForm = ({
       roleTitle: role === "tripulacion" ? values.roleTitle : "",
       base: role === "administrador" ? "" : values.base,
       shift: role === "supervisor" ? (values.shift as UserShift) : "",
+      status: role === "supervisor" ? (values.status as UserStatus | "") : "",
     })
   }
 
@@ -461,6 +467,33 @@ const UserForm = ({
                     {SHIFT_OPTIONS.map((shift) => (
                       <option key={shift.value} value={shift.value}>
                         {shift.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              ) : null}
+              {/* Estado operativo (D14): solo Supervisor, con el catálogo del backend.
+                  Siempre tiene uno elegido, así que no lleva «Selecciona…». Un
+                  supervisor guardado sin estado se abre con «Sin estado», que no se
+                  envía. */}
+              {isSupervisor ? (
+                <Field
+                  id={`${id}-status`}
+                  label="Estado operativo"
+                  required={!withoutStatus}
+                  error={errors.status?.message}
+                >
+                  <select
+                    {...a11y("status", !withoutStatus)}
+                    className={controlClass}
+                    {...register("status")}
+                  >
+                    {withoutStatus ? (
+                      <option value="">Sin estado</option>
+                    ) : null}
+                    {catalogs.supervisorStatuses.map((status) => (
+                      <option key={status.value} value={status.value}>
+                        {status.label}
                       </option>
                     ))}
                   </select>

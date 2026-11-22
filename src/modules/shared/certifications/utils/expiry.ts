@@ -1,4 +1,7 @@
-import type { CertificationStatus } from "@/modules/shared/certifications/types/certifications.types"
+import type {
+  Certification,
+  CertificationStatus,
+} from "@/modules/shared/certifications/types/certifications.types"
 
 const DAY_MS = 86_400_000
 const WARNING_DAYS = 60
@@ -43,6 +46,15 @@ export const getExpiryInfo = (
     days < 0 ? "vencido" : days < WARNING_DAYS ? "proximo" : "vigente"
   return { status, days }
 }
+
+// Estado de una certificación: el de su fecha o, sin fecha, el del expediente real.
+export const getCertificationStatus = (
+  certification: Pick<Certification, "expiresAt" | "undatedStatus">,
+  today: Date
+): { status: CertificationStatus; days: number | null } =>
+  certification.expiresAt === null && certification.undatedStatus
+    ? { status: certification.undatedStatus, days: null }
+    : getExpiryInfo(certification.expiresAt, today)
 
 export const formatShortDate = (isoDate: string) => {
   const date = parseIsoDate(isoDate)

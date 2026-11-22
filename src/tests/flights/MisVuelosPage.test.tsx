@@ -17,7 +17,7 @@ const LAZY = { timeout: 3000 }
 const H1 = "Mis Vuelos Asignados"
 const OVERLINE = "Roster Operativo • Itinerario Mensual"
 const DESCRIPTION =
-  "Gestión de itinerarios, vuelos programados y seguimiento de horas reglamentarias FDP (RAC 121)."
+  "Gestión de itinerarios, vuelos programados y seguimiento de horas reglamentarias FDP (14 CFR Part 117)."
 
 const METRIC_TITLES = [
   "Límite Mensual FDP",

@@ -21,7 +21,7 @@ const PHOTO_TIMEOUT_MS = 60_000
 
 // Valores de `status` del tripulante en el backend.
 export type CrewMemberStatus =
-  "available" | "on_duty" | "in_flight" | "medical_leave"
+  "available" | "on_duty" | "in_flight" | "medical_leave" | "vacation"
 
 export interface MyCrewMember {
   employee_code: string

@@ -1,7 +1,7 @@
 // Tripulación del turno del Supervisor (spec docs/specs/tripulacion-supervisor.md).
 
 export type CrewStatus =
-  "guardia" | "en_vuelo" | "programado" | "descanso" | "ausente"
+  "guardia" | "en_vuelo" | "programado" | "descanso" | "ausente" | "sin_asignar"
 
 export interface FlightRef {
   flightNumber: string // «AV-4021»
@@ -45,6 +45,8 @@ export type CrewMember =
       flight: FlightRef | null
       reason: string
     })
+  // Sin vuelo, guardia, descanso ni ausencia en el turno (spec tripulacion-sin-asignacion).
+  | (CrewMemberBase & { status: "sin_asignar" })
 
 export interface ShiftCrew {
   base: { code: string; name: string } // { code: "BOG", name: "Base Eldorado" }

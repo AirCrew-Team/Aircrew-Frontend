@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useLocation } from "react-router"
 
-import type { AuthUser } from "@/App/types/auth.types"
+import { ROLES, type AuthUser } from "@/App/types/auth.types"
 import type { NavItem } from "@/App/types/navigation.types"
 import { CloseIcon, MenuIcon } from "@/App/utils/icons"
 import { cn } from "@/lib/utils"
@@ -39,7 +39,8 @@ const Navbar = ({ items, user, photoUrl }: NavbarProps) => {
           <NavbarLinks items={items} className="hidden lg:block" />
 
           <div className="flex items-center gap-1 sm:gap-2 lg:border-l lg:border-brand-border/15 lg:pl-4">
-            <NotificationsMenu />
+            {/* El super_admin no tiene notificaciones (D11): sin campana. */}
+            {user.role === ROLES.SUPER_ADMIN ? null : <NotificationsMenu />}
             <ProfileMenu user={user} photoUrl={photoUrl} />
             <button
               type="button"

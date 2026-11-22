@@ -52,6 +52,7 @@ const CATALOGS: UserCatalogs = {
     { value: "guardia", label: "En guardia" },
     { value: "vuelo", label: "En vuelo" },
     { value: "permiso_medico", label: "Permiso médico" },
+    { value: "vacaciones", label: "Vacaciones" },
   ],
   supervisorStatuses: [
     { value: "disponible", label: "Disponible" },
@@ -394,7 +395,10 @@ export const createUser = (input: CreateUserInput): Promise<CrewUser> =>
       id: code ?? `demo-${CREATED_USERS.length + 1}`,
       code,
       ...fields,
-      status: fields.roleGroup === "administrador" ? null : "disponible",
+      status:
+        fields.roleGroup === "administrador"
+          ? null
+          : input.status || "disponible",
       pendingActivation: true,
       isActive: true,
     }
@@ -427,10 +431,12 @@ export const updateUser = (
     Object.assign(user, fields, {
       // Un supervisor que pasa a administrador pierde su código, base y estado.
       code: fields.roleGroup === "administrador" ? null : user.code,
+      // Sin estado elegido («Sin estado» de un supervisor o rol sin estado) se queda el
+      // que tenía, como el backend cuando no llega operational_status.
       status:
         fields.roleGroup === "administrador"
           ? null
-          : (user.status ?? "disponible"),
+          : input.status || user.status,
     })
     PHONES.set(id, input.phone)
     return { ...user }
@@ -442,4 +448,18 @@ export const deleteUser = (id: string): Promise<void> =>
     const user = findUser(id)
     if (!user) throw new Error(`Usuario ${id} no encontrado`)
     user.isActive = false
+  })
+
+// Eliminación definitiva: sale de la lista y de los conteos de su rol. La cuenta demo
+// no está en la lista, así que no hay caso «eliminarse a sí mismo».
+export const deleteUserPermanently = (id: string): Promise<void> =>
+  later(() => {
+    const user = findUser(id)
+    if (!user) throw new Error(`Usuario ${id} no encontrado`)
+    for (const list of [CREATED_USERS, USERS]) {
+      const index = list.indexOf(user)
+      if (index !== -1) list.splice(index, 1)
+    }
+    ROLE_CHANGES[user.roleGroup] -= 1
+    PHONES.delete(id)
   })

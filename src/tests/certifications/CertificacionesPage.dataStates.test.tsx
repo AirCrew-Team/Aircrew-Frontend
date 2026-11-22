@@ -307,20 +307,17 @@ describe("Certificaciones: resumen y estados derivados de las fechas (CE-03)", (
       "Licencia Vence Mañana, Licencia Vence Hoy"
     )
     expectSummary(main, "Vencido / No apto", 1, "Licencia Vencida Ayer")
-    getByFullText(
-      main,
-      "3 licencias cargadas en expediente digital (SKBO Base)"
-    )
+    getByFullText(main, "3 licencias cargadas en expediente digital")
   })
 
-  it("R y L (contrato): con una sola licencia vigente se ve «1 licencia cargada en expediente digital (SKBO Base)», «1 Certificado» y las notas vacías de R2 y R3", async () => {
+  it("R y L (contrato): con una sola licencia vigente se ve «1 licencia cargada en expediente digital», «1 Certificado» y las notas vacías de R2 y R3", async () => {
     certificationsData.overrides.getCertifications = () =>
       Promise.resolve([certification("atp", ATP, "2028-11-28")])
 
     renderRoute(PATHS.tripulante.certificaciones)
     const main = await findLoaded(1)
 
-    getByFullText(main, "1 licencia cargada en expediente digital (SKBO Base)")
+    getByFullText(main, "1 licencia cargada en expediente digital")
     expectSummary(main, "Vigente / Al día", 1, "Aptos para despacho inmediato")
     expectSummary(
       main,

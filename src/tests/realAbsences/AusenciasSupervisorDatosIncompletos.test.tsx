@@ -25,7 +25,7 @@ const NO_NAME = "Tripulante sin nombre"
 const PENDING = "Por aprobar"
 const DETAIL = /^Ver detalle/
 
-// ApiAbsence de los mocks no admite null: aquí las filas son objetos sueltos.
+// Filas sueltas, no ApiAbsence: algunas traen un estado que el backend no tiene.
 type Row = Record<string, unknown> & { id: string }
 
 const mockList = (list: Row[]) =>

@@ -9,8 +9,8 @@ import { useAuthStore } from "@/stores/auth.store"
 import { renderRoute } from "../utils/renderRoute"
 import { findToast } from "../utils/toasts"
 
-// Acciones de cada fila con la cuenta demo: ojo, lápiz (editar) y papelera (desactivar
-// con confirmación).
+// Acciones de cada fila con la cuenta demo: ojo, lápiz (editar), candado (desactivar con
+// confirmación) y papelera (eliminar definitivamente: UsuariosPage.permanentDelete*).
 // Va en su propio archivo porque editar y desactivar cambian los datos simulados en
 // memoria. Los tests que cambian datos van al final y cada uno usa un usuario distinto.
 
@@ -90,7 +90,7 @@ const optionTexts = (select: HTMLElement) =>
     .map((option) => option.textContent)
 
 describe("Usuarios: acciones de cada fila", () => {
-  it("cada fila tiene ojo, lápiz y papelera, solo con ícono y con nombre accesible", async () => {
+  it("cada fila tiene ojo, lápiz, candado y papelera, solo con ícono y con nombre accesible", async () => {
     await renderUsers()
     const row = rowOf("Diego Salcedo")
 
@@ -99,6 +99,7 @@ describe("Usuarios: acciones de cada fila", () => {
       "Ver más información de Diego Salcedo",
       "Editar a Diego Salcedo",
       "Desactivar a Diego Salcedo",
+      "Eliminar a Diego Salcedo",
     ])
     // Sin texto visible: solo el ícono, con ayuda al pasar el mouse.
     for (const button of buttons) expect(button.textContent).toBe("")
@@ -106,6 +107,7 @@ describe("Usuarios: acciones de cada fila", () => {
       "Ver más información",
       "Editar",
       "Desactivar",
+      "Eliminar",
     ])
   })
 })
@@ -219,6 +221,7 @@ describe("Usuarios: editar", () => {
       roleTitle: "Comandante",
       base: "ATL",
       shift: "",
+      status: "",
     }
     // id, lo nuevo y lo que había: con eso la acción envía solo lo que cambió.
     const call = usersData.calls.find((entry) => entry.name === "updateUser")
@@ -252,7 +255,7 @@ describe("Usuarios: editar", () => {
 })
 
 describe("Usuarios: desactivar", () => {
-  it("la papelera pide confirmación; «Cancelar» cierra sin desactivar", async () => {
+  it("«Desactivar» pide confirmación; «Cancelar» cierra sin desactivar", async () => {
     const { user, trigger, dialog } = await openDeactivate("Valeria Ortiz")
 
     expect(dialog).toHaveAccessibleDescription(
@@ -295,7 +298,7 @@ describe("Usuarios: desactivar", () => {
     expect(
       usersData.calls.find((call) => call.name === "deleteUser")?.args
     ).toEqual(["AC-5520"])
-    // Sigue en la lista, con «Inactivo» y la papelera deshabilitada.
+    // Sigue en la lista, con «Inactivo» y «Desactivar» deshabilitado.
     await waitFor(() =>
       expect(rowOf("Valeria Ortiz")).toHaveTextContent("Inactivo")
     )

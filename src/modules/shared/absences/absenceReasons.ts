@@ -4,7 +4,7 @@ import type { AbsenceReason } from "@/App/types/absences.types"
 // tablero de Ausencias del supervisor.
 export const ABSENCE_REASON_LABELS: Record<AbsenceReason, string> = {
   incapacidad: "Incapacidad médica repentina",
-  fatiga: "Fatiga operacional / RAC 212",
+  fatiga: "Fatiga operacional / 14 CFR 117.5",
   calamidad: "Calamidad doméstica o familiar",
   traslado: "Dificultad de traslado comprobada",
 }

@@ -1,9 +1,6 @@
 import * as demo from "./supervisorHome.demo"
 import { withDemo } from "@/modules/shared/session/demoSession"
-import {
-  getMyBase,
-  type ApiMyBase,
-} from "@/modules/shared/base/myBase"
+import { getMyBase, type ApiMyBase } from "@/modules/shared/base/myBase"
 import { getShiftCrew } from "@/modules/shiftCrew/data/shiftCrew.data"
 import type {
   AbsencesSummary,
@@ -45,9 +42,12 @@ interface ApiCurrentShift {
 // Banner: estado del turno en la base. Los textos fijos son del diseño, no del backend.
 const getShiftStatusFromApi = async (): Promise<ShiftStatus> => {
   const base = await getMyBase()
-  const { data } = await apiClient.get<ApiCurrentShift>("/api/crew/shifts/current", {
-    params: { base: base.iata },
-  })
+  const { data } = await apiClient.get<ApiCurrentShift>(
+    "/api/crew/shifts/current",
+    {
+      params: { base: base.iata },
+    }
+  )
   return {
     tag: "Control Operacional y Contingencias",
     location: `${base.icao} • ${base.base_name}`,
@@ -69,8 +69,15 @@ interface ApiAbsenceStats {
   resolution_rate: number | null
 }
 
-const getAbsenceStats = async () =>
-  (await apiClient.get<ApiAbsenceStats>("/api/crew/absences/stats")).data
+// Con la base del supervisor: el backend calcula «hoy» en la zona de su hub.
+const getAbsenceStats = async () => {
+  const base = await getMyBase()
+  const { data } = await apiClient.get<ApiAbsenceStats>(
+    "/api/crew/absences/stats",
+    { params: { base: base.iata } }
+  )
+  return data
+}
 
 // Tarjeta de recomendaciones: por aprobar y tasa de resolución (30 días).
 const getReplacementRequestsSummaryFromApi =
@@ -89,11 +96,17 @@ interface ApiOpenAbsence {
 
 const CRITICAL_WINDOW_MS = 2 * 60 * 60 * 1000
 
-// Tarjeta de ausencias: sin resolver y las que afectan una salida en menos de 2 h.
+// Tarjeta de ausencias: sin resolver y las que afectan una salida en menos de 2 h. Solo
+// las ausencias por vuelo (kind=flight), las que piden reemplazo: una ausencia por fechas
+// crea una hija por cada vuelo afectado y sigue «reported» hasta cubrirse, así que sin
+// kind se contaría dos veces.
 const getAbsencesSummaryFromApi = async (): Promise<AbsencesSummary> => {
-  const { data } = await apiClient.get<ApiOpenAbsence[]>("/api/crew/absences")
+  const { data } = await apiClient.get<ApiOpenAbsence[]>("/api/crew/absences", {
+    params: { kind: "flight" },
+  })
   const open = data.filter(
-    (absence) => absence.status === "reported" || absence.status === "pending_ack"
+    (absence) =>
+      absence.status === "reported" || absence.status === "pending_ack"
   )
   const now = Date.now()
   return {
@@ -105,24 +118,38 @@ const getAbsencesSummaryFromApi = async (): Promise<AbsencesSummary> => {
   }
 }
 
-// Tarjeta de tripulación: en servicio (guardia, en vuelo o programados) y qué parte
-// de la tripulación del turno no está ausente.
+// Tarjeta de tripulación, con las mismas fórmulas que «Tu base» de Tripulación: en
+// servicio = total − ausentes − sin asignación; aptos = total − ausentes.
 const getCrewSummaryFromApi = async (): Promise<CrewSummary> => {
   const { members } = await getShiftCrew()
-  const onDuty = members.filter((member) =>
-    ["guardia", "en_vuelo", "programado"].includes(member.status)
-  ).length
-  const absent = members.filter((member) => member.status === "ausente").length
+  const total = members.length
+  const fit =
+    total - members.filter((member) => member.status === "ausente").length
   return {
-    onDuty,
-    availabilityPercent:
-      onDuty + absent === 0 ? 0 : Math.round((onDuty / (onDuty + absent)) * 100),
+    onDuty:
+      fit - members.filter((member) => member.status === "sin_asignar").length,
+    availabilityPercent: total === 0 ? 0 : Math.round((fit / total) * 100),
   }
 }
 
 // Cuenta demo → datos de ejemplo (D4); sesión real → backend.
-export const getSupervisionCenter = withDemo(getSupervisionCenterFromApi, demo.getSupervisionCenter)
-export const getShiftStatus = withDemo(getShiftStatusFromApi, demo.getShiftStatus)
-export const getReplacementRequestsSummary = withDemo(getReplacementRequestsSummaryFromApi, demo.getReplacementRequestsSummary)
-export const getAbsencesSummary = withDemo(getAbsencesSummaryFromApi, demo.getAbsencesSummary)
-export const getCrewSummary = withDemo(getCrewSummaryFromApi, demo.getCrewSummary)
+export const getSupervisionCenter = withDemo(
+  getSupervisionCenterFromApi,
+  demo.getSupervisionCenter
+)
+export const getShiftStatus = withDemo(
+  getShiftStatusFromApi,
+  demo.getShiftStatus
+)
+export const getReplacementRequestsSummary = withDemo(
+  getReplacementRequestsSummaryFromApi,
+  demo.getReplacementRequestsSummary
+)
+export const getAbsencesSummary = withDemo(
+  getAbsencesSummaryFromApi,
+  demo.getAbsencesSummary
+)
+export const getCrewSummary = withDemo(
+  getCrewSummaryFromApi,
+  demo.getCrewSummary
+)

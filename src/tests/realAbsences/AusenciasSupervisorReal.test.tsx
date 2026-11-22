@@ -1,4 +1,10 @@
-import { cleanup, screen, waitFor, within } from "@testing-library/react"
+import {
+  cleanup,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { HttpResponse } from "msw"
 import {
@@ -29,6 +35,7 @@ import {
 } from "../mocks/absencesApi"
 import { REAL_USERS } from "../mocks/profileApi"
 import { renderRoute } from "../utils/renderRoute"
+import { findToast, queryAllToasts } from "../utils/toasts"
 import {
   alertsWithText,
   loadingStatuses,
@@ -39,7 +46,8 @@ import {
 // Spec ausencias-reales, F4: el tablero de Ausencias del supervisor con sesión real usa
 // GET /api/crew/absences (AU-08) y «Ver detalle» abre un popup con GET /absences/:id
 // (AU-09). El comprobante se previsualiza dentro del popup y se descarga con un enlace
-// nativo (Ampliación A, AU-13 a AU-17; sustituye la descarga con blob de AU-10). Con
+// (Ampliación A, AU-13 a AU-17; sustituye la descarga de AU-10): desde FE-7 de
+// cierre-pendientes, al blob de la vista previa o, sin blob, por apiClient. Con
 // showSaveFilePicker, «Descargar» abre «Guardar como», y la vista previa gana modos de
 // tamaño y «Abrir en pestaña nueva» (Ampliación B, AU-18 a AU-22). El supervisor demo
 // sigue con los datos de ejemplo (AU-11).
@@ -332,7 +340,8 @@ describe("AU-23 y AU-24: popup con encabezado fijo", () => {
 })
 
 // Ampliación A: el bloque «Comprobante» solo tiene «Previsualizar». La vista previa se
-// muestra dentro del popup y, junto a ella, el enlace nativo «Descargar» (sin blobs).
+// muestra dentro del popup y, junto a ella, el enlace «Descargar» (al blob ya cargado
+// desde FE-7; no crea blobs nuevos).
 describe("AU-13 a AU-17: comprobante con vista previa", () => {
   const originalCreate = URL.createObjectURL
   const originalRevoke = URL.revokeObjectURL
@@ -367,9 +376,10 @@ describe("AU-13 a AU-17: comprobante con vista previa", () => {
   const fileResponse = (body: Uint8Array, mimeType: string) => () =>
     new HttpResponse(body, { headers: { "Content-Type": mimeType } })
 
-  // Abre el detalle ya cargado de una ausencia con el comprobante dado.
+  // Abre el detalle ya cargado de una ausencia (con nombre: es el de su tarjeta) con el
+  // comprobante dado.
   const openAttachment = async (
-    absence: ApiAbsence,
+    absence: ApiAbsence & { crew_name: string },
     respond: () => Response | Promise<Response> = fileResponse(
       PDF,
       "application/pdf"
@@ -472,14 +482,22 @@ describe("AU-13 a AU-17: comprobante con vista previa", () => {
     expect(attachmentIds).toEqual([])
   })
 
-  it("AU-13 y AU-20: sin showSaveFilePicker, con la vista previa abierta aparece el enlace «Descargar» con href ${API_URL}/api/crew/absences/{id}/attachment", async () => {
+  // FE-7 (F11c, cierre-pendientes) sustituye el href del gateway de AU-13: con el blob ya
+  // cargado, el enlace lo descarga sin pedir nada (con la sesión vencida, el gateway daría
+  // su JSON del 401 en la pestaña).
+  it("AU-13, AU-20 y FE-7: sin showSaveFilePicker, con la vista previa abierta el enlace «Descargar» apunta a la URL del blob mostrada, con download = file_name", async () => {
     expect("showSaveFilePicker" in window).toBe(false)
     const { user, dialog } = await openAttachment(PDF_ABSENCE)
 
     await openPreview(user, dialog)
 
+    const shown = within(dialog)
+      .getByTitle("Comprobante: incapacidad-laura.pdf")
+      .getAttribute("src")
+    expect(createdUrls()).toContain(shown)
     const link = within(dialog).getByRole("link", { name: DOWNLOAD })
-    expect(link.getAttribute("href")).toBe(attachmentUrl(PDF_ABSENCE.id))
+    expect(link).toHaveAttribute("href", shown)
+    expect(link).toHaveAttribute("download", "incapacidad-laura.pdf")
   })
 
   it("AU-13 y AU-20: sin showSaveFilePicker, pulsar «Descargar» no crea blobs ni pide el adjunto por JavaScript: la descarga es la del navegador", async () => {
@@ -898,6 +916,289 @@ describe("AU-13 a AU-17: comprobante con vista previa", () => {
       expect(
         within(dialog).queryByRole("button", { name: FIT_WIDTH })
       ).toBeNull()
+    })
+
+    // FE-7 de cierre-pendientes: «Ver tamaño real» centra la imagen (F11a) y la descarga
+    // sin blob pasa por apiClient, así un 401 cierra la sesión con su toast (F11c).
+    describe("FE-7: tamaño real centrado y descarga con la sesión vencida", () => {
+      const EXPIRED = "Tu sesión venció. Inicia sesión de nuevo."
+      const IMAGE_NAME = "Comprobante: incapacidad-laura.png"
+      // Nombre con tilde: se guarda tal cual, sin pasar por el Content-Disposition.
+      const GIF_NAME = "comprobante-médico.gif"
+      const ACCENTED_GIF = withAttachment(GIF_NAME, "image/gif")
+
+      // jsdom no calcula el layout: el contenido mide 2000×1600 y el área visible
+      // 500×400 (ejes distintos para detectar un cambio de eje). Centro: 750 y 600.
+      const stubLayout = () => {
+        vi.spyOn(Element.prototype, "scrollWidth", "get").mockReturnValue(2000)
+        vi.spyOn(Element.prototype, "clientWidth", "get").mockReturnValue(500)
+        vi.spyOn(Element.prototype, "scrollHeight", "get").mockReturnValue(1600)
+        vi.spyOn(Element.prototype, "clientHeight", "get").mockReturnValue(400)
+      }
+      // El <img> es un nodo nuevo al cambiar de modo: se simula en el prototipo.
+      const stubImageComplete = (complete: boolean) =>
+        vi
+          .spyOn(HTMLImageElement.prototype, "complete", "get")
+          .mockReturnValue(complete)
+
+      const openImageActual = async () => {
+        const opened = await openAttachment(
+          PNG_ABSENCE,
+          fileResponse(PNG, "image/png")
+        )
+        await openPreview(opened.user, opened.dialog)
+        await opened.user.click(
+          within(opened.dialog).getByRole("button", { name: ACTUAL_SIZE })
+        )
+        const region = within(opened.dialog).getByRole("region", {
+          name: "Comprobante a tamaño real",
+        })
+        return { ...opened, region }
+      }
+
+      it("F11a: si la imagen ya está cargada, «Ver tamaño real» centra el scroll del área en los dos ejes de inmediato", async () => {
+        stubLayout()
+        stubImageComplete(true)
+
+        const { region } = await openImageActual()
+
+        expect(region.scrollLeft).toBe(750)
+        expect(region.scrollTop).toBe(600)
+      })
+
+      it("F11a: si la imagen aún no ha cargado, el scroll se centra cuando termina de cargar", async () => {
+        stubLayout()
+        stubImageComplete(false)
+
+        const { region } = await openImageActual()
+        expect(region.scrollLeft).toBe(0)
+        expect(region.scrollTop).toBe(0)
+
+        fireEvent.load(within(region).getByRole("img", { name: IMAGE_NAME }))
+
+        expect(region.scrollLeft).toBe(750)
+        expect(region.scrollTop).toBe(600)
+      })
+
+      it("F11a: una vez centrado, otro render (guardar el archivo) no vuelve a mover el scroll del usuario", async () => {
+        installSavePicker()
+        stubLayout()
+        stubImageComplete(true)
+        const { user, dialog, region } = await openImageActual()
+        expect(region.scrollLeft).toBe(750)
+        region.scrollLeft = 120
+        region.scrollTop = 40
+
+        await clickDownload(user, dialog)
+        await within(dialog).findByText(SAVED)
+
+        expect(region.scrollLeft).toBe(120)
+        expect(region.scrollTop).toBe(40)
+      })
+
+      // Revisión final: liberar la URL enseguida puede cortar la descarga en algunos
+      // navegadores. Los temporizadores de 10 s a 1 min se guardan sin programarlos (así
+      // tampoco saltan después del test, con revokeObjectURL ya restaurado); los demás
+      // (waitFor, TanStack Query) siguen siendo reales. También se guardan los 10 s de
+      // timeout de cada petición de Axios, que así no vencen.
+      const holdLongTimeouts = () => {
+        const held: { callback: () => void; delay: number }[] = []
+        const realSetTimeout = globalThis.setTimeout
+        vi.spyOn(globalThis, "setTimeout").mockImplementation(((
+          callback: () => void,
+          delay?: number,
+          ...args: unknown[]
+        ) => {
+          if (delay !== undefined && delay >= 10_000 && delay <= 60_000) {
+            held.push({ callback, delay })
+            return 0
+          }
+          return realSetTimeout(callback, delay, ...args)
+        }) as typeof setTimeout)
+        return held
+      }
+
+      it("F11c: sin blob (tipo no previsualizable) y sin showSaveFilePicker, «Descargar» sigue siendo un enlace, pide el adjunto con apiClient y lo descarga como blob con el nombre de la ausencia", async () => {
+        holdLongTimeouts()
+        const clicks: { href: string; download: string }[] = []
+        vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(
+          function (this: HTMLAnchorElement) {
+            clicks.push({
+              href: this.getAttribute("href") ?? "",
+              download: this.download,
+            })
+          }
+        )
+        const { user, dialog, attachmentIds } = await openAttachment(
+          ACCENTED_GIF,
+          fileResponse(PNG, "image/gif")
+        )
+        await user.click(previewButton(dialog))
+        await waitFor(() => expect(dialog).toHaveTextContent(CANNOT_PREVIEW))
+        expect(attachmentIds).toEqual([])
+        expect(createObjectURL).not.toHaveBeenCalled()
+        const link = within(dialog).getByRole("link", { name: DOWNLOAD })
+        const navigation = trackNavigation()
+
+        await user.click(link)
+
+        expect(navigation.preventedByApp).toBe(true)
+        await waitFor(() => expect(clicks).toHaveLength(1))
+        expect(attachmentIds).toEqual([ACCENTED_GIF.id])
+        expect(createObjectURL).toHaveBeenCalledTimes(1)
+        const blob = createObjectURL.mock.calls[0][0]
+        expect(blob.size).toBe(PNG.byteLength)
+        expect(clicks[0]).toEqual({
+          href: createdUrls()[0],
+          download: GIF_NAME,
+        })
+        expect(within(dialog).queryAllByRole("alert")).toEqual([])
+      })
+
+      it("Revisión: tras la descarga sin blob, la URL temporal se libera a los 10 s, no enseguida", async () => {
+        const held = holdLongTimeouts()
+        // Temporizadores guardados hasta el clic del <a> temporal de la descarga.
+        let heldAtClick = -1
+        vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(
+          function (this: HTMLAnchorElement) {
+            programmaticClicks.push(this.getAttribute("href") ?? "")
+            heldAtClick = held.length
+          }
+        )
+        const { user, dialog } = await openAttachment(
+          ACCENTED_GIF,
+          fileResponse(PNG, "image/gif")
+        )
+        await user.click(previewButton(dialog))
+        await waitFor(() => expect(dialog).toHaveTextContent(CANNOT_PREVIEW))
+        trackNavigation()
+
+        await user.click(within(dialog).getByRole("link", { name: DOWNLOAD }))
+
+        await waitFor(() => expect(programmaticClicks).toHaveLength(1))
+        const url = createdUrls()[0]
+        await new Promise((resolve) => setTimeout(resolve, 50))
+        expect(revokeObjectURL).not.toHaveBeenCalledWith(url)
+        // Después del clic solo se programa la liberación de la URL.
+        const afterClick = held.slice(heldAtClick)
+        expect(afterClick).toHaveLength(1)
+        expect(afterClick[0].delay).toBeGreaterThanOrEqual(10_000)
+
+        afterClick[0].callback()
+
+        expect(revokeObjectURL).toHaveBeenCalledWith(url)
+      })
+
+      it("Revisión: mientras se descarga sin blob, «Descargar» queda aria-disabled y otro clic no pide el adjunto otra vez ni navega", async () => {
+        let release = () => {}
+        const gate = new Promise<void>((resolve) => {
+          release = resolve
+        })
+        onTestFinished(() => release())
+        holdLongTimeouts()
+        const { user, dialog, attachmentIds } = await openAttachment(
+          ACCENTED_GIF,
+          async () => {
+            await gate
+            return fileResponse(PNG, "image/gif")()
+          }
+        )
+        await user.click(previewButton(dialog))
+        await waitFor(() => expect(dialog).toHaveTextContent(CANNOT_PREVIEW))
+        const link = within(dialog).getByRole("link", { name: DOWNLOAD })
+        const navigation = trackNavigation()
+
+        await user.click(link)
+        await waitFor(() => expect(attachmentIds).toHaveLength(1))
+        expect(link).toHaveAttribute("aria-disabled", "true")
+
+        await user.click(link)
+        expect(navigation.preventedByApp).toBe(true)
+        await new Promise((resolve) => setTimeout(resolve, 50))
+        expect(attachmentIds).toHaveLength(1)
+
+        release()
+
+        await waitFor(() => expect(programmaticClicks).toHaveLength(1))
+        await waitFor(() => expect(link).not.toHaveAttribute("aria-disabled"))
+        expect(attachmentIds).toHaveLength(1)
+      })
+
+      it("F11c: con la sesión vencida, «Descargar» sin blob no navega al gateway: el 401 cierra la sesión con un único toast «Tu sesión venció…»", async () => {
+        const { user, dialog, attachmentIds } = await openAttachment(
+          ACCENTED_GIF,
+          () => absenceError(401, "Token vencido")
+        )
+        await user.click(previewButton(dialog))
+        await waitFor(() => expect(dialog).toHaveTextContent(CANNOT_PREVIEW))
+        const navigation = trackNavigation()
+
+        await user.click(within(dialog).getByRole("link", { name: DOWNLOAD }))
+
+        expect(navigation.preventedByApp).toBe(true)
+        await waitFor(() => expect(useAuthStore.getState().user).toBeNull())
+        expect(await findToast(EXPIRED)).toHaveAttribute("data-type", "error")
+        await new Promise((resolve) => setTimeout(resolve, 100))
+        expect(queryAllToasts()).toHaveLength(1)
+        expect(attachmentIds).toEqual([ACCENTED_GIF.id])
+        expect(createObjectURL).not.toHaveBeenCalled()
+        expect(programmaticClicks).toEqual([])
+        expect(screen.queryByText("Token vencido")).toBeNull()
+      })
+
+      it("F11c: si la descarga sin blob falla (500), aparece en el popup el role=alert «No se pudo guardar el archivo. Intenta de nuevo.»", async () => {
+        const { user, dialog } = await openAttachment(ACCENTED_GIF, () =>
+          absenceError(500, "Error interno")
+        )
+        await user.click(previewButton(dialog))
+        await waitFor(() => expect(dialog).toHaveTextContent(CANNOT_PREVIEW))
+        trackNavigation()
+
+        await user.click(within(dialog).getByRole("link", { name: DOWNLOAD }))
+
+        await waitFor(() =>
+          expect(alertsWithText(dialog, SAVE_ERROR)).toHaveLength(1)
+        )
+        expect(dialog).not.toHaveTextContent("Error interno")
+        expect(programmaticClicks).toEqual([])
+      })
+
+      it("F11c: sin blob y con showSaveFilePicker, la ventana se abre en el mismo clic (antes de pedir el adjunto), sin extensiones vacías, y escribe el archivo pedido con apiClient", async () => {
+        const { picker, write, close } = installSavePicker()
+        const { user, dialog, attachmentIds } = await openAttachment(
+          ACCENTED_GIF,
+          fileResponse(PNG, "image/gif")
+        )
+        await user.click(previewButton(dialog))
+        await waitFor(() => expect(dialog).toHaveTextContent(CANNOT_PREVIEW))
+        let callsDuringClick: number | null = null
+        const duringClick = () => {
+          callsDuringClick = picker.mock.calls.length
+        }
+        document.addEventListener("click", duringClick)
+        onTestFinished(() => document.removeEventListener("click", duringClick))
+
+        await clickDownload(user, dialog)
+
+        expect(callsDuringClick).toBe(1)
+        expect(await within(dialog).findByText(SAVED)).toBeInTheDocument()
+        const options = picker.mock.calls[0][0] as {
+          suggestedName: string
+          types?: { accept: Record<string, unknown[]> }[]
+        }
+        expect(options.suggestedName).toBe(GIF_NAME)
+        const extensions = (options.types ?? []).flatMap((type) =>
+          Object.values(type.accept).flat()
+        )
+        expect(
+          extensions.every((extension) => typeof extension === "string")
+        ).toBe(true)
+        expect(attachmentIds).toEqual([ACCENTED_GIF.id])
+        expect(write).toHaveBeenCalledTimes(1)
+        expect((write.mock.calls[0][0] as Blob).size).toBe(PNG.byteLength)
+        expect(close).toHaveBeenCalledTimes(1)
+        expect(programmaticClicks).toEqual([])
+      })
     })
   })
 })

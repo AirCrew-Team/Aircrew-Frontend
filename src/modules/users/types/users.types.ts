@@ -4,12 +4,14 @@
 // Rol del usuario: es el valor del filtro en la URL (?role=tripulacion).
 export type UserRoleGroup = "tripulacion" | "supervisor" | "administrador"
 
-// Estado operativo. «fuera_turno» y «licencia» solo los tiene un supervisor.
+// Estado operativo. «fuera_turno» y «licencia» solo los tiene un supervisor;
+// «vuelo», «permiso_medico» y «vacaciones», un tripulante.
 export type UserStatus =
   | "disponible"
   | "guardia"
   | "vuelo"
   | "permiso_medico"
+  | "vacaciones"
   | "fuera_turno"
   | "licencia"
 
@@ -104,6 +106,8 @@ export interface CreateUserInput {
   base: string
   // Solo Supervisor; "" en los demás.
   shift: UserShift | ""
+  // Estado operativo: solo Supervisor (se envía como operational_status); "" en los demás.
+  status: UserStatus | ""
 }
 
 // Opción de una lista con código y texto.

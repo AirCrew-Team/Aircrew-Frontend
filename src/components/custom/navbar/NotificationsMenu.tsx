@@ -24,12 +24,12 @@ import { barButton, popoverSurface } from "./navbar.styles"
 // «14:32» si es de hoy; si no, «20 nov, 14:32». En la hora del navegador.
 const timeOf = (iso: string) => {
   const date = new Date(iso)
-  const time = date.toLocaleTimeString("es-CO", {
+  const time = date.toLocaleTimeString("es-US", {
     hour: "2-digit",
     minute: "2-digit",
   })
   if (date.toDateString() === new Date().toDateString()) return time
-  const day = date.toLocaleDateString("es-CO", {
+  const day = date.toLocaleDateString("es-US", {
     day: "numeric",
     month: "short",
   })

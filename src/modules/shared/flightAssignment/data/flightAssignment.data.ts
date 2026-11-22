@@ -46,7 +46,12 @@ interface ApiPlannedFlight {
   duration_minutes: number
   scope: "domestic" | "international"
   gate: string | null
-  aircraft: { model: string; family: string; registration: string; seats: number }
+  aircraft: {
+    model: string
+    family: string
+    registration: string
+    seats: number
+  }
   minimum_crew: { pilots: number; cabin: number }
   status: "unassigned" | "incomplete" | "complete" | "confirmed"
   slots: ApiSlot[]
@@ -121,7 +126,7 @@ const getScheduleDaysFromApi = async (): Promise<ScheduleDay[]> => {
   }))
 }
 
-// Vuelos de un día (hora de Colombia), ordenados por salida.
+// Vuelos de un día (hora local de la base), ordenados por salida.
 const getDayFlightsFromApi = async (date: string): Promise<PlannedFlight[]> => {
   const { data } = await apiClient.get<ApiPlannedFlight[]>(
     "/api/recommendation/schedule",
@@ -224,10 +229,19 @@ const confirmFlightCrewFromApi = async (
 }
 
 // Cuenta demo → datos de ejemplo (D4); sesión real → backend.
-export const getScheduleDays = withDemo(getScheduleDaysFromApi, demo.getScheduleDays)
+export const getScheduleDays = withDemo(
+  getScheduleDaysFromApi,
+  demo.getScheduleDays
+)
 export const getDayFlights = withDemo(getDayFlightsFromApi, demo.getDayFlights)
-export const getSlotCandidates = withDemo(getSlotCandidatesFromApi, demo.getSlotCandidates)
+export const getSlotCandidates = withDemo(
+  getSlotCandidatesFromApi,
+  demo.getSlotCandidates
+)
 export const assignCrew = withDemo(assignCrewFromApi, demo.assignCrew)
 export const unassignCrew = withDemo(unassignCrewFromApi, demo.unassignCrew)
 export const suggestCrew = withDemo(suggestCrewFromApi, demo.suggestCrew)
-export const confirmFlightCrew = withDemo(confirmFlightCrewFromApi, demo.confirmFlightCrew)
+export const confirmFlightCrew = withDemo(
+  confirmFlightCrewFromApi,
+  demo.confirmFlightCrew
+)

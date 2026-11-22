@@ -7,10 +7,17 @@ import { ROLES } from "@/App/types/auth.types"
 import { PATHS } from "@/routes/paths"
 import { useAuthStore } from "@/stores/auth.store"
 
-import { API_USERS, AUTH_URLS, errorBody, meBody } from "../mocks/authApi"
+import {
+  API_USERS,
+  AUTH_URLS,
+  errorBody,
+  meBody,
+  sessionErrorBody,
+  type SessionErrorCode,
+} from "../mocks/authApi"
 import { renderRoute } from "../utils/renderRoute"
 import { server } from "../utils/server"
-import { queryAllToasts } from "../utils/toasts"
+import { findToast, queryAllToasts } from "../utils/toasts"
 
 // Spec login-real, tarea 6 (F5): al montar las rutas se restaura la sesión con
 // GET /auth/me. Mientras responde, las rutas protegidas muestran «Cargando tu sesión…».
@@ -79,9 +86,10 @@ describe("LR-06: recargar con una sesión válida", () => {
 describe("LR-07: recargar sin sesión válida", () => {
   it.each([
     {
-      label: "401",
+      // Visita sin cookie: el backend responde 401 con code «auth_required» (FE1-F1).
+      label: "401 auth_required",
       respond: () =>
-        HttpResponse.json(errorBody("Token vencido"), { status: 401 }),
+        HttpResponse.json(sessionErrorBody("auth_required"), { status: 401 }),
     },
     {
       label: "500",
@@ -159,4 +167,70 @@ describe("F5 (punto de vigilancia 2): respuesta tardía de /auth/me", () => {
     expect(useAuthStore.getState().user).toEqual(demoUser)
     expect(router.state.location.pathname).toBe(PATHS.superVisor.inicio)
   })
+})
+
+// Spec cierre-pendientes, FE-1 (F1): al recargar con una sesión vencida o anulada,
+// /auth/me responde 401 con un code distinto de «auth_required». Además de volver al
+// Login, sale un toast de error. Sin cookie (auth_required) o sin respuesta: sin aviso.
+const SESSION_ENDED_TEXT =
+  "Tu sesión venció o se cerró. Inicia sesión de nuevo."
+
+describe("FE1-F1: recargar con una sesión vencida o anulada", () => {
+  it.each<SessionErrorCode>([
+    "session_revoked",
+    "token_expired",
+    "invalid_token",
+  ])(
+    "FE1-F1: /auth/me → 401 «%s»; /supervisor/ausencias termina en /login con un único toast de error «Tu sesión venció o se cerró. Inicia sesión de nuevo.»",
+    async (code) => {
+      const meCalls = mockMe(() =>
+        HttpResponse.json(sessionErrorBody(code), { status: 401 })
+      )
+
+      const router = renderRoute(PATHS.superVisor.ausencias)
+
+      await waitFor(() => expect(meCalls()).toBeGreaterThanOrEqual(1))
+      await waitFor(() =>
+        expect(router.state.location.pathname).toBe(PATHS.login)
+      )
+      const toast = await findToast(SESSION_ENDED_TEXT)
+      expect(toast).toHaveAttribute("data-type", "error")
+      await settle()
+
+      // Un solo aviso aunque StrictMode pida /auth/me dos veces.
+      expect(queryAllToasts(), "un solo toast").toHaveLength(1)
+      expect(router.state.location.pathname).toBe(PATHS.login)
+      expect(useAuthStore.getState()).toMatchObject({
+        user: null,
+        status: "ready",
+      })
+    }
+  )
+
+  // Anclas en verde: hoy ya no hay toast. Con el toast de arriba prueban que el aviso
+  // depende del code y no de cualquier fallo.
+  it.each([
+    {
+      label: "401 auth_required (visita sin cookie)",
+      respond: () =>
+        HttpResponse.json(sessionErrorBody("auth_required"), { status: 401 }),
+    },
+    { label: "error de red", respond: () => HttpResponse.error() },
+  ])(
+    "FE1-F1: /auth/me → $label; termina en /login sin toast",
+    async ({ respond }) => {
+      const meCalls = mockMe(respond)
+
+      const router = renderRoute(PATHS.superVisor.ausencias)
+
+      await waitFor(() => expect(meCalls()).toBeGreaterThanOrEqual(1))
+      await waitFor(() =>
+        expect(router.state.location.pathname).toBe(PATHS.login)
+      )
+      await settle()
+
+      expect(useAuthStore.getState().user).toBeNull()
+      expect(queryAllToasts(), "sin toast").toHaveLength(0)
+    }
+  )
 })

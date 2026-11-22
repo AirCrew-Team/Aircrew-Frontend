@@ -55,12 +55,19 @@ export const EVENTS_BY_ROLE: Partial<Record<Role, LiveEvent[]>> = {
       refresh: [["replacements"], ["absences"], ["crew"], ["assignment"]],
       tone: () => "warning",
     },
+    {
+      // El super_admin eliminó la cuenta de un tripulante: su puesto en un vuelo futuro
+      // quedó vacante en Programación.
+      name: "flight:slot_vacated",
+      refresh: [["assignment"]],
+      tone: () => "warning",
+    },
   ],
   [ROLES.TRIPULANTE]: [
     {
-      // Lo eligieron como reemplazo en un vuelo.
+      // Lo eligieron como reemplazo en un vuelo: banner, estado, próximo vuelo y Mis Vuelos.
       name: "assignment:replacement",
-      refresh: [["replacements"], ["crew"]],
+      refresh: [["replacements"], ["crew"], ["flights"]],
       tone: () => "warning",
     },
     {

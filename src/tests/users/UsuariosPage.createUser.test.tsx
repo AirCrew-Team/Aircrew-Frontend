@@ -398,6 +398,8 @@ describe("Añadir usuario: formulario", () => {
         roleTitle: "",
         base: "JFK",
         shift: "turno_1",
+        // D14 (FE-5): el estado operativo del supervisor empieza en «Disponible».
+        status: "disponible",
       })
     )
   })
@@ -424,6 +426,7 @@ describe("Añadir usuario: formulario", () => {
         roleTitle: "",
         base: "",
         shift: "",
+        status: "",
       })
     )
   })
@@ -509,6 +512,7 @@ describe("Añadir usuario: formulario", () => {
         roleTitle: "Comandante",
         base: "ATL",
         shift: "",
+        status: "",
       },
     ])
 

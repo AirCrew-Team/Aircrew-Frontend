@@ -33,6 +33,9 @@ export function Dialog({
 
     if (isOpen && !dialog.open) {
       dialog.showModal()
+      // showModal() enfoca el primer enfocable (la X) y pisa el autoFocus de React,
+      // que se aplicó con el <dialog> aún cerrado: el contenido marca su foco inicial.
+      dialog.querySelector<HTMLElement>("[data-autofocus]")?.focus()
     } else if (!isOpen && dialog.open) {
       dialog.close()
     }

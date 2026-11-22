@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { keepPreviousData, useQuery } from "@tanstack/react-query"
 
 import {
@@ -6,6 +6,7 @@ import {
   CabinCrewIcon,
   EditIcon,
   FlightIcon,
+  LockIcon,
   SecurityIcon,
   SupervisorIcon,
   DeleteIcon,
@@ -16,6 +17,7 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue"
 import { cn } from "@/lib/utils"
 import DeleteUserDialog from "@/modules/users/components/DeleteUserDialog"
 import EditUserDialog from "@/modules/users/components/EditUserDialog"
+import PermanentDeleteUserDialog from "@/modules/users/components/PermanentDeleteUserDialog"
 import UserDetailDialog from "@/modules/users/components/UserDetailDialog"
 import UsersPagination from "@/modules/users/components/UsersPagination"
 import UserStatusBadge, {
@@ -27,6 +29,7 @@ import { useUsersSearchParams } from "@/modules/users/hooks/useUsersSearchParams
 import type { CrewUser } from "@/modules/users/types/users.types"
 import { SHIFT_LABEL } from "@/modules/users/utils/userLabels"
 import { fullName, initials } from "@/modules/users/utils/userName"
+import { useAuthStore } from "@/stores/auth.store"
 
 // Cargos de cabina. En la tripulación, el resto (Comandante y Copiloto) son de
 // cabina de mando.
@@ -79,9 +82,22 @@ const UsersTable = () => {
   const debouncedSearch = useDebouncedValue(search)
   // ID del usuario cuyo detalle está abierto; null con la ventana cerrada.
   const [detailUserId, setDetailUserId] = useState<string | null>(null)
-  // Usuario en edición (lápiz) y usuario a desactivar (papelera); null sin ventana abierta.
+  // Usuario en edición (lápiz), a desactivar (candado) y a eliminar definitivamente
+  // (papelera); null sin ventana abierta.
   const [editUserId, setEditUserId] = useState<string | null>(null)
   const [userToDelete, setUserToDelete] = useState<CrewUser | null>(null)
+  const [userToErase, setUserToErase] = useState<CrewUser | null>(null)
+  // Nadie puede eliminar su propia cuenta (EU-05): su papelera queda deshabilitada.
+  const sessionUserId = useAuthStore((state) => state.user?.id)
+  const selfHintId = useId()
+  // Tras eliminar, la fila (y su botón) desaparece: el foco pasa al contenido. Va en un
+  // efecto que corre después de que el diálogo se cierra (y devuelve el foco al botón).
+  const focusAfterErase = useRef(false)
+  useEffect(() => {
+    if (userToErase !== null || !focusAfterErase.current) return
+    focusAfterErase.current = false
+    document.getElementById("contenido")?.focus()
+  }, [userToErase])
 
   const params = {
     page,
@@ -208,6 +224,7 @@ const UsersTable = () => {
               {data.items.map((user) => {
                 const name = fullName(user)
                 const RoleIcon = roleIcon(user)
+                const isSelf = user.id === sessionUserId
                 return (
                   // Tarjeta (por debajo de lg): nombre arriba, luego ID, rol, base, turno y
                   // estado en dos columnas, y los botones abajo a todo el ancho.
@@ -319,8 +336,9 @@ const UsersTable = () => {
                       role="cell"
                       className={cn(cellClass, "max-lg:col-span-2")}
                     >
-                      {/* Ojo (detalle), lápiz (editar) y papelera (desactivar). En la tarjeta
-                          de celular quedan a la derecha, separados del resto. */}
+                      {/* Ojo (detalle), lápiz (editar), candado (desactivar) y papelera
+                          (eliminar). En la tarjeta de celular quedan a la derecha,
+                          separados del resto. */}
                       <div className="flex items-center justify-end gap-1 max-lg:border-t max-lg:border-brand-border max-lg:pt-2">
                         <button
                           type="button"
@@ -360,8 +378,35 @@ const UsersTable = () => {
                             "text-destructive hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                           )}
                         >
+                          <LockIcon aria-hidden="true" className="size-4" />
+                        </button>
+                        {/* Eliminar: también inactivos y pendientes. En la fila propia queda
+                            con aria-disabled (enfocable, con la explicación). */}
+                        <button
+                          type="button"
+                          aria-label={`Eliminar a ${name}`}
+                          title={
+                            isSelf
+                              ? "No puedes eliminar tu propia cuenta"
+                              : "Eliminar"
+                          }
+                          aria-disabled={isSelf || undefined}
+                          aria-describedby={isSelf ? selfHintId : undefined}
+                          onClick={
+                            isSelf ? undefined : () => setUserToErase(user)
+                          }
+                          className={cn(
+                            actionClass,
+                            "text-destructive hover:bg-destructive/10 aria-disabled:cursor-not-allowed aria-disabled:opacity-40 aria-disabled:hover:bg-transparent"
+                          )}
+                        >
                           <DeleteIcon aria-hidden="true" className="size-4" />
                         </button>
+                        {isSelf ? (
+                          <span id={selfHintId} className="sr-only">
+                            No puedes eliminar tu propia cuenta.
+                          </span>
+                        ) : null}
                       </div>
                     </td>
                   </tr>
@@ -400,6 +445,15 @@ const UsersTable = () => {
       <DeleteUserDialog
         user={userToDelete}
         onClose={() => setUserToDelete(null)}
+      />
+      {/* Confirmación de eliminación definitiva. */}
+      <PermanentDeleteUserDialog
+        user={userToErase}
+        onClose={() => setUserToErase(null)}
+        onDeleted={() => {
+          focusAfterErase.current = true
+          setUserToErase(null)
+        }}
       />
     </section>
   )

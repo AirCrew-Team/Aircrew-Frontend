@@ -267,7 +267,7 @@ describe("Reportar Ausencia: validación", () => {
     expect(attachment).not.toHaveAttribute("aria-invalid", "true")
   })
 
-  it("RA-07: con «Fatiga operacional / RAC 212» y sin archivo, el envío sale bien", async () => {
+  it("RA-07: con «Fatiga operacional / 14 CFR 117.5» y sin archivo, el envío sale bien", async () => {
     const { user, reason, submit, fillDates } = await setup()
     await fillDates()
 

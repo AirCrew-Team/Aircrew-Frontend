@@ -110,7 +110,7 @@ const ContactSection = ({
       <div className="grid grid-cols-1 gap-x-4 gap-y-5 md:grid-cols-2">
         <ContactField
           label="Celular"
-          help="Con indicativo si quieres, por ejemplo +57 300 000 0000."
+          help="Con indicativo si quieres, por ejemplo +1 404 555 0123."
           icon={<PhoneIcon aria-hidden="true" className="size-4.5" />}
           optional
           inputMode="tel"

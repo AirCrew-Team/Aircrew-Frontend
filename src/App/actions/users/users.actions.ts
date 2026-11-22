@@ -40,16 +40,21 @@ const ROLE_BY_API: Record<ApiRole, UserRoleGroup> = {
   super_admin: "administrador",
 }
 
-// Tripulante: available / on_duty / in_flight / medical_leave.
+// Tripulante: available / on_duty / in_flight / medical_leave / vacation.
 // Supervisor: available / on_duty / off_duty / leave.
 const STATUS_BY_API: Record<string, UserStatus> = {
   available: "disponible",
   on_duty: "guardia",
   in_flight: "vuelo",
   medical_leave: "permiso_medico",
+  vacation: "vacaciones",
   off_duty: "fuera_turno",
   leave: "licencia",
 }
+// Al revés, para el operational_status del supervisor.
+const API_STATUS = Object.fromEntries(
+  Object.entries(STATUS_BY_API).map(([code, status]) => [status, code])
+) as Record<UserStatus, string>
 
 const API_SHIFT: Record<UserShift, ApiShift> = {
   turno_1: "morning",
@@ -149,6 +154,7 @@ const toApiBody = (input: CreateUserInput): Record<string, unknown> => {
   if (input.roleGroup === "supervisor") {
     body.base = input.base
     body.shift = input.shift ? API_SHIFT[input.shift] : null
+    if (input.status) body.operational_status = API_STATUS[input.status]
   }
   return body
 }
@@ -362,5 +368,24 @@ export const deleteUser = async (id: string): Promise<void> => {
     await apiClient.delete(userPath(id))
   } catch (error) {
     throw toUserError(error, { isCreate: false })
+  }
+}
+
+// Borra la cuenta y todo lo suyo en los servicios; el correo queda libre. Si era
+// tripulante, sus puestos en vuelos futuros quedan vacantes (el backend avisa a los
+// supervisores). La respuesta trae esos vuelos (vacated_flights), pero en un reintento
+// llega vacía: la pantalla no la usa.
+// Un 409 (eliminarse a sí mismo, último super_admin) lanza UserRequestError con el texto
+// del backend. Lo demás (404, 502 user_delete_incomplete, otro 5xx, red) se relanza y la
+// pantalla muestra su aviso genérico.
+export const deleteUserPermanently = async (id: string): Promise<void> => {
+  try {
+    await apiClient.delete(`${userPath(id)}/permanent`)
+  } catch (error) {
+    const message = backendMessage(error)
+    if (isAxiosError(error) && error.response?.status === 409 && message) {
+      throw new UserRequestError(message)
+    }
+    throw error
   }
 }

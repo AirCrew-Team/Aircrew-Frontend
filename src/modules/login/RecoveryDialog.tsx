@@ -56,8 +56,10 @@ function EmailStep({ flow }: { flow: RecoveryFlow }) {
           aria-describedby={describedBy}
           aria-invalid={flow.error === INVALID_EMAIL_MESSAGE ? true : undefined}
           autoComplete="email"
-          autoFocus
           className={dialogInputClass}
+          // Foco inicial: lo aplica Dialog tras showModal(), porque este paso solo se
+          // monta al abrir y el autoFocus de React lo pisaría showModal().
+          data-autofocus
           onChange={(event) => setEmail(event.target.value)}
           type="email"
           value={email}
@@ -100,11 +102,14 @@ function SentStep({ flow }: { flow: RecoveryFlow }) {
         una cuenta activa, te enviamos un enlace para crear una contraseña
         nueva. Vence en 10 minutos. Revisa también la carpeta de spam.
       </p>
-      {/* El foco pasa aquí al desaparecer el formulario; la descripción lee el aviso */}
+      {/* El foco pasa aquí al desaparecer el formulario; la descripción lee el aviso.
+          autoFocus porque este paso aparece con el diálogo ya abierto (sin showModal);
+          data-autofocus por si el diálogo se abriera directamente en él. */}
       <Button
         aria-describedby={messageId}
         autoFocus
         className={`${dialogPrimaryButtonClass} justify-self-end`}
+        data-autofocus
         onClick={flow.close}
         type="button"
       >

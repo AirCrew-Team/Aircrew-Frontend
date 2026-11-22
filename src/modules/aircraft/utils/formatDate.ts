@@ -1,6 +1,6 @@
 // «2026-11-02» → «2 nov 2026» (sin «de» ni punto, como en Certificaciones).
 export const formatDate = (isoDate: string) => {
-  const parts = new Intl.DateTimeFormat("es-CO", {
+  const parts = new Intl.DateTimeFormat("es-US", {
     day: "numeric",
     month: "short",
     year: "numeric",

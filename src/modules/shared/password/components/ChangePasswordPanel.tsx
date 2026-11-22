@@ -357,21 +357,22 @@ const ChangePasswordPanel = ({
           </p>
         ) : null}
         <div className="flex justify-end gap-2">
+          {/* aria-disabled y no disabled: un botón deshabilitado pierde el foco. */}
           <button
             type="button"
             onClick={() => {
+              if (mutation.isPending) return
               mutation.reset()
               close()
             }}
-            disabled={mutation.isPending}
+            aria-disabled={mutation.isPending || undefined}
             className={cn(
               buttonClass,
-              "text-brand-primary hover:bg-brand-neutral disabled:opacity-60"
+              "text-brand-primary hover:bg-brand-neutral aria-disabled:cursor-wait aria-disabled:opacity-60"
             )}
           >
             Cancelar
           </button>
-          {/* aria-disabled y no disabled: un botón deshabilitado pierde el foco. */}
           <button
             ref={submitButtonRef}
             type="button"

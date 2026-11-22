@@ -410,7 +410,7 @@ const AbsenceReportForm = () => {
             Al enviar este reporte, el sistema liberará tu posición
             inmediatamente para que el algoritmo de supervisión OCC asigne un
             tripulante en guardia standby. Esta acción genera trazabilidad
-            auditada bajo RAC 121.
+            auditada bajo 14 CFR Part 121.
           </p>
         </div>
       </div>

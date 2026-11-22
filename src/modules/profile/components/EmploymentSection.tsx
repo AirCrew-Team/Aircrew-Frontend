@@ -14,10 +14,11 @@ const STATUS_LABELS: Record<CrewMemberStatus, string> = {
   on_duty: "En servicio",
   in_flight: "En vuelo",
   medical_leave: "Incapacidad médica",
+  vacation: "Vacaciones",
 }
 
 const formatDate = (iso: string) =>
-  new Intl.DateTimeFormat("es-CO", { dateStyle: "long" }).format(new Date(iso))
+  new Intl.DateTimeFormat("es-US", { dateStyle: "long" }).format(new Date(iso))
 
 interface EmploymentSectionProps {
   // GET /crew-members/me (la consulta es de ProfileSettings).

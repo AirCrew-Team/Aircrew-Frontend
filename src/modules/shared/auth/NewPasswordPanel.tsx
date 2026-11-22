@@ -11,6 +11,9 @@ import { infoNoticeClass } from "./styles"
 
 const currentYear = new Date().getFullYear()
 
+const DEFAULT_LIMIT_MESSAGE =
+  "Hiciste demasiados intentos. Espera unos minutos e inténtalo de nuevo."
+
 type FormProps = ComponentProps<typeof NewPasswordForm>
 
 type NewPasswordPanelProps = Pick<
@@ -23,8 +26,8 @@ type NewPasswordPanelProps = Pick<
   subtitle: string
   /** Aviso cuando falta el token o el backend lo rechaza (400). */
   invalidLinkMessage: string
-  /** Solo el restablecimiento: texto del límite (429) si el backend no trae el suyo.
-   *  Sin él, un 429 se muestra como error de conexión. */
+  /** Texto del límite (429) si el backend no trae el suyo. Sin él se usa
+   *  DEFAULT_LIMIT_MESSAGE: un 429 siempre es un aviso de límite. */
   limitFallback?: string
   /** Comprueba el token al abrir la pantalla. Un error de red o un 5xx deja el
    *  formulario, que se valida igual al enviar. */
@@ -38,7 +41,7 @@ export function NewPasswordPanel({
   title,
   subtitle,
   invalidLinkMessage,
-  limitFallback,
+  limitFallback = DEFAULT_LIMIT_MESSAGE,
   checkToken,
   ...formProps
 }: NewPasswordPanelProps) {
@@ -56,7 +59,7 @@ export function NewPasswordPanel({
   const isChecking = Boolean(token && checkToken) && checkResult === null
   const checkLimitMessage =
     checkResult?.status === "limited"
-      ? checkResult.message || (limitFallback ?? "")
+      ? checkResult.message || limitFallback
       : null
   const shownLimitMessage = limitMessage ?? checkLimitMessage
   const isLimited = shownLimitMessage !== null
@@ -115,11 +118,7 @@ export function NewPasswordPanel({
           <NewPasswordForm
             {...formProps}
             onInvalidLink={() => setLinkRejected(true)}
-            onLimit={
-              limitFallback === undefined
-                ? undefined
-                : (message) => setLimitMessage(message || limitFallback)
-            }
+            onLimit={(message) => setLimitMessage(message || limitFallback)}
             token={token}
           />
         ) : (

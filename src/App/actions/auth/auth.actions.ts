@@ -100,19 +100,23 @@ export const login = async (
 
 // Activa la cuenta con el token de la invitación y crea la contraseña. No abre sesión:
 // devuelve el correo de la cuenta para que el llamador haga el login. Un 400 (token
-// inválido o vencido) relanza el AxiosError.
+// inválido o vencido) relanza el AxiosError; un 429 lanza TooManyRequestsError.
 export const activateAccount = async (credentials: {
   token: string
   password: string
 }): Promise<{ email: string }> => {
-  const { data } = await apiClient.post<{ user: { email: string } }>(
-    AUTH_PATHS.activate,
-    credentials
-  )
-  return data.user
+  try {
+    const { data } = await apiClient.post<{ user: { email: string } }>(
+      AUTH_PATHS.activate,
+      credentials
+    )
+    return data.user
+  } catch (error) {
+    throw toLimitError(error)
+  }
 }
 
-// Límite de la recuperación de contraseña (429). `message` es el texto del backend
+// Límite de intentos (429) de la activación y de la recuperación de contraseña. `message` es el texto del backend
 // ({ error: "<mensaje>" }) o "" si no lo trae: cada pantalla pone su texto de respaldo.
 export class TooManyRequestsError extends Error {
   constructor(message: string) {
@@ -213,13 +217,9 @@ export const logout = async (): Promise<void> => {
 }
 
 // Sesión vencida durante el uso (F6): un 401 fuera de las rutas de sesión cierra la
-// sesión y avisa. Solo si hay usuario, así una ráfaga de 401 da un único toast.
-// El perfil de crew también queda fuera (LR-11): con un 401 el tripulante sigue dentro
-// y el bloque que lo pidió (Inicio, Configuración) muestra su propio error.
-const SESSION_PATHS: string[] = [
-  ...Object.values(AUTH_PATHS),
-  CREW_PROFILE_PATH,
-]
+// sesión y avisa. Solo si hay usuario, así una ráfaga de 401 da un único toast y el
+// perfil de crew pedido durante el login (sin usuario aún) no avisa (D12).
+const SESSION_PATHS: string[] = Object.values(AUTH_PATHS)
 
 apiClient.interceptors.response.use(undefined, (error: unknown) => {
   if (
