@@ -208,6 +208,7 @@ describe("Tripulación: estados de carga, error y vacío (TC-02 a TC-04)", () =>
 })
 
 describe("Tripulación: filtro sin personas (TC-21)", () => {
+  // Spec tripulacion-sin-asignacion (TS-08): la lista incluye el séptimo botón.
   it("TC-21 sin ausentes en los datos, los filtros dicen «Todos (34)» y «Ausentes (0)», y «Ausentes (0)» muestra «No hay tripulantes en este estado.» sin región viva y «0 tripulantes»", async () => {
     const real = await loadRealCrew()
     data.overrides.getShiftCrew = () =>
@@ -233,6 +234,7 @@ describe("Tripulación: filtro sin personas (TC-21)", () => {
       "Programados (8)",
       "En descanso (4)",
       "Ausentes (0)",
+      "Sin asignación (0)",
     ])
 
     await user.click(

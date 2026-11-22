@@ -21,6 +21,7 @@ const FILTERS: { value: CrewStatus | null; label: string }[] = [
   { value: "programado", label: "Programados" },
   { value: "descanso", label: "En descanso" },
   { value: "ausente", label: "Ausentes" },
+  { value: "sin_asignar", label: "Sin asignación" },
 ]
 
 // Tarjetas visibles al cargar y cuántas añade cada «Ver más»: 12 llena filas completas
@@ -114,7 +115,7 @@ const ShiftCrewBoard = () => {
                 alinea con la primera. */}
             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-4">
               {/* Botones de alternancia (aria-pressed); el conteo es del turno completo y
-                  no cambia con la búsqueda. En móvil, rejilla de 2: filas parejas. */}
+                  no cambia con la búsqueda. En móvil, rejilla de 2; si el último queda solo, ocupa la fila. */}
               <div
                 role="group"
                 aria-label="Filtrar por estado"
@@ -137,7 +138,7 @@ const ShiftCrewBoard = () => {
                       className={cn(
                         typography.labelMd,
                         // forced-colors: el fondo desaparece; el subrayado marca el activo.
-                        "min-h-11 rounded-full px-3.5 font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-brand-tertiary focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-hidden motion-reduce:transition-none lg:min-h-8 lg:px-3 forced-colors:aria-pressed:underline forced-colors:aria-pressed:decoration-2 forced-colors:aria-pressed:underline-offset-4",
+                        "min-h-11 rounded-full px-3.5 font-semibold transition-colors last:odd:col-span-2 focus-visible:ring-2 focus-visible:ring-brand-tertiary focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-hidden motion-reduce:transition-none lg:min-h-8 lg:px-3 forced-colors:aria-pressed:underline forced-colors:aria-pressed:decoration-2 forced-colors:aria-pressed:underline-offset-4",
                         filter === value
                           ? "bg-brand-primary text-white"
                           : "bg-brand-neutral text-brand-primary hover:bg-brand-border active:bg-brand-border-strong"
@@ -149,7 +150,7 @@ const ShiftCrewBoard = () => {
                 })}
               </div>
 
-              {/* lg:w-60: a 1024 px deja sitio a las 6 pastillas en una fila; xl, el de la maqueta. */}
+              {/* lg:w-60 (xl, el de la maqueta): con 7 pastillas, a 1024 px pueden partirse en dos filas. */}
               <div className="relative w-full lg:w-60 lg:shrink-0 xl:w-72">
                 <label htmlFor={`${id}-search`} className="sr-only">
                   Buscar tripulante o vuelo

@@ -10,7 +10,7 @@ import apiClient from "@/service/api-client"
 
 // Tripulación del turno desde GET /crew/shift-crew?base=. El backend ya la devuelve
 // ordenada: guardia por minutos a rampa, en vuelo por llegada, programados por
-// presentación, descanso por fin y ausentes.
+// presentación, descanso por fin, ausentes y, al final, los libres.
 
 interface ApiFlightRef {
   id: string
@@ -28,7 +28,8 @@ interface ApiShiftMember {
   phone: string | null
   radio_channel: string | null
   expiring_certification: { name: string; days_left: number } | null
-  status: "standby" | "in_flight" | "scheduled" | "rest" | "absent" | "available"
+  status:
+    "standby" | "in_flight" | "scheduled" | "rest" | "absent" | "available"
   location?: string | null
   minutes_to_ramp?: number | null
   guard_until?: string | null
@@ -58,7 +59,8 @@ const toFlightRef = (flight: ApiFlightRef): FlightRef => ({
 const clockOrDash = (iso: string | null | undefined) =>
   iso ? utcClock(iso) : NO_DATA
 
-// null: el estado no tiene lugar en la pantalla («available», libres sin servicio).
+// null: el estado no tiene lugar en la pantalla (en vuelo o programado sin vuelo, o un
+// estado desconocido).
 const toCrewMember = (member: ApiShiftMember): CrewMember | null => {
   const base = {
     id: member.id,
@@ -116,6 +118,9 @@ const toCrewMember = (member: ApiShiftMember): CrewMember | null => {
         reason: member.reason ?? NO_DATA,
       }
     case "available":
+      return { ...base, status: "sin_asignar" }
+    // Un estado nuevo del backend que la pantalla aún no conoce no la rompe.
+    default:
       return null
   }
 }

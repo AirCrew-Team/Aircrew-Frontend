@@ -32,6 +32,9 @@ const IN_FLIGHT_FILTER = "En vuelo (10)"
 const SCHEDULED_FILTER = "Programados (8)"
 const RESTING_FILTER = "En descanso (4)"
 const ABSENT_FILTER = "Ausentes (3)"
+// Spec tripulacion-sin-asignacion (TS-02, TS-08): séptimo botón; los datos de ejemplo no
+// tienen libres.
+const UNASSIGNED_FILTER = "Sin asignación (0)"
 const FILTERS = [
   ALL,
   GUARD_FILTER,
@@ -39,6 +42,7 @@ const FILTERS = [
   SCHEDULED_FILTER,
   RESTING_FILTER,
   ABSENT_FILTER,
+  UNASSIGNED_FILTER,
 ]
 
 // Tabla «Datos simulados» de la spec, en su orden.
@@ -339,12 +343,12 @@ describe("Tripulación: panorama del turno (TC-05, TC-06)", () => {
 })
 
 describe("Tripulación: filtros por estado (TC-07)", () => {
-  it("TC-07 el grupo «Filtrar por estado» tiene los 6 botones en orden con sus conteos, y solo «Todos (37)» tiene aria-pressed=true", async () => {
+  it("TC-07 (TS-08) el grupo «Filtrar por estado» tiene los 7 botones en orden con sus conteos, el último «Sin asignación (0)», y solo «Todos (37)» tiene aria-pressed=true", async () => {
     const { main } = await renderBoard()
     const group = filterGroup(main)
 
     const buttons = within(group).getAllByRole("button")
-    expect(buttons).toHaveLength(6)
+    expect(buttons).toHaveLength(7)
     FILTERS.forEach((name, index) => {
       expect(within(group).getByRole("button", { name })).toBe(buttons[index])
     })

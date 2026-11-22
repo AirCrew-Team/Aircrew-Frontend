@@ -20,15 +20,18 @@ const countClass = cn(
   "leading-none tabular-nums md:leading-none"
 )
 
-// P: la base (en servicio = total − ausentes) y la guardia para reemplazos, de la que la IA
-// saca los reemplazos. Cada cifra y cada línea es el texto completo de un elemento propio.
+// P: la base (en servicio = total − ausentes − sin asignación; aptos = total − ausentes) y
+// la guardia para reemplazos, de la que la IA saca los reemplazos. Cada cifra y cada línea
+// es el texto completo de un elemento propio.
 const CrewOverview = ({ crew }: CrewOverviewProps) => {
   const baseId = useId()
   const guardId = useId()
   const total = crew.members.length
-  const onDuty =
+  const fit =
     total - crew.members.filter(({ status }) => status === "ausente").length
-  const percent = Math.round((onDuty / total) * 100)
+  const onDuty =
+    fit - crew.members.filter(({ status }) => status === "sin_asignar").length
+  const percent = Math.round((fit / total) * 100)
   const guards = crew.members.filter((member) => member.status === "guardia")
   const available = guards.filter(
     ({ replacementBlocker }) => replacementBlocker === null
@@ -57,7 +60,7 @@ const CrewOverview = ({ crew }: CrewOverviewProps) => {
           </span>
         </p>
         <p className={cn(typography.bodySm, "text-muted-foreground")}>
-          {`${percent} % de la tripulación del turno está apta (${onDuty} de ${total}).`}
+          {`${percent} % de la tripulación del turno está apta (${fit} de ${total}).`}
         </p>
         <BaseIcon
           aria-hidden="true"
