@@ -8,11 +8,12 @@ import {
 } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
-import { getUsersStats } from "@/modules/users/data/users.data"
+import { useUsersApi } from "@/modules/users/hooks/useUsersApi"
 
 // Bloque 2: indicadores de la nómina. Comparte la consulta ["users", "stats"] con los
 // conteos de los filtros (UsersToolbar): TanStack Query la pide una sola vez.
 const UsersStats = () => {
+  const { getUsersStats } = useUsersApi()
   const { data, isPending, isError } = useQuery({
     queryKey: ["users", "stats"],
     queryFn: getUsersStats,
@@ -46,7 +47,11 @@ const UsersStats = () => {
     { icon: ClockIcon, value: data.onDuty, label: "En guardia" },
     {
       icon: CertificationIcon,
-      value: `${data.medicalFitnessPercent}%`,
+      // Sin datos médicos todavía (null): «—».
+      value:
+        data.medicalFitnessPercent === null
+          ? "—"
+          : `${data.medicalFitnessPercent}%`,
       label: "Aptitud médica",
     },
   ]

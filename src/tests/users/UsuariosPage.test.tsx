@@ -296,10 +296,8 @@ describe("Usuarios: búsqueda y filtros en la URL", () => {
     { text: "valeria", names: ["Valeria Ortiz"] },
     { text: "VALÉRIA", names: ["Valeria Ortiz"] },
     { text: "AC-1108", names: ["Diego Salcedo"] },
-    {
-      text: "atl",
-      names: ["Diego Salcedo", "Mateo Morales"],
-    },
+    // El administrador no tiene base: «atl» solo encuentra al tripulante de Atlanta.
+    { text: "atl", names: ["Diego Salcedo"] },
     { text: "auxiliar", names: ["Valeria Ortiz"] },
   ])(
     "buscar «$text» muestra solo los usuarios que coinciden",
@@ -409,7 +407,6 @@ describe("Usuarios: ventana Detalle del Usuario", () => {
       "AC-1108",
       "Comandante · Base ATL / Atlanta",
       "d.salcedo@aircrew-ops.com",
-      "Turno Activo: Bloque EST (UTC-5)",
       "8,450 hrs",
       "Límite anual seguro (84.5%)",
       "18h 30m",
@@ -472,12 +469,13 @@ describe("Usuarios: ventana Detalle del Usuario", () => {
     expect(within(dialog).getByText("No disponible")).toBeInTheDocument()
   })
 
-  it("el pie solo tiene «Descargar Ficha PDF», aún sin función", async () => {
+  it("la ficha no tiene «Descargar Ficha PDF» ni otros botones de pie", async () => {
     const { dialog } = await openDetail("Diego Salcedo")
 
+    await within(dialog).findByText("FAA ATP #1108-US")
     expect(
-      within(dialog).getByRole("button", { name: "Descargar Ficha PDF" })
-    ).toHaveAttribute("aria-disabled", "true")
+      within(dialog).queryByRole("button", { name: /Descargar Ficha PDF/ })
+    ).not.toBeInTheDocument()
     expect(
       within(dialog).queryByRole("button", { name: /Cerrar Vista/ })
     ).not.toBeInTheDocument()

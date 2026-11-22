@@ -1,3 +1,4 @@
+import { UserFieldError } from "@/App/actions/users/users.actions"
 import type {
   CreateUserInput,
   CrewUser,
@@ -9,40 +10,75 @@ import type {
   UsersStats,
 } from "@/modules/users/types/users.types"
 
-// Datos simulados con la forma de las acciones reales: se moverán a App/actions cuando
-// exista la API. Las funciones ya reciben los parámetros que se enviarán al backend.
+// Datos de ejemplo de las cuentas demo y del selector «Rol (dev)»: no llaman al backend.
+// Tienen la misma forma y el mismo comportamiento que App/actions/users (desactivar en
+// lugar de borrar, correo repetido → error del campo, alta pendiente de activación con
+// código asignado). La sesión real usa las acciones; el módulo elige con useUsersApi.
 // Contexto: Delta Air Lines, con datos de EE. UU. (hubs de Delta, teléfonos +1, FAA).
 // Los teléfonos usan el rango 555-01xx, reservado para ejemplos en EE. UU.
 
-// Registros por página: lo enviará el frontend y lo confirmará el backend en la respuesta.
+export { UserFieldError }
+
+// Registros por página: lo envía el frontend y lo confirma el backend en la respuesta.
 export const USERS_PAGE_SIZE = 5
 
-// Hubs de Delta Air Lines: son las bases de la tripulación.
-const BASES: UserCatalogs["bases"] = [
-  { code: "ATL", label: "Base ATL / Atlanta" },
-  { code: "BOS", label: "Base BOS / Boston" },
-  { code: "DTW", label: "Base DTW / Detroit" },
-  { code: "LAX", label: "Base LAX / Los Ángeles" },
-  { code: "MSP", label: "Base MSP / Minneapolis–St. Paul" },
-  { code: "JFK", label: "Base JFK / Nueva York" },
-  { code: "LGA", label: "Base LGA / Nueva York LaGuardia" },
-  { code: "SLC", label: "Base SLC / Salt Lake City" },
-  { code: "SEA", label: "Base SEA / Seattle" },
-]
+// Mismas opciones que GET /catalogs/user-options del backend.
+const CATALOGS: UserCatalogs = {
+  bases: [
+    { code: "ATL", label: "Base ATL / Atlanta" },
+    { code: "BOS", label: "Base BOS / Boston" },
+    { code: "DTW", label: "Base DTW / Detroit" },
+    { code: "LAX", label: "Base LAX / Los Ángeles" },
+    { code: "MSP", label: "Base MSP / Minneapolis–St. Paul" },
+    { code: "JFK", label: "Base JFK / Nueva York" },
+    { code: "LGA", label: "Base LGA / Nueva York LaGuardia" },
+    { code: "SLC", label: "Base SLC / Salt Lake City" },
+    { code: "SEA", label: "Base SEA / Seattle" },
+  ],
+  crewPositions: [
+    "Comandante",
+    "Copiloto",
+    "Auxiliar de Vuelo",
+    "Sobrecargo Principal",
+    "Sobrecargo",
+  ],
+  shifts: [
+    { value: "turno_1", label: "Turno 1 (mañana)" },
+    { value: "turno_2", label: "Turno 2 (tarde)" },
+    { value: "turno_3", label: "Turno 3 (noche)" },
+  ],
+  crewStatuses: [
+    { value: "disponible", label: "Disponible" },
+    { value: "guardia", label: "En guardia" },
+    { value: "vuelo", label: "En vuelo" },
+    { value: "permiso_medico", label: "Permiso médico" },
+  ],
+  supervisorStatuses: [
+    { value: "disponible", label: "Disponible" },
+    { value: "guardia", label: "En turno" },
+    { value: "fuera_turno", label: "Fuera de turno" },
+    { value: "licencia", label: "De licencia" },
+  ],
+}
 
-const baseLabel = (code: string) =>
-  BASES.find((base) => base.code === code)?.label ?? `Base ${code}`
+const baseLabel = (code: string | null) =>
+  code === null
+    ? "Sin base"
+    : (CATALOGS.bases.find((base) => base.code === code)?.label ??
+      `Base ${code}`)
 
-// Nombre que se guarda como cargo cuando el rol no tiene cargo propio.
+// Nombre que se muestra como cargo cuando el rol no tiene cargo propio.
 const ROLE_LABEL: Record<UserRoleGroup, string> = {
   tripulacion: "Tripulación",
   supervisor: "Supervisor",
   administrador: "Administrador",
 }
 
+// En los ejemplos el id es el mismo código del empleado (el backend usa UUID).
 const USERS: CrewUser[] = [
   {
     id: "AC-1108",
+    code: "AC-1108",
     firstName: "Diego",
     lastName: "Salcedo",
     email: "d.salcedo@aircrew-ops.com",
@@ -50,9 +86,13 @@ const USERS: CrewUser[] = [
     roleTitle: "Comandante",
     base: "ATL",
     status: "disponible",
+    shift: null,
+    pendingActivation: false,
+    isActive: true,
   },
   {
     id: "AC-9042",
+    code: "AC-9042",
     firstName: "Camila",
     lastName: "Restrepo",
     email: "c.restrepo@aircrew-ops.com",
@@ -60,19 +100,27 @@ const USERS: CrewUser[] = [
     roleTitle: ROLE_LABEL.supervisor,
     base: "JFK",
     status: "guardia",
+    shift: "turno_1",
+    pendingActivation: false,
+    isActive: true,
   },
   {
     id: "AC-3419",
+    code: null,
     firstName: "Mateo",
     lastName: "Morales",
     email: "m.morales@aircrew-ops.com",
     roleGroup: "administrador",
     roleTitle: ROLE_LABEL.administrador,
-    base: "ATL",
-    status: "disponible",
+    base: null,
+    status: null,
+    shift: null,
+    pendingActivation: false,
+    isActive: true,
   },
   {
     id: "AC-5520",
+    code: "AC-5520",
     firstName: "Valeria",
     lastName: "Ortiz",
     email: "v.ortiz@aircrew-ops.com",
@@ -80,31 +128,37 @@ const USERS: CrewUser[] = [
     roleTitle: "Auxiliar de Vuelo",
     base: "SEA",
     status: "permiso_medico",
+    shift: null,
+    pendingActivation: false,
+    isActive: true,
   },
   {
     id: "AC-2287",
-    firstName: "Juan Pablo",
-    lastName: "Navarro",
+    code: "AC-2287",
+    firstName: "Juan",
+    lastName: "Pablo Navarro",
     email: "jp.navarro@aircrew-ops.com",
     roleGroup: "tripulacion",
     roleTitle: "Copiloto",
     base: "MSP",
     status: "vuelo",
+    shift: null,
+    pendingActivation: false,
+    isActive: true,
   },
 ]
 
-// Cambios hechos en esta sesión (altas, ediciones y bajas). Solo viven en memoria: se
-// pierden al recargar. Con la API los guardará el backend.
+// Altas hechas en esta sesión. Solo viven en memoria: se pierden al recargar.
 const CREATED_USERS: CrewUser[] = []
-const DELETED_IDS = new Set<string>()
 
-// Los recién creados primero, como los devolvería el backend ordenados por fecha de alta.
-// Los eliminados ya no aparecen.
-const allUsers = () =>
-  [...CREATED_USERS, ...USERS].filter((user) => !DELETED_IDS.has(user.id))
+// Los recién creados primero, como los devuelve el backend. Los desactivados siguen.
+const allUsers = () => [...CREATED_USERS, ...USERS]
+
+const findUser = (id: string) =>
+  allUsers().find((candidate) => candidate.id === id)
 
 // Total de cada rol en la nómina (los conteos de los filtros) y cuánto cambió en esta
-// sesión: +1 al crear, −1 al eliminar y, al editar el rol, pasa uno de un rol a otro.
+// sesión: +1 al crear y, al editar el rol, pasa uno de un rol a otro.
 const BASE_ROLE_TOTALS: Record<UserRoleGroup, number> = {
   tripulacion: 158,
   supervisor: 20,
@@ -130,19 +184,18 @@ const normalize = (text: string) =>
     .replace(/\p{Diacritic}/gu, "")
     .toLowerCase()
 
-// Campos en los que busca el texto: nombre completo, correo, ID, base y cargo.
+// Campos en los que busca el backend: nombre, correo, código, base y cargo.
 const matchesSearch = (user: CrewUser, search: string) =>
   [
     `${user.firstName} ${user.lastName}`,
     user.email,
-    user.id,
-    user.base,
+    user.code ?? "",
+    user.base ?? "",
     user.roleTitle,
   ].some((value) => normalize(value).includes(search))
 
-// El backend filtrará por búsqueda y rol y devolverá solo la página pedida.
-// Mientras tanto, filtra los 5 usuarios simulados por rol y por texto. El total imita al
-// del backend: el del rol (o de la nómina) sin búsqueda, y los encontrados con búsqueda.
+// Filtra los usuarios de ejemplo por rol y por texto. El total imita una nómina grande:
+// el del rol (o de toda la nómina) sin búsqueda, y los encontrados con búsqueda.
 // La página todavía no cambia el resultado.
 export const getUsers = (
   params: UsersListParams
@@ -160,7 +213,7 @@ export const getUsers = (
       : totalUsers()
 
   return Promise.resolve({
-    items,
+    items: items.map((user) => ({ ...user })),
     page: params.page,
     pageSize: params.pageSize,
     total,
@@ -176,36 +229,18 @@ export const getUsersStats = (): Promise<UsersStats> =>
     byRole: roleTotals(),
   })
 
-// Certificados FAA de cada cargo de Tripulación.
-const PILOT_CERTIFICATES = [
-  "Private Pilot (PPL)",
-  "Commercial Pilot (CPL)",
-  "Airline Transport Pilot (ATP)",
-  "Instrument Rating (IR)",
-  "Multi-Engine (ME)",
-]
-const CDP = "Certificate of Demonstrated Proficiency (CDP)"
-// Los sobrecargos tienen el CDP y, además, certificados de liderazgo de cabina.
-const PURSER_CERTIFICATES = [
-  CDP,
-  "Liderazgo",
-  "Manejo de conflictos",
-  "Aduanas / Inmigración",
-]
-const CERTIFICATES_BY_TITLE: Record<string, string[]> = {
-  Comandante: PILOT_CERTIFICATES,
-  Copiloto: PILOT_CERTIFICATES,
-  "Auxiliar de Vuelo": [CDP],
-  "Sobrecargo Principal": PURSER_CERTIFICATES,
-  Sobrecargo: PURSER_CERTIFICATES,
-}
+export const getUserCatalogs = (): Promise<UserCatalogs> =>
+  Promise.resolve(structuredClone(CATALOGS))
 
-// Datos que solo trae el detalle, por ID. El resto sale de la fila de la lista (USERS).
-// Supervisor y Administrador no tienen horas de vuelo, licencia ni habilitaciones.
-const USER_DETAILS: Record<string, Omit<UserDetail, keyof CrewUser>> = {
+const CDP = "Certificate of Demonstrated Proficiency (CDP)"
+
+// Datos que solo tienen los ejemplos (el backend todavía no los tiene): horas de vuelo,
+// descanso, nota de disponibilidad, licencia y habilitaciones.
+const DEMO_EXTRAS: Record<
+  string,
+  Omit<UserDetail, keyof CrewUser | "baseLabel">
+> = {
   "AC-1108": {
-    baseLabel: baseLabel("ATL"),
-    shift: "Bloque EST (UTC-5)",
     flight: {
       hours: { total: 8450, annualLimitPercent: 84.5 },
       rest: { minutes: 1110, requiredMinutes: 600 },
@@ -233,8 +268,6 @@ const USER_DETAILS: Record<string, Omit<UserDetail, keyof CrewUser>> = {
     },
   },
   "AC-9042": {
-    baseLabel: baseLabel("JFK"),
-    shift: "Bloque EST (UTC-5)",
     availability: {
       label: "En guardia",
       note: "Cobertura de reemplazos hasta las 18:00 EST",
@@ -242,8 +275,6 @@ const USER_DETAILS: Record<string, Omit<UserDetail, keyof CrewUser>> = {
     phone: { number: "+1 212 555 0177", note: "Línea de guardia OCC" },
   },
   "AC-3419": {
-    baseLabel: baseLabel("ATL"),
-    shift: "Oficina EST (UTC-5)",
     availability: {
       label: "En oficina",
       note: "Centro de Operaciones de Atlanta (OCC)",
@@ -251,8 +282,6 @@ const USER_DETAILS: Record<string, Omit<UserDetail, keyof CrewUser>> = {
     phone: { number: "+1 404 555 0119", note: "Extensión de administración" },
   },
   "AC-5520": {
-    baseLabel: baseLabel("SEA"),
-    shift: "Fuera de turno",
     flight: {
       hours: { total: 1980, annualLimitPercent: 33 },
       rest: { minutes: 2880, requiredMinutes: 600 },
@@ -270,8 +299,6 @@ const USER_DETAILS: Record<string, Omit<UserDetail, keyof CrewUser>> = {
     },
   },
   "AC-2287": {
-    baseLabel: baseLabel("MSP"),
-    shift: "Bloque CST (UTC-6)",
     flight: {
       hours: { total: 4980, annualLimitPercent: 61 },
       rest: { minutes: 980, requiredMinutes: 600 },
@@ -300,165 +327,119 @@ const USER_DETAILS: Record<string, Omit<UserDetail, keyof CrewUser>> = {
   },
 }
 
-// Ficha técnica de un usuario. Con la API será GET del usuario por su ID; si no existe,
-// la promesa falla igual que fallaría la petición (404) y la ventana muestra el error.
+// Celular de las altas y ediciones de esta sesión.
+const PHONES = new Map<string, string>()
+
+// Si no existe, la promesa falla igual que la petición (404) y la ventana muestra el error.
 export const getUserDetail = (id: string): Promise<UserDetail> => {
-  const user = allUsers().find((candidate) => candidate.id === id)
-  const detail = USER_DETAILS[id]
-  return user && detail
-    ? Promise.resolve({ ...user, ...detail })
-    : Promise.reject(new Error(`Usuario ${id} no encontrado`))
-}
-
-// Opciones de las listas del formulario. Con la API vendrán de los catálogos del backend.
-export const getUserCatalogs = (): Promise<UserCatalogs> =>
-  Promise.resolve({
-    bases: BASES,
-    crewTitles: Object.keys(CERTIFICATES_BY_TITLE),
-    certificatesByTitle: CERTIFICATES_BY_TITLE,
-  })
-
-// Error de un campo concreto (ej. correo ya registrado): el formulario lo muestra
-// debajo de ese campo. Con la API corresponderá a un 409 del backend.
-export class UserFieldError extends Error {
-  field: keyof CreateUserInput
-
-  constructor(field: keyof CreateUserInput, message: string) {
-    super(message)
-    this.field = field
+  const user = findUser(id)
+  if (!user) return Promise.reject(new Error(`Usuario ${id} no encontrado`))
+  const extras = DEMO_EXTRAS[id] ?? {
+    availability: { label: "Pendiente de activación" },
+    phone: { number: null },
   }
+  const phone = PHONES.get(id)
+  return Promise.resolve({
+    ...user,
+    baseLabel: baseLabel(user.base),
+    ...extras,
+    phone: phone ? { ...extras.phone, number: phone } : extras.phone,
+  })
 }
 
-// ¿Otro usuario ya usa este correo? Al editar, el propio usuario no cuenta.
+// ¿Otro usuario ya usa este correo? Al editar, el propio no cuenta.
 const emailTaken = (email: string, exceptId?: string) =>
   allUsers().some(
     (user) => user.id !== exceptId && user.email.toLowerCase() === email
   )
 
-// Alta de usuario. Con la API será un POST con el encabezado Idempotency-Key (ADR 003):
-// si la misma petición llega dos veces (doble clic, red lenta), el backend crea uno solo.
-// Aquí la clave evita lo mismo: una clave ya usada devuelve el usuario que ya creó.
-const CREATED_BY_KEY = new Map<string, CrewUser>()
+// Campos que cambian con el formulario, con las mismas reglas del backend: cada rol
+// solo guarda los suyos.
+const fieldsFromInput = (input: CreateUserInput) => ({
+  firstName: input.firstName.trim(),
+  lastName: input.lastName.trim(),
+  email: input.email.trim().toLowerCase(),
+  roleGroup: input.roleGroup,
+  roleTitle:
+    input.roleGroup === "tripulacion"
+      ? input.roleTitle
+      : ROLE_LABEL[input.roleGroup],
+  base: input.roleGroup === "administrador" ? null : input.base || null,
+  shift: input.roleGroup === "supervisor" ? input.shift || null : null,
+})
 
-export const createUser = (
-  input: CreateUserInput,
-  idempotencyKey: string
-): Promise<CrewUser> =>
-  new Promise((resolve, reject) => {
-    // Simula la latencia de la red.
+// Simula la latencia de la red.
+const later = <T>(run: () => T) =>
+  new Promise<T>((resolve, reject) =>
     setTimeout(() => {
-      const repeated = CREATED_BY_KEY.get(idempotencyKey)
-      if (repeated) return resolve(repeated)
-
-      const email = input.email.trim().toLowerCase()
-      if (emailTaken(email)) {
-        return reject(
-          new UserFieldError("email", "Ya existe un usuario con ese correo.")
-        )
+      try {
+        resolve(run())
+      } catch (error) {
+        reject(error)
       }
-
-      // El ID lo asignará el backend; aquí, el siguiente número libre.
-      const id = `AC-${String(6000 + CREATED_USERS.length + 1)}`
-      const user: CrewUser = {
-        id,
-        firstName: input.firstName,
-        lastName: input.lastName,
-        email,
-        roleGroup: input.roleGroup,
-        roleTitle: input.roleTitle,
-        base: input.base,
-        status: "disponible",
-      }
-      CREATED_USERS.unshift(user)
-      ROLE_CHANGES[user.roleGroup] += 1
-      CREATED_BY_KEY.set(idempotencyKey, user)
-
-      // Ficha inicial. La Tripulación empieza sin horas de vuelo y con la licencia del
-      // alta; Supervisor y Administrador no tienen horas ni licencia.
-      USER_DETAILS[id] = {
-        baseLabel: baseLabel(input.base),
-        shift: "Sin asignar",
-        flight: input.license
-          ? {
-              hours: { total: 0, annualLimitPercent: 0 },
-              rest: { minutes: 600, requiredMinutes: 600 },
-            }
-          : undefined,
-        availability: {
-          label: "Pendiente de activación",
-          note: "Usuario recién creado",
-        },
-        license: input.license,
-        phone: { number: input.phone, note: "Registrado en el alta" },
-      }
-      resolve(user)
     }, 400)
+  )
+
+let nextCode = 6001
+
+// La cuenta nace pendiente de activación y, si es tripulante, con el siguiente código.
+export const createUser = (input: CreateUserInput): Promise<CrewUser> =>
+  later(() => {
+    const fields = fieldsFromInput(input)
+    if (emailTaken(fields.email)) {
+      throw new UserFieldError("email", "Ya existe un usuario con ese email.")
+    }
+    const code = fields.roleGroup === "tripulacion" ? `AC-${nextCode++}` : null
+    const user: CrewUser = {
+      id: code ?? `demo-${CREATED_USERS.length + 1}`,
+      code,
+      ...fields,
+      status: fields.roleGroup === "administrador" ? null : "disponible",
+      pendingActivation: true,
+      isActive: true,
+    }
+    CREATED_USERS.unshift(user)
+    ROLE_CHANGES[user.roleGroup] += 1
+    PHONES.set(user.id, input.phone)
+    return { ...user }
   })
 
-// Edición de un usuario. Con la API será un PUT del usuario por su ID; repetirlo deja el
-// mismo resultado, así que no necesita clave de idempotencia. Falla si el usuario ya no
-// existe (404) o si el correo es de otro usuario (409).
+// El tercer parámetro (los datos con los que se abrió el formulario) solo lo usa el
+// backend para enviar lo que cambió; aquí se guarda todo.
 export const updateUser = (
   id: string,
-  input: CreateUserInput
+  input: CreateUserInput,
+  previous?: CreateUserInput
 ): Promise<CrewUser> =>
-  new Promise((resolve, reject) => {
-    // Simula la latencia de la red.
-    setTimeout(() => {
-      const user = allUsers().find((candidate) => candidate.id === id)
-      const detail = USER_DETAILS[id]
-      if (!user || !detail) {
-        return reject(new Error(`Usuario ${id} no encontrado`))
-      }
-
-      const email = input.email.trim().toLowerCase()
-      if (emailTaken(email, id)) {
-        return reject(
-          new UserFieldError("email", "Ya existe un usuario con ese correo.")
-        )
-      }
-
-      // Cambio de rol: el usuario pasa de un conteo a otro.
-      if (user.roleGroup !== input.roleGroup) {
-        ROLE_CHANGES[user.roleGroup] -= 1
-        ROLE_CHANGES[input.roleGroup] += 1
-      }
-
-      Object.assign(user, {
-        firstName: input.firstName,
-        lastName: input.lastName,
-        email,
-        roleGroup: input.roleGroup,
-        roleTitle: input.roleTitle,
-        base: input.base,
-      })
-      // Solo la Tripulación tiene horas de vuelo, licencia y habilitaciones.
-      USER_DETAILS[id] = {
-        ...detail,
-        baseLabel: baseLabel(input.base),
-        phone: { ...detail.phone, number: input.phone },
-        license: input.license,
-        flight: input.license
-          ? (detail.flight ?? {
-              hours: { total: 0, annualLimitPercent: 0 },
-              rest: { minutes: 600, requiredMinutes: 600 },
-            })
-          : undefined,
-        rating: input.license ? detail.rating : undefined,
-      }
-      resolve({ ...user })
-    }, 400)
+  later(() => {
+    void previous
+    const user = findUser(id)
+    if (!user) throw new Error(`Usuario ${id} no encontrado`)
+    const fields = fieldsFromInput(input)
+    if (emailTaken(fields.email, id)) {
+      throw new UserFieldError("email", "Ya existe un usuario con ese email.")
+    }
+    // Cambio de rol: el usuario pasa de un conteo a otro.
+    if (user.roleGroup !== fields.roleGroup) {
+      ROLE_CHANGES[user.roleGroup] -= 1
+      ROLE_CHANGES[fields.roleGroup] += 1
+    }
+    Object.assign(user, fields, {
+      // Un supervisor que pasa a administrador pierde su código, base y estado.
+      code: fields.roleGroup === "administrador" ? null : user.code,
+      status:
+        fields.roleGroup === "administrador"
+          ? null
+          : (user.status ?? "disponible"),
+    })
+    PHONES.set(id, input.phone)
+    return { ...user }
   })
 
-// Baja de un usuario. Con la API será un DELETE del usuario por su ID.
+// No borra: desactiva. El usuario sigue en la lista, marcado como inactivo.
 export const deleteUser = (id: string): Promise<void> =>
-  new Promise((resolve, reject) => {
-    // Simula la latencia de la red.
-    setTimeout(() => {
-      const user = allUsers().find((candidate) => candidate.id === id)
-      if (!user) return reject(new Error(`Usuario ${id} no encontrado`))
-      DELETED_IDS.add(id)
-      ROLE_CHANGES[user.roleGroup] -= 1
-      resolve()
-    }, 400)
+  later(() => {
+    const user = findUser(id)
+    if (!user) throw new Error(`Usuario ${id} no encontrado`)
+    user.isActive = false
   })
