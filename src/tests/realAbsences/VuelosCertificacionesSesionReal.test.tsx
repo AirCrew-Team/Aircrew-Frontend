@@ -37,12 +37,13 @@ const isNavbarRequest = (request: string) =>
 const CERTIFICATIONS_H1 = "Certificaciones y Licencias"
 
 // Peticiones de cada pantalla real (FE-4), sin repetidas y en orden alfabético. «Hoy» es
-// TODAY (22 Nov 2026): las listas piden el mes 2026-11.
+// TODAY (22 Nov 2026): las listas piden noviembre de 2026 en hora local (from/to).
+const MONTH_RANGE = `from=${new Date(2026, 10, 1).toISOString()}&to=${new Date(2026, 11, 1).toISOString()}`
 const FLIGHTS_REQUESTS = [
   `GET ${API_URL}/api/crew/absences/me`,
   `GET ${API_URL}/api/crew/crew-members/me/metrics`,
-  `GET ${API_URL}/api/flights/assignments/me?status=completed&month=2026-11`,
-  `GET ${API_URL}/api/flights/assignments/me?status=upcoming&month=2026-11`,
+  `GET ${API_URL}/api/flights/assignments/me?status=completed&${MONTH_RANGE}`,
+  `GET ${API_URL}/api/flights/assignments/me?status=upcoming&${MONTH_RANGE}`,
 ]
 const CERTIFICATIONS_REQUESTS = [`GET ${API_URL}/api/crew/certifications/me`]
 

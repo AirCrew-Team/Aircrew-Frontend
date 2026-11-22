@@ -49,8 +49,9 @@ export interface ApiFlightAssignment {
 export interface MyAssignmentsFilters {
   // upcoming: aún no aterriza; completed: ya aterrizó (historial).
   status?: "upcoming" | "completed"
-  // «AAAA-MM», por la fecha de salida en UTC.
-  month?: string
+  // Rango de la fecha de salida, ISO 8601; to es exclusivo.
+  from?: string
+  to?: string
   replacement?: boolean
   acknowledged?: boolean
 }
@@ -82,11 +83,19 @@ export interface ApiFlightMetrics {
 export type ApiMyAbsenceStatus =
   "reported" | "pending_ack" | "covered" | "cancelled"
 
-// GET /crew/absences/me: solo lo que usa Mis Vuelos para marcar los vuelos afectados.
-// Una ausencia por fechas trae sus vuelos en `flights`; una por vuelo trae su `flight_id`.
-export interface ApiMyAbsence {
-  id: string
-  status: ApiMyAbsenceStatus
+// Vuelo de una ausencia, copiado al reportarla. null en una ausencia por fechas (madre).
+export interface ApiMyAbsenceFlight {
   flight_id: string | null
-  flights: { flight_id: string; status: ApiMyAbsenceStatus }[]
+  flight_number: string | null
+  origin: string | null
+  destination: string | null
+  departure_at: string | null
+  status: ApiMyAbsenceStatus
+}
+
+// GET /crew/absences/me: solo lo que usa Mis Vuelos (marcas y vuelos liberados).
+// Una ausencia por fechas trae sus vuelos en `flights`; una por vuelo trae su `flight_id`.
+export interface ApiMyAbsence extends ApiMyAbsenceFlight {
+  id: string
+  flights: (ApiMyAbsenceFlight & { id: string })[]
 }

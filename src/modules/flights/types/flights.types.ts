@@ -58,3 +58,23 @@ export interface FlightMetrics {
     internationalLabel: string
   }
 }
+
+// Vuelo que el tripulante ya no hará: su ausencia tiene el reemplazo aprobado (sesión real).
+export interface ReleasedFlight {
+  // Id de la ausencia del vuelo.
+  id: string
+  flightNumber: string
+  origin: string
+  destination: string
+  // «Mié 25 Nov, 18:30 UTC».
+  departure: string
+  status: "pending_ack" | "covered"
+}
+
+// Ausencias propias cruzadas con Mis Vuelos.
+export interface FlightAbsences {
+  // Id del vuelo asignado → estado de su ausencia, p. ej. «En revisión».
+  marks: Record<string, string>
+  // Próximos vuelos liberados, por salida.
+  released: ReleasedFlight[]
+}

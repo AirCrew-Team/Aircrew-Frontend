@@ -6,6 +6,7 @@ import { PATHS } from "@/routes/paths"
 import { useAuthStore } from "@/stores/auth.store"
 
 import {
+  COMPLETED_ASSIGNMENT,
   mockMetrics,
   mockMetricsError,
   mockMyAbsences,
@@ -19,9 +20,13 @@ import { renderRoute } from "../utils/renderRoute"
 
 // FE-4 (docs/specs/cierre-pendientes.md): Mis Vuelos con la sesión real.
 // - Las listas salen de GET /api/flights/assignments/me con status (upcoming|completed) y
-//   el mes del selector; las métricas, de GET /api/crew/crew-members/me/metrics.
-// - Cada vuelo con una ausencia propia (GET /api/crew/absences/me, cruce por flight_id)
-//   lleva la marca «Ausencia reportada: <estado>»; las canceladas no marcan.
+//   el mes LOCAL del selector como from/to (inicio y fin del mes, to exclusivo); las
+//   métricas, de GET /api/crew/crew-members/me/metrics.
+// - Un vuelo asignado con una ausencia propia aún en revisión (GET /api/crew/absences/me,
+//   cruce por flight_id) lleva la marca «Ausencia reportada: En revisión».
+// - Al aprobarse el reemplazo, el vuelo sale de assignments/me: «Próximos Vuelos» lo lista
+//   en «Vuelos liberados por tus ausencias» con su estado (esperando confirmación o
+//   cubierto) mientras no haya salido. Las canceladas no cuentan.
 // - El backend no trae comandante, ICAO ni datos de despacho: no se inventan.
 
 const LAZY = { timeout: 3000 }
@@ -30,6 +35,18 @@ const TAB = {
   upcoming: "Próximos Vuelos",
   history: "Historial de Vuelos Anteriores",
 }
+
+const RELEASED = "Vuelos liberados por tus ausencias"
+
+// Inicio y fin (exclusivo) del mes local, en ISO, como los manda la pantalla.
+const monthRange = (year: number, monthIndex: number) => ({
+  from: new Date(year, monthIndex, 1).toISOString(),
+  to: new Date(year, monthIndex + 1, 1).toISOString(),
+})
+
+// Cada query registrada como objeto (los «:» de las fechas llegan codificados).
+const parseQueries = (queries: string[]) =>
+  queries.map((query) => Object.fromEntries(new URLSearchParams(query)))
 
 const normalize = (text: string | null) =>
   (text ?? "").replace(/\s+/g, " ").trim()
@@ -89,10 +106,10 @@ describe("FE-4: listas de Mis Vuelos con la sesión real", () => {
     await openPage()
 
     await expectPanelFlights(["DL2201", "DL1102"])
-    expect(assignments).toEqual(
+    expect(parseQueries(assignments)).toEqual(
       expect.arrayContaining([
-        "status=upcoming&month=2026-11",
-        "status=completed&month=2026-11",
+        { status: "upcoming", ...monthRange(2026, 10) },
+        { status: "completed", ...monthRange(2026, 10) },
       ])
     )
     expect(
@@ -153,6 +170,32 @@ describe("FE-4: listas de Mis Vuelos con la sesión real", () => {
     expect(normalize(articleOf("DL0875").textContent)).toContain("Completado")
   })
 
+  it("FE-4: el historial va del vuelo más reciente al más antiguo, como la demo", async () => {
+    // El backend los da por salida, del más antiguo al más reciente.
+    const later = {
+      ...COMPLETED_ASSIGNMENT,
+      id: "asg-5",
+      flight: {
+        ...COMPLETED_ASSIGNMENT.flight,
+        id: "fl-0876",
+        flight_number: "DL0876",
+        departure_at: "2026-11-15T12:00:00.000Z",
+        arrival_at: "2026-11-15T14:45:00.000Z",
+      },
+    }
+    mockMyAssignments([COMPLETED_ASSIGNMENT, later])
+    mockMetrics()
+    mockMyAbsences([])
+    const user = userEvent.setup()
+    await openPage()
+
+    await user.click(
+      await screen.findByRole("tab", { name: `${TAB.history} 2` })
+    )
+
+    await expectPanelFlights(["DL0876", "DL0875"])
+  })
+
   it("FE-4: al cambiar de mes se piden los vuelos de ese mes", async () => {
     const { assignments } = mockAll()
     const user = userEvent.setup()
@@ -168,10 +211,10 @@ describe("FE-4: listas de Mis Vuelos con la sesión real", () => {
       await screen.findByRole("tab", { name: `${TAB.upcoming} 0` })
     ).toBeInTheDocument()
     await waitFor(() =>
-      expect(assignments).toEqual(
+      expect(parseQueries(assignments)).toEqual(
         expect.arrayContaining([
-          "status=upcoming&month=2026-10",
-          "status=completed&month=2026-10",
+          { status: "upcoming", ...monthRange(2026, 9) },
+          { status: "completed", ...monthRange(2026, 9) },
         ])
       )
     )
@@ -219,6 +262,7 @@ describe("FE-4: listas de Mis Vuelos con la sesión real", () => {
       expect(activePanel()).toHaveTextContent("No hay vuelos para este mes.")
     )
     expect(within(main).queryAllByRole("alert")).toHaveLength(0)
+    expect(screen.queryByRole("region", { name: RELEASED })).toBeNull()
   })
 
   it("FE-4: si assignments/me falla, la pestaña muestra «No se pudieron cargar los vuelos.» en un alert", async () => {
@@ -238,36 +282,63 @@ describe("FE-4: listas de Mis Vuelos con la sesión real", () => {
 })
 
 describe("FE-4: ausencias propias en Mis Vuelos", () => {
-  it("FE-4: un vuelo de una ausencia por fechas lleva «Ausencia reportada: Esperando confirmación»", async () => {
+  it("FE-4: un vuelo asignado con una ausencia aún en revisión lleva «Ausencia reportada: En revisión»", async () => {
     mockAll()
     await openPage()
     await expectPanelFlights(["DL2201", "DL1102"])
 
     await waitFor(() =>
       expect(
-        within(articleOf("DL1102")).getByText(
-          "Ausencia reportada: Esperando confirmación"
-        )
+        within(articleOf("DL1102")).getByText("Ausencia reportada: En revisión")
       ).toBeInTheDocument()
     )
     // La ausencia cancelada sobre DL2201 no marca el vuelo.
     expect(articleOf("DL2201")).not.toHaveTextContent("Ausencia reportada")
   })
 
-  it("FE-4: un vuelo con una ausencia directa ya cubierta lleva «Ausencia reportada: Cubierta»", async () => {
+  it("I-2: «Próximos Vuelos» lista los vuelos liberados por tus ausencias que aún no salen, por salida, con su estado", async () => {
     mockAll()
-    const user = userEvent.setup()
     await openPage()
     await expectPanelFlights(["DL2201", "DL1102"])
 
+    const block = await within(activePanel()).findByRole("region", {
+      name: RELEASED,
+    })
+    const items = within(block)
+      .getAllByRole("listitem")
+      .map((item) => normalize(item.textContent))
+    expect(items).toHaveLength(2)
+    expect(items[0]).toContain("DL0990")
+    expect(items[0]).toMatch(/ATL.*BOS/)
+    expect(items[0]).toContain("Mié 25 Nov, 18:30 UTC")
+    expect(items[0]).toContain("Cubierto por otro tripulante")
+    expect(items[1]).toContain("DL1450")
+    expect(items[1]).toMatch(/ATL.*MCO/)
+    expect(items[1]).toContain("Dom 29 Nov, 14:00 UTC")
+    expect(items[1]).toContain("Esperando confirmación del reemplazo")
+    // Ni el cubierto que ya voló (DL0812) ni el de la ausencia cancelada (DL2201).
+    expect(block).not.toHaveTextContent("DL0812")
+    expect(block).not.toHaveTextContent("DL2201")
+    // Los liberados no son tarjetas de vuelo ni cuentan en la pestaña.
+    expect(panelFlights()).toEqual(["DL2201", "DL1102"])
+    expect(
+      screen.getByRole("tab", { name: `${TAB.upcoming} 2` })
+    ).toBeInTheDocument()
+  })
+
+  it("I-2: las tarjetas solo llevan la marca «En revisión», y el historial no lista los vuelos liberados", async () => {
+    mockAll()
+    const user = userEvent.setup()
+    await openPage()
+    await within(activePanel()).findByRole("region", { name: RELEASED })
+
+    for (const article of within(activePanel()).getAllByRole("article")) {
+      expect(article).not.toHaveTextContent(/Cubiert|Esperando confirmación/)
+    }
+
     await user.click(screen.getByRole("tab", { name: `${TAB.history} 1` }))
     await expectPanelFlights(["DL0875"])
-
-    await waitFor(() =>
-      expect(
-        within(articleOf("DL0875")).getByText("Ausencia reportada: Cubierta")
-      ).toBeInTheDocument()
-    )
+    expect(screen.queryByRole("region", { name: RELEASED })).toBeNull()
   })
 
   it("FE-4: si absences/me falla, los vuelos se ven igual y un alert avisa que faltan las ausencias", async () => {

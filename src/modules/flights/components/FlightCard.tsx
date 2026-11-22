@@ -42,7 +42,8 @@ const DISPATCH_ICON: Record<FlightStatus, typeof ClockIcon> = {
 
 interface FlightCardProps {
   flight: CrewFlight
-  // Estado de una ausencia propia sobre este vuelo (sesión real), p. ej. «Cubierta».
+  // Ausencia propia aún sin reemplazo sobre este vuelo asignado (sesión real): «En revisión».
+  // Con el reemplazo aprobado el vuelo deja de estar asignado y va a ReleasedFlights.
   absence?: string
 }
 

@@ -7,10 +7,13 @@ import { server } from "../utils/server"
 // pantallas del tripulante con la sesión real. Formas tomadas de los casos de uso del
 // backend (flights: getMyAssignments, getMyNextAssignment, acknowledgeReplacement;
 // crew: getMyMetrics, getMyCertification, getMyAbsences).
-// - GET /api/flights/assignments/me?status=&month=&replacement=&acknowledged= → asignaciones
-//   con su vuelo, por salida. MSW casa sin mirar la query: el handler filtra como el backend.
+// - GET /api/flights/assignments/me?status=&month=&from=&to=&replacement=&acknowledged= →
+//   asignaciones activas (status assigned) con su vuelo, por salida. MSW casa sin mirar la
+//   query: el handler filtra como el backend. Al aprobar un reemplazo, la asignación del
+//   titular pasa a replaced y deja de salir aquí: su vuelo solo se ve en absences/me.
 // - GET /api/flights/assignments/me/next → la próxima, o 404 si no hay.
-// - POST /api/flights/assignments/:id/acknowledge → 204.
+// - POST /api/flights/assignments/:id/acknowledge → 204; 409 { error, code } si no se puede
+//   (already_acknowledged, replacement_inactive, not_a_replacement).
 // - GET /api/crew/crew-members/me/metrics → horas del mes, descanso y sectores.
 // - GET /api/crew/certifications/me → la certificación propia (404 sin perfil de crew).
 // - GET /api/crew/absences/me → ausencias propias, la más reciente primero.
@@ -218,11 +221,14 @@ export const ALL_ASSIGNMENTS: AssignmentBody[] = [
   SCHEDULED_ASSIGNMENT,
 ]
 
-// Filtra como getMyAssignments del backend (status, month, replacement, acknowledged).
+// Filtra como getMyAssignments del backend (status, month, from/to con to exclusivo,
+// replacement, acknowledged).
 const filterAssignments = (list: AssignmentBody[], params: URLSearchParams) => {
   const now = Date.now()
   const status = params.get("status")
   const month = params.get("month")
+  const from = params.get("from")
+  const to = params.get("to")
   const replacement = params.get("replacement")
   const acknowledged = params.get("acknowledged")
   return list.filter((item) => {
@@ -233,6 +239,9 @@ const filterAssignments = (list: AssignmentBody[], params: URLSearchParams) => {
     if (status === "upcoming" && (landed || item.flight.status === "cancelled"))
       return false
     if (month && item.flight.departure_at.slice(0, 7) !== month) return false
+    const departure = new Date(item.flight.departure_at).getTime()
+    if (from && departure < new Date(from).getTime()) return false
+    if (to && departure >= new Date(to).getTime()) return false
     if (replacement !== null && String(item.is_replacement) !== replacement)
       return false
     if (
@@ -244,7 +253,7 @@ const filterAssignments = (list: AssignmentBody[], params: URLSearchParams) => {
   })
 }
 
-// Registra la query de cada GET /assignments/me (p. ej. «status=upcoming&month=2026-11»).
+// Registra la query de cada GET /assignments/me (p. ej. «status=upcoming&from=…&to=…»).
 export const mockMyAssignments = (list: AssignmentBody[] = ALL_ASSIGNMENTS) => {
   const queries: string[] = []
   server.use(
@@ -284,17 +293,21 @@ export const mockNextAssignmentError = () =>
     )
   )
 
-// Registra el id de cada «Enterado». `status` distinto de 204 simula un rechazo.
-export const mockAcknowledge = (status = 204) => {
+// Registra el id de cada «Enterado». `status` distinto de 204 simula un rechazo; con
+// `code`, el cuerpo es el del backend ({ error, code }).
+export const mockAcknowledge = (status = 204, code?: string) => {
   const ids: string[] = []
   server.use(
     http.post(CREW_URLS.acknowledge, ({ params }) => {
       ids.push(String(params.id))
       return status === 204
         ? new HttpResponse(null, { status: 204 })
-        : HttpResponse.json(errorBody("Este reemplazo ya no está activo."), {
-            status,
-          })
+        : HttpResponse.json(
+            code
+              ? { error: "Ya confirmaste este reemplazo.", code }
+              : errorBody("Este reemplazo ya no está activo."),
+            { status }
+          )
     })
   )
   return ids
@@ -340,8 +353,46 @@ export const mockMetricsError = () =>
     )
   )
 
-// Ausencias propias: una por fechas con su vuelo DL1102 esperando el «Enterado» del
-// reemplazo, una por vuelo directo (DL0875) ya cubierta y una cancelada sobre DL2201.
+// Ausencias propias, como las deja el backend (la más reciente primero):
+// - abs-1, por fechas (27-29 Nov), con dos vuelos: DL1102 aún sin reemplazo («reported»: la
+//   asignación sigue activa y el vuelo sale en assignments/me) y DL1450, con el reemplazo
+//   aprobado esperando su «Enterado» («pending_ack»: la asignación ya es replaced).
+// - abs-2, por vuelo, DL0990 ya cubierto por otro tripulante (futuro, fuera de assignments/me).
+// - abs-3, por vuelo, DL0812 cubierto pero ya volado: no se lista.
+// - abs-4, cancelada sobre DL2201: no marca nada.
+const absenceFlight = (fields: {
+  id: string
+  code: string
+  flight_id: string
+  flight_number: string
+  origin: string
+  destination: string
+  departure_at: string
+  status: "reported" | "pending_ack" | "covered" | "cancelled"
+}) => ({ ...fields, slot_role: "first_officer" })
+
+const flightAbsence = (fields: {
+  id: string
+  code: string
+  reason: string
+  status: "reported" | "pending_ack" | "covered" | "cancelled"
+  flight_id: string
+  flight_number: string
+  origin: string
+  destination: string
+  departure_at: string
+  created_at: string
+}) => ({
+  kind: "flight",
+  notes: null,
+  start_date: null,
+  end_date: null,
+  slot_role: "first_officer",
+  attachment: null,
+  flights: [],
+  ...fields,
+})
+
 export const MY_ABSENCES = [
   {
     id: "abs-1",
@@ -361,7 +412,7 @@ export const MY_ABSENCES = [
     attachment: null,
     created_at: "2026-11-21T12:00:00.000Z",
     flights: [
-      {
+      absenceFlight({
         id: "abs-1a",
         code: "AUS-0102",
         flight_id: SCHEDULED_ASSIGNMENT.flight.id,
@@ -369,49 +420,56 @@ export const MY_ABSENCES = [
         origin: "ATL",
         destination: "JFK",
         departure_at: SCHEDULED_ASSIGNMENT.flight.departure_at,
-        slot_role: "first_officer",
+        status: "reported",
+      }),
+      absenceFlight({
+        id: "abs-1b",
+        code: "AUS-0103",
+        flight_id: "fl-1450",
+        flight_number: "DL1450",
+        origin: "ATL",
+        destination: "MCO",
+        departure_at: "2026-11-29T14:00:00.000Z",
         status: "pending_ack",
-      },
+      }),
     ],
   },
-  {
+  flightAbsence({
     id: "abs-2",
-    code: "AUS-0090",
-    kind: "flight",
+    code: "AUS-0095",
     reason: "fatigue",
-    notes: null,
     status: "covered",
-    start_date: null,
-    end_date: null,
-    flight_id: COMPLETED_ASSIGNMENT.flight.id,
-    flight_number: "DL0875",
-    origin: "MSP",
-    destination: "ATL",
-    departure_at: COMPLETED_ASSIGNMENT.flight.departure_at,
-    slot_role: "first_officer",
-    attachment: null,
-    created_at: "2026-11-05T12:00:00.000Z",
-    flights: [],
-  },
-  {
+    flight_id: "fl-0990",
+    flight_number: "DL0990",
+    origin: "ATL",
+    destination: "BOS",
+    departure_at: "2026-11-25T18:30:00.000Z",
+    created_at: "2026-11-15T12:00:00.000Z",
+  }),
+  flightAbsence({
     id: "abs-3",
+    code: "AUS-0090",
+    reason: "fatigue",
+    status: "covered",
+    flight_id: "fl-0812",
+    flight_number: "DL0812",
+    origin: "ATL",
+    destination: "MSP",
+    departure_at: "2026-11-12T10:00:00.000Z",
+    created_at: "2026-11-05T12:00:00.000Z",
+  }),
+  flightAbsence({
+    id: "abs-4",
     code: "AUS-0080",
-    kind: "flight",
     reason: "emergency",
-    notes: null,
     status: "cancelled",
-    start_date: null,
-    end_date: null,
     flight_id: REPLACEMENT_ASSIGNMENT.flight.id,
     flight_number: "DL2201",
     origin: "ATL",
     destination: "LAX",
     departure_at: REPLACEMENT_ASSIGNMENT.flight.departure_at,
-    slot_role: "first_officer",
-    attachment: null,
     created_at: "2026-11-01T12:00:00.000Z",
-    flights: [],
-  },
+  }),
 ]
 
 export const mockMyAbsences = (body: object[] = MY_ABSENCES) =>

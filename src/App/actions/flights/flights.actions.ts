@@ -38,11 +38,22 @@ export const getMyNextAssignment =
     }
   }
 
-// «Enterado» del reemplazo: confirma que cubrirá el vuelo (204).
+// «Enterado» del reemplazo: confirma que cubrirá el vuelo (204). Un 409
+// already_acknowledged (ya estaba confirmado, p. ej. desde otra pestaña) también es éxito.
 export const acknowledgeAssignment = async (id: string): Promise<void> => {
-  await apiClient.post(
-    `${ASSIGNMENTS_PATH}/${encodeURIComponent(id)}/acknowledge`
-  )
+  try {
+    await apiClient.post(
+      `${ASSIGNMENTS_PATH}/${encodeURIComponent(id)}/acknowledge`
+    )
+  } catch (error) {
+    if (
+      isAxiosError<{ code?: unknown }>(error) &&
+      error.response?.status === 409 &&
+      error.response.data?.code === "already_acknowledged"
+    )
+      return
+    throw error
+  }
 }
 
 // Métricas del mes actual en la zona de la base del tripulante.

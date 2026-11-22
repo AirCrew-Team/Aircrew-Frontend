@@ -240,3 +240,29 @@ describe("FE-4: tarjetas informativas con la sesión real", () => {
     expect(main).not.toHaveTextContent("Ext. 4022")
   })
 })
+
+describe("Revisión final de FE-4: textos de la sesión real sin atribuir a la FAA la verificación interna", () => {
+  it("con la sesión real, la cabecera, la columna de estado y la tarjeta del expediente hablan de la administración de AirCrew, no de la FAA", async () => {
+    mockMyCertification()
+    const main = await openPage()
+
+    const text = normalize(main.textContent)
+    expect(text).toContain("Estado del expediente")
+    expect(text).toContain("verificado por la administración de AirCrew")
+    for (const fragment of [
+      "Estado FAA",
+      "Expediente FAA",
+      "Auditoría FAA",
+      "auditado por la",
+    ]) {
+      expect(text).not.toContain(fragment)
+    }
+    const heading = within(main).getByRole("heading", {
+      level: 2,
+      name: "Verificación del expediente",
+    })
+    expect(normalize(heading.parentElement?.textContent ?? "")).toMatch(
+      /^Verificación del expedienteExpediente/
+    )
+  })
+})

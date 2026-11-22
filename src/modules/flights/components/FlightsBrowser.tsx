@@ -7,6 +7,7 @@ import { typography } from "@/App/utils/typography"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 import FlightCard from "@/modules/flights/components/FlightCard"
+import ReleasedFlights from "@/modules/flights/components/ReleasedFlights"
 import {
   getFlightAbsences,
   getFlightHistory,
@@ -81,7 +82,7 @@ const controlClass = cn(
 // B: pestañas, buscador, mes y filtros, con la lista de la pestaña activa.
 // Las dos listas se piden al entrar porque las pestañas muestran sus conteos.
 // La cuenta demo trae todos sus meses de una vez y filtra en el cliente; la sesión real
-// pide al backend los vuelos del mes elegido (FE-4).
+// pide al backend los vuelos del mes elegido (FE-4), con el rango del mes local.
 const FlightsBrowser = () => {
   const demo = useAuthStore((state) => isDemoUser(state.user))
   const id = useId()
@@ -103,7 +104,8 @@ const FlightsBrowser = () => {
     queryKey: ["flights", "history", monthKey],
     queryFn: () => getFlightHistory(month),
   })
-  // Vuelo → estado de su ausencia propia. Si falla, los vuelos se ven sin la marca.
+  // Marcas de las ausencias propias y vuelos liberados. Si falla, los vuelos se ven sin
+  // ellas.
   const absences = useQuery({
     queryKey: ["absences", "me", "flights"],
     queryFn: getFlightAbsences,
@@ -247,7 +249,7 @@ const FlightsBrowser = () => {
         <TabsContent
           key={value}
           value={value}
-          className="rounded-xl focus-visible:ring-2 focus-visible:ring-brand-tertiary focus-visible:ring-offset-4 focus-visible:ring-offset-background focus-visible:outline-hidden"
+          className="flex flex-col gap-4 rounded-xl focus-visible:ring-2 focus-visible:ring-brand-tertiary focus-visible:ring-offset-4 focus-visible:ring-offset-background focus-visible:outline-hidden"
         >
           {isPending ? (
             <p
@@ -277,11 +279,16 @@ const FlightsBrowser = () => {
                 <FlightCard
                   key={flight.id}
                   flight={flight}
-                  absence={absences.data?.[flight.id]}
+                  absence={absences.data?.marks[flight.id]}
                 />
               ))}
             </div>
           )}
+          {/* Fuera de las ramas: los liberados ya no salen en assignments/me, así que suelen
+              acompañar a «No hay vuelos para este mes.». Son de cualquier mes futuro. */}
+          {value === "upcoming" && absences.data ? (
+            <ReleasedFlights flights={absences.data.released} />
+          ) : null}
         </TabsContent>
       ))}
     </Tabs>

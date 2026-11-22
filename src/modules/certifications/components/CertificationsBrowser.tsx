@@ -9,12 +9,14 @@ import CertificationItem from "@/modules/certifications/components/Certification
 import { LICENSE_COLUMNS_CLASS } from "@/modules/certifications/components/columns"
 import { getCertifications } from "@/modules/shared/certifications/data/certifications.data"
 import type { Certification } from "@/modules/shared/certifications/types/certifications.types"
+import { isDemoUser, useAuthStore } from "@/stores/auth.store"
 
-const COLUMN_HEADERS = [
+// Con la sesión real el estado lo pone la administración de AirCrew al cotejar, no la FAA.
+const columnHeaders = (demo: boolean) => [
   "Certificación / Licencia",
   "Organismo / Alcance",
   "Fecha de vencimiento",
-  "Estado FAA",
+  demo ? "Estado FAA" : "Estado del expediente",
   "Observación operacional",
   "Acción",
 ]
@@ -40,6 +42,7 @@ const licenses = (count: number) =>
 // Con la sesión real, la lista sale de certifications/me (FE-4).
 const CertificationsBrowser = () => {
   const id = useId()
+  const demo = useAuthStore((state) => isDemoUser(state.user))
   const [search, setSearch] = useState("")
   const { data, isPending } = useQuery({
     queryKey: ["certifications", "list"],
@@ -160,7 +163,7 @@ const CertificationsBrowser = () => {
               LICENSE_COLUMNS_CLASS
             )}
           >
-            {COLUMN_HEADERS.map((header) => (
+            {columnHeaders(demo).map((header) => (
               <span key={header} className="last:text-right">
                 {header}
               </span>

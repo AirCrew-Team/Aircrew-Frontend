@@ -6,6 +6,7 @@ import { ROLES } from "@/App/types/auth.types"
 import { PATHS } from "@/routes/paths"
 import { useAuthStore } from "@/stores/auth.store"
 
+import { REAL_USERS } from "../mocks/profileApi"
 import { renderRoute } from "../utils/renderRoute"
 
 // La ruta se carga con `lazy` (react-hook-form + zod): la primera espera de la pantalla
@@ -230,6 +231,36 @@ describe("Reportar Ausencia: columna derecha", () => {
       "OCC-DESP",
     ]) {
       expect(main).toHaveTextContent(text)
+    }
+  })
+})
+
+describe("Reportar Ausencia: línea de emergencia con la sesión real", () => {
+  it("I-4: con la sesión real no hay número, extensión, canal ni enlace de llamada inventados: solo el aviso de comunicarse con el OCC de la base", async () => {
+    useAuthStore.getState().setUser(REAL_USERS.crew)
+    renderRoute(PATHS.tripulante.reportarAusencia)
+    const main = await screen.findByRole("main")
+
+    const title = await within(main).findByRole(
+      "heading",
+      { level: 2, name: "Línea de Emergencia OCC" },
+      LAZY
+    )
+    const card = title.closest("section") as HTMLElement
+    expect(card).toHaveTextContent(
+      "Comunícate con el centro de operaciones (OCC) de tu base."
+    )
+    expect(card.querySelector("a")).toBeNull()
+    expect(main.querySelector('a[href^="tel:"]')).toBeNull()
+    for (const text of [
+      "555",
+      "Extensión",
+      "VHF",
+      "OCC-DESP",
+      "Central Telefónica Directa",
+      "Canal directo telefónico",
+    ]) {
+      expect(card).not.toHaveTextContent(text)
     }
   })
 })

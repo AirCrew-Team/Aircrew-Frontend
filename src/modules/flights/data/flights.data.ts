@@ -7,12 +7,14 @@ import type {
   ApiCrewRole,
   ApiFlightAssignment,
   ApiFlightStatus,
-  ApiMyAbsenceStatus,
+  ApiMyAbsenceFlight,
 } from "@/App/types/flights.types"
 import type {
   CrewFlight,
+  FlightAbsences,
   FlightAirport,
   FlightMetrics,
+  ReleasedFlight,
 } from "@/modules/flights/types/flights.types"
 import { withDemo } from "@/modules/shared/session/demoSession"
 
@@ -374,6 +376,12 @@ const localClock = (iso: string, timeZone: string | null) => {
   }
 }
 
+// «2026-01» con la fecha local, la misma del selector de meses.
+const localMonth = (iso: string) => {
+  const date = new Date(iso)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+}
+
 const toCrewFlight = (
   { flight, aircraft, ...assignment }: ApiFlightAssignment,
   completed: boolean
@@ -389,8 +397,8 @@ const toCrewFlight = (
       : assignment.is_replacement
         ? "reemplazo"
         : "programado",
-    // Mes en UTC, el mismo con el que filtra el backend.
-    month: flight.departure_at.slice(0, 7),
+    // Mes local, el del selector (se pide al backend con from/to).
+    month: localMonth(flight.departure_at),
     origin: { code: flight.origin, city: flight.origin_city ?? "", icao: null },
     destination: {
       code: flight.destination,
@@ -451,11 +459,23 @@ const toCrewFlight = (
 }
 
 // Los cancelados no se listan (el backend los deja en el historial si ya pasó su hora).
+// El mes «AAAA-MM» es local: se pide su rango en ISO (to exclusivo), porque el month del
+// backend cuenta en UTC y la última noche del mes perdería los vuelos de esa noche. El
+// backend da los vuelos por salida; el historial va del más reciente al más antiguo.
 const flightsFromApi =
-  (status: "upcoming" | "completed") => async (month: string) =>
-    (await getMyAssignments({ status, month }))
+  (status: "upcoming" | "completed") => async (month: string) => {
+    const [year, monthNumber] = month.split("-").map(Number)
+    const flights = (
+      await getMyAssignments({
+        status,
+        from: new Date(year, monthNumber - 1, 1).toISOString(),
+        to: new Date(year, monthNumber, 1).toISOString(),
+      })
+    )
       .filter((assignment) => assignment.flight.status !== "cancelled")
       .map((assignment) => toCrewFlight(assignment, status === "completed"))
+    return status === "completed" ? flights.toReversed() : flights
+  }
 
 // Días desde hoy (medianoche local) hasta «AAAA-MM-DD».
 const daysUntil = (isoDate: string) => {
@@ -503,30 +523,50 @@ const flightMetricsFromApi = async (): Promise<FlightMetrics> => {
   }
 }
 
-const ABSENCE_LABEL: Record<
-  Exclude<ApiMyAbsenceStatus, "cancelled">,
-  string
-> = {
-  reported: "En revisión",
-  pending_ack: "Esperando confirmación",
-  covered: "Cubierta",
-}
-
-// Id del vuelo → estado de su ausencia. Llegan de la más reciente a la más antigua, así
-// que manda la primera. Las canceladas no marcan el vuelo; un estado desconocido cuenta
-// como «En revisión».
-const flightAbsencesFromApi = async (): Promise<Record<string, string>> => {
+// Ausencias propias (la más reciente primero; manda la primera de cada vuelo). Las
+// canceladas no cuentan. Con el reemplazo aprobado (pending_ack) o confirmado (covered) la
+// asignación pasa a replaced y el vuelo ya no sale en assignments/me: va a «released» si
+// aún no ha salido. Cualquier otro estado deja el vuelo asignado con «En revisión».
+const flightAbsencesFromApi = async (): Promise<FlightAbsences> => {
   const marks: Record<string, string> = {}
-  const mark = (flightId: string | null, status: ApiMyAbsenceStatus) => {
-    if (!flightId || status === "cancelled" || Object.hasOwn(marks, flightId))
+  const released: { departureAt: number; flight: ReleasedFlight }[] = []
+  const seen = new Set<string>()
+  const now = Date.now()
+  const add = (id: string, flight: ApiMyAbsenceFlight) => {
+    const { flight_id: flightId, status } = flight
+    if (!flightId || status === "cancelled" || seen.has(flightId)) return
+    seen.add(flightId)
+    if (status !== "pending_ack" && status !== "covered") {
+      marks[flightId] = "En revisión"
       return
-    marks[flightId] = ABSENCE_LABEL[status] ?? ABSENCE_LABEL.reported
+    }
+    const departureAt = flight.departure_at
+      ? new Date(flight.departure_at).getTime()
+      : Number.NaN
+    if (!flight.departure_at || !flight.flight_number || !(departureAt > now))
+      return
+    released.push({
+      departureAt,
+      flight: {
+        id,
+        flightNumber: flight.flight_number,
+        origin: flight.origin ?? "—",
+        destination: flight.destination ?? "—",
+        departure: formatUtc(flight.departure_at),
+        status,
+      },
+    })
   }
   for (const absence of await getMyAbsences()) {
-    mark(absence.flight_id, absence.status)
-    for (const flight of absence.flights) mark(flight.flight_id, flight.status)
+    add(absence.id, absence)
+    for (const flight of absence.flights) add(flight.id, flight)
   }
-  return marks
+  return {
+    marks,
+    released: released
+      .toSorted((a, b) => a.departureAt - b.departureAt)
+      .map(({ flight }) => flight),
+  }
 }
 
 // La cuenta demo usa los datos de ejemplo; la sesión real, el backend.
@@ -545,5 +585,5 @@ export const getFlightHistory = withDemo(
 // La demo no tiene ausencias propias.
 export const getFlightAbsences = withDemo(
   flightAbsencesFromApi,
-  (): Promise<Record<string, string>> => Promise.resolve({})
+  (): Promise<FlightAbsences> => Promise.resolve({ marks: {}, released: [] })
 )

@@ -164,16 +164,25 @@ const localClock = (iso: string, timeZone: string | null) => {
   }
 }
 
-// «Hoy», «Mañana» o «Lun 23 Nov», con el día local del dispositivo.
+// «Hoy», «Mañana» o «Lun 23 Nov», con el día UTC: siempre va junto a una hora UTC, como
+// en Mis Vuelos («Lun 23 Nov, 16:15 UTC»).
 const dayLabel = (iso: string) => {
   const date = new Date(iso)
   const now = new Date()
-  const day = new Date(date.getFullYear(), date.getMonth(), date.getDate())
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const days = Math.round((day.getTime() - today.getTime()) / 86_400_000)
+  const day = Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate()
+  )
+  const today = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate()
+  )
+  const days = (day - today) / 86_400_000
   if (days === 0) return "Hoy"
   if (days === 1) return "Mañana"
-  return `${WEEKDAYS[date.getDay()]} ${date.getDate()} ${SHORT_MONTHS[date.getMonth()]}`
+  return `${WEEKDAYS[date.getUTCDay()]} ${date.getUTCDate()} ${SHORT_MONTHS[date.getUTCMonth()]}`
 }
 
 // 295 → «4h 55m».
@@ -251,10 +260,16 @@ const toReplacementAssignment = ({
   }
 }
 
+// Solo los vuelos que aún no aterrizan ni están cancelados: «Enterado» de un vuelo
+// cancelado o ya volado no tiene sentido.
 const replacementAssignmentsFromApi = async () =>
-  (await getMyAssignments({ replacement: true, acknowledged: false })).map(
-    toReplacementAssignment
-  )
+  (
+    await getMyAssignments({
+      replacement: true,
+      acknowledged: false,
+      status: "upcoming",
+    })
+  ).map(toReplacementAssignment)
 
 // La cuenta demo usa los datos de ejemplo; la sesión real, el backend.
 export const getReplacementAssignments = withDemo(

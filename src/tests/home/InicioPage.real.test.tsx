@@ -13,6 +13,7 @@ import {
   mockMyCertificationError,
   mockNextAssignment,
   mockNextAssignmentError,
+  REPLACEMENT_ASSIGNMENT,
   SCHEDULED_ASSIGNMENT,
   TODAY,
 } from "../mocks/crewFlightsApi"
@@ -23,9 +24,11 @@ import { server } from "../utils/server"
 
 // FE-4 (docs/specs/cierre-pendientes.md): Inicio del tripulante con la sesión real.
 // - Próximo vuelo: GET /api/flights/assignments/me/next (404 = sin vuelos).
-// - Asignación de reemplazo: GET /api/flights/assignments/me?replacement=true&acknowledged=false;
+// - Asignación de reemplazo: GET /api/flights/assignments/me?replacement=true&acknowledged=false
+//   &status=upcoming (I-3: sin status saldrían reemplazos cancelados o ya volados);
 //   «Enterado» hace POST /api/flights/assignments/:id/acknowledge, avisa con un toast y
-//   vuelve a pedir las asignaciones.
+//   vuelve a pedir las asignaciones. Un 409 already_acknowledged (ya se confirmó, p. ej.
+//   desde otra pestaña) cuenta como éxito.
 // - Certificaciones: GET /api/crew/certifications/me.
 
 const BANNER = "Asignación de reemplazo"
@@ -141,7 +144,13 @@ describe("FE-4: asignación de reemplazo con la sesión real", () => {
     await openHome()
 
     const banner = await screen.findByRole("region", { name: BANNER })
-    expect(assignments).toContain("replacement=true&acknowledged=false")
+    expect(
+      assignments.map((query) => Object.fromEntries(new URLSearchParams(query)))
+    ).toContainEqual({
+      replacement: "true",
+      acknowledged: "false",
+      status: "upcoming",
+    })
     const text = normalize(banner.textContent)
     for (const fragment of [
       "Vuelo DL2201",
@@ -192,6 +201,52 @@ describe("FE-4: asignación de reemplazo con la sesión real", () => {
         "Vuelo DL2201"
       )
     )
+  })
+
+  it("I-3: un reemplazo pendiente de un vuelo cancelado o ya volado no pide «Enterado»", async () => {
+    const cancelled = {
+      ...REPLACEMENT_ASSIGNMENT,
+      id: "asg-6",
+      flight: { ...REPLACEMENT_ASSIGNMENT.flight, status: "cancelled" },
+    } as const
+    const flown = {
+      ...REPLACEMENT_ASSIGNMENT,
+      id: "asg-7",
+      flight: {
+        ...REPLACEMENT_ASSIGNMENT.flight,
+        id: "fl-2101",
+        flight_number: "DL2101",
+        departure_at: "2026-11-20T16:15:00.000Z",
+        arrival_at: "2026-11-20T21:10:00.000Z",
+      },
+    }
+    mockMyAssignments([flown, cancelled])
+    mockNextAssignment(null)
+    mockMyCertification()
+    await openHome()
+
+    expect(
+      screen.queryByRole("region", { name: BANNER })
+    ).not.toBeInTheDocument()
+  })
+
+  it("I-3: si el backend responde 409 already_acknowledged, el «Enterado» cuenta como hecho", async () => {
+    mockAll()
+    const acknowledged = mockAcknowledge(409, "already_acknowledged")
+    const user = userEvent.setup()
+    await openHome()
+
+    const banner = await screen.findByRole("region", { name: BANNER })
+    await user.click(within(banner).getByRole("button", { name: "Enterado" }))
+
+    await findToast(ACK_TOAST)
+    expect(acknowledged).toEqual(["asg-1"])
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("region", { name: BANNER })
+      ).not.toBeInTheDocument()
+    )
+    expect(screen.queryByText(ACK_ERROR_TOAST)).toBeNull()
   })
 
   it("FE-4: sin reemplazos pendientes no se pinta el banner", async () => {

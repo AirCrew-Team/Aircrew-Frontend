@@ -58,7 +58,7 @@ const RecordVerificationCard = () => {
           )}
         >
           <VerifiedIcon aria-hidden="true" className="size-3.5 shrink-0" />
-          Expediente FAA
+          Expediente
         </p>
         <span className={badgeClass}>{state.label}</span>
       </div>

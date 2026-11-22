@@ -45,7 +45,7 @@ const HOME_REQUESTS = [
   `GET ${API_URL}/api/crew/certifications/me`,
   `GET ${API_URL}/api/crew/crew-members/me`,
   `GET ${API_URL}/api/flights/assignments/me/next`,
-  `GET ${API_URL}/api/flights/assignments/me?replacement=true&acknowledged=false`,
+  `GET ${API_URL}/api/flights/assignments/me?replacement=true&acknowledged=false&status=upcoming`,
 ]
 const NEXT_FLIGHT = "Próximo vuelo"
 const DEMO_FLIGHT_LABEL = "Itinerario Confirmado"
