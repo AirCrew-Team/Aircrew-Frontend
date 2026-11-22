@@ -370,3 +370,22 @@ export const deleteUser = async (id: string): Promise<void> => {
     throw toUserError(error, { isCreate: false })
   }
 }
+
+// Borra la cuenta y todo lo suyo en los servicios; el correo queda libre. Si era
+// tripulante, sus puestos en vuelos futuros quedan vacantes (el backend avisa a los
+// supervisores). La respuesta trae esos vuelos (vacated_flights), pero en un reintento
+// llega vacía: la pantalla no la usa.
+// Un 409 (eliminarse a sí mismo, último super_admin) lanza UserRequestError con el texto
+// del backend. Lo demás (404, 502 user_delete_incomplete, otro 5xx, red) se relanza y la
+// pantalla muestra su aviso genérico.
+export const deleteUserPermanently = async (id: string): Promise<void> => {
+  try {
+    await apiClient.delete(`${userPath(id)}/permanent`)
+  } catch (error) {
+    const message = backendMessage(error)
+    if (isAxiosError(error) && error.response?.status === 409 && message) {
+      throw new UserRequestError(message)
+    }
+    throw error
+  }
+}

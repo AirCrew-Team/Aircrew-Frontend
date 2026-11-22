@@ -161,6 +161,43 @@ describe("D14: «Estado operativo» del supervisor en el formulario", () => {
     expect(bodies).toEqual([{ operational_status: "on_duty" }])
   })
 
+  // Revisión final: un supervisor sin estado (status null) no aparece como «Disponible».
+  it("D14 un supervisor sin estado se abre con «Sin estado» elegido y no envía operational_status si no cambia", async () => {
+    const withoutStatus = { ...API_ITEMS.supervisor, status: null }
+    server.use(
+      http.get(USERS_URL, () =>
+        HttpResponse.json({
+          items: [withoutStatus],
+          page: 1,
+          page_size: 5,
+          total: 1,
+        })
+      ),
+      http.get(userUrl(UUIDS.supervisor), () =>
+        HttpResponse.json(withoutStatus)
+      )
+    )
+    const bodies = captureBody("patch", userUrl(UUIDS.supervisor), () =>
+      HttpResponse.json({ ...withoutStatus, shift: "night" })
+    )
+    const { user, form } = await openEdit("Camila Restrepo")
+
+    const status = form.getByLabelText(STATUS)
+    expect(status).toHaveValue("")
+    expect(optionTexts(status)).toEqual([
+      "Sin estado",
+      "Disponible",
+      "En turno",
+      "Fuera de turno",
+      "De licencia",
+    ])
+    await user.selectOptions(form.getByLabelText(/^Turno/), "turno_3")
+    await user.click(form.getByRole("button", { name: "Guardar cambios" }))
+
+    await findToast("Usuario actualizado")
+    expect(bodies).toEqual([{ shift: "night" }])
+  })
+
   it("D14 editar a un tripulante no muestra el campo ni envía operational_status", async () => {
     const bodies = captureBody("patch", userUrl(UUIDS.crew), () =>
       HttpResponse.json({ ...API_ITEMS.crew, base: "MSP" })

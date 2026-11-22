@@ -16,5 +16,6 @@ export const useUsersApi = () => {
     createUser: api.createUser,
     updateUser: api.updateUser,
     deleteUser: api.deleteUser,
+    deleteUserPermanently: api.deleteUserPermanently,
   }
 }

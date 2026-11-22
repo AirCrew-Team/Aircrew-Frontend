@@ -41,6 +41,8 @@ const NOTIFICATIONS_URL = `${API_URL}/api/notification/notifications`
 const REPORTED = "EMP-004 no podrá volar AV-9344 (incapacidad)."
 const VERIFIED = "Tu certificado 2775981 fue verificado."
 const REPLACEMENT = "Te asignaron como reemplazo en el vuelo DL2201."
+const SLOT_VACATED =
+  "Puesto vacante en DL1102 (JFK → LAX): se eliminó la cuenta del tripulante."
 const SCREEN = PATHS.superVisor.solicitudesReemplazo
 
 const emit = (name: string, payload: object) =>
@@ -230,6 +232,54 @@ describe("Avisos en vivo (SSE) y campana", () => {
       expect(completed()).toHaveLength(2)
       expect(metrics).toHaveLength(2)
     })
+  })
+
+  // EU-01 (docs/specs/eliminar-usuarios.md): al eliminar la cuenta de un tripulante, su
+  // puesto en los vuelos futuros queda vacante y el supervisor recibe el aviso en vivo.
+  it("flight:slot_vacated avisa con un toast, trae la alerta a la campana y vuelve a pedir Programación (clave assignment)", async () => {
+    vi.mocked(connectAlerts).mockClear()
+    const bell = mockBell([])
+    const days = { calls: 0 }
+    server.use(
+      http.get(`${API_URL}/api/admin/bases/me`, () =>
+        HttpResponse.json(
+          {
+            error: { message: "No tienes una base asignada.", code: "no_base" },
+          },
+          { status: 404 }
+        )
+      ),
+      http.get(`${API_URL}/api/recommendation/schedule/days`, () => {
+        days.calls += 1
+        return HttpResponse.json([])
+      }),
+      http.get(`${API_URL}/api/recommendation/schedule`, () =>
+        HttpResponse.json([])
+      )
+    )
+    loginAsSupervisor()
+    renderRoute(PATHS.superVisor.programacion)
+    await waitFor(() => expect(connectAlerts).toHaveBeenCalled())
+    await waitFor(() => expect(days.calls).toBe(1))
+
+    bell.items = [{ message: SLOT_VACATED }]
+    await emit("flight:slot_vacated", {
+      type: "flight:slot_vacated",
+      message: SLOT_VACATED,
+      id: "n-1",
+      flight_id: "f-1102",
+      flight_number: "DL1102",
+      origin: "JFK",
+      destination: "LAX",
+      departure_at: "2026-11-25T14:00:00.000Z",
+      slot_id: "s-1",
+      role: "Copiloto",
+      sent_at: "2026-11-22T15:00:00.000Z",
+    })
+
+    await findToast(SLOT_VACATED)
+    await screen.findByRole("button", { name: "Notificaciones (1 sin leer)" })
+    await waitFor(() => expect(days.calls).toBe(2))
   })
 
   it("el super_admin no se conecta ni pide la campana", async () => {

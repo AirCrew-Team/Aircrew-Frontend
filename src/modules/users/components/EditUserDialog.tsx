@@ -33,9 +33,10 @@ const toFormValues = (user: UserDetail): CreateUserFormValues => ({
   roleTitle: user.roleGroup === "tripulacion" ? user.roleTitle : "",
   base: user.base ?? "",
   shift: user.shift ?? "",
-  // Solo lo usa el supervisor. Sin estado (o al pasar de administrador a supervisor),
+  // Solo lo usa el supervisor. Un supervisor sin estado se abre con «Sin estado» ("") y
+  // no se envía nada salvo que lo cambien. Al pasar de administrador a supervisor,
   // «Disponible», como hace el backend.
-  status: (user.roleGroup === "supervisor" && user.status) || "disponible",
+  status: user.roleGroup === "supervisor" ? (user.status ?? "") : "disponible",
 })
 
 // Los mismos valores con la forma que envía el formulario: con ellos la acción manda

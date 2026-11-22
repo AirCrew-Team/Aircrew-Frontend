@@ -1,4 +1,8 @@
 import { getCertificationsStats } from "@/App/actions/certifications/certifications.actions"
+import {
+  getCurrentShift,
+  type ShiftCode,
+} from "@/App/actions/shifts/shifts.actions"
 import type {
   AirportStatus,
   CertificationsOverview,
@@ -8,7 +12,6 @@ import type {
   UsersSummary,
 } from "@/modules/adminHome/types/adminHome.types"
 import { withDemo } from "@/modules/shared/session/demoSession"
-import apiClient from "@/service/api-client"
 
 import * as demo from "./adminHome.demo"
 
@@ -79,34 +82,22 @@ export const getCertificationsRenewals = withDemo(
   demo.getCertificationsRenewals
 )
 
-interface ApiCurrentShift {
-  shift: "morning" | "afternoon" | "night"
-  flights_today: number
-  standby_total: number
-  standby_ready: number
-  staffing_delays: number
-}
-
 // Nombre del turno y del bloque horario que cubre la guardia.
-const SHIFT_TEXT: Record<
-  ApiCurrentShift["shift"],
-  Pick<StandbySummary, "shift" | "block">
-> = {
+const SHIFT_TEXT: Record<ShiftCode, Pick<StandbySummary, "shift" | "block">> = {
   morning: { shift: "Turno de la Mañana", block: "matutino" },
   afternoon: { shift: "Turno de la Tarde", block: "vespertino" },
   night: { shift: "Turno de la Noche", block: "nocturno" },
 }
 
 // Resumen de guardias. Sesión real: GET /shifts/current SIN base (el admin no tiene
-// base; el backend junta todas las bases con la hora de Nueva York).
+// base; el backend junta todas las bases con la hora de Nueva York). Sin las demoras por
+// dotación: el backend todavía no las calcula (siempre 0).
 const getNetworkStandby = async (): Promise<StandbySummary> => {
-  const { data } = await apiClient.get<ApiCurrentShift>(
-    "/api/crew/shifts/current"
-  )
+  const { shift, standbyTotal } = await getCurrentShift()
   return {
-    ...SHIFT_TEXT[data.shift],
-    standbyCrew: data.standby_total,
-    staffingDelays: data.staffing_delays,
+    ...SHIFT_TEXT[shift],
+    standbyCrew: standbyTotal,
+    staffingDelays: null,
   }
 }
 

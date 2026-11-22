@@ -84,10 +84,13 @@ const StandbySummary = () => {
               >
                 Sistema de suplencias en guardia listo
               </h2>
+              {/* Las demoras solo se muestran si hay dato (no lo hay con la sesión real). */}
               <p className={cn(typography.bodySm, "text-brand-secondary")}>
                 {data.standbyCrew} tripulantes en Standby para el bloque{" "}
-                {data.block} • {data.staffingDelays} demoras operativas
-                atribuibles a dotación técnica.
+                {data.block}
+                {data.staffingDelays === null
+                  ? "."
+                  : ` • ${data.staffingDelays} demoras operativas atribuibles a dotación técnica.`}
               </p>
             </div>
           </div>

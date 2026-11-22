@@ -79,6 +79,7 @@ export interface StandbySummary {
   standbyCrew: number
   // Bloque horario cubierto por la guardia, ej. "vespertino".
   block: string
-  // Demoras causadas por falta de tripulación.
-  staffingDelays: number
+  // Demoras causadas por falta de tripulación. null: no hay dato (sesión real: el
+  // backend aún no lo calcula) y no se muestra.
+  staffingDelays: number | null
 }

@@ -113,7 +113,9 @@ describe("FE-5: tarjeta «Certificaciones y Licencias» con la sesión real", ()
 })
 
 describe("FE-5: resumen de guardias con la sesión real", () => {
-  it("FE-5 pide shifts/current sin base y muestra el turno, la guardia y las demoras del backend", async () => {
+  // staffing_delays siempre llega en 0 del backend (revisión final): con la sesión real no
+  // se presenta como dato.
+  it("FE-5 pide shifts/current sin base y muestra el turno y la guardia, sin la cifra de demoras", async () => {
     await openHome()
 
     const heading = await screen.findByRole("heading", {
@@ -123,8 +125,9 @@ describe("FE-5: resumen de guardias con la sesión real", () => {
     const section = heading.closest("section") as HTMLElement
     expect(section).toHaveTextContent("Turno de la Noche")
     expect(section).toHaveTextContent(
-      "5 tripulantes en Standby para el bloque nocturno • 2 demoras operativas atribuibles a dotación técnica."
+      "5 tripulantes en Standby para el bloque nocturno."
     )
+    expect(section).not.toHaveTextContent("demoras")
     await waitFor(() => expect(shiftRequests.length).toBeGreaterThan(0))
     for (const url of shiftRequests) {
       expect(url.searchParams.has("base"), url.search).toBe(false)
@@ -163,7 +166,7 @@ describe("FE-5: resumen de guardias con la sesión real", () => {
       const section = heading.closest("section") as HTMLElement
 
       expect(section).toHaveTextContent(label)
-      expect(section).toHaveTextContent(`para el bloque ${block} •`)
+      expect(section).toHaveTextContent(`para el bloque ${block}.`)
     }
   )
 
