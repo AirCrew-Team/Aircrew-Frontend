@@ -4,7 +4,7 @@
 
 # AirCrew Frontend
 
-Interfaz web para gestionar tripulaciones aéreas: tripulantes, supervisores y administradores coordinan vuelos, ausencias y reemplazos desde una sola aplicación.
+Interfaz web para gestionar las tripulaciones de Delta Air Lines en sus hubs de EE. UU., bajo la normativa de la FAA: tripulantes, supervisores y administradores coordinan vuelos, ausencias y reemplazos desde una sola aplicación.
 
 [![CI](https://github.com/AirCrew-Team/Aircrew-Frontend/actions/workflows/ci.yml/badge.svg)](https://github.com/AirCrew-Team/Aircrew-Frontend/actions/workflows/ci.yml)
 ![Versión](https://img.shields.io/badge/versión-0.1.0-0b3a66)
@@ -93,7 +93,7 @@ La app arranca en el Login. Cada rol (tripulante, supervisor y administrador) ve
 Para recorrerla en desarrollo (`pnpm dev`), usa el selector **«Rol (dev)»** del Login: entra con el rol que elijas sin escribir credenciales y te deja cambiar de rol al instante. No se incluye en el build de producción.
 
 > [!NOTE]
-> El Login está conectado al backend de AirCrew a través de su API gateway. La sesión vive en una cookie `httpOnly` que crea el backend, así que sigue abierta al recargar la página hasta que vence el token. Las cuentas demo y el selector «Rol (dev)» siguen disponibles y no llaman al backend. El resto de pantallas todavía usa datos simulados en memoria, que se reinician al recargar.
+> El Login está conectado al backend de AirCrew a través de su API gateway. La sesión vive en una cookie `httpOnly` que crea el backend, así que sigue abierta al recargar la página hasta que vence el token. Con la sesión real, todas las pantallas usan el backend, salvo Reportes del administrador, que todavía no existe. Las cuentas demo («Rol (dev)») no llaman al backend y siguen con datos de ejemplo en memoria, que se reinician al recargar.
 
 <details>
 <summary>Generar y revisar el build de producción</summary>
@@ -233,7 +233,7 @@ El navegador habla con un solo dominio, así que la cookie de sesión (`SameSite
 
 **Qué hace Caddy (`Caddyfile`):**
 
-- `/api/*` va al gateway con el prefijo intacto, incluido el WebSocket de las alertas.
+- `/api/*` va al gateway con el prefijo intacto, incluido el stream de las alertas en vivo (`/api/notification/stream`). Las alertas van por SSE (Server-Sent Events): el navegador abre un `EventSource` que lleva la cookie de sesión, y Caddy no comprime ese stream y entrega cada aviso apenas llega.
 - Cualquier otra ruta devuelve `index.html`, así que recargar con F5 en una pantalla no da 404.
 - Caché:
   - `index.html` y las rutas de la app van con `Cache-Control: no-cache`, para que tras un despliegue nadie se quede con chunks viejos;
@@ -251,14 +251,20 @@ Y abrir `http://localhost:8080`. En local la cookie no lleva `Secure`, así que 
 
 ## Hoja de ruta
 
-- [x] Login con cuentas de prueba y recuperación de contraseña
+- [x] Login real, recuperación de contraseña y activación de cuenta; «Rol (dev)» para recorrer la app con datos de ejemplo
 - [x] Tripulante: Inicio, Mis Vuelos, Reportar Ausencia, Certificaciones y Configuración
 - [x] Supervisor: Inicio, Programación, Recomendaciones, Ausencias, Tripulación y Configuración
-- [ ] Tripulante: ver en «Mis Vuelos» las asignaciones que confirma el supervisor
-- [x] Administrador: Inicio, Usuarios, Certificaciones y Configuración
-- [ ] Administrador: Reportes y Aeronaves
-- [ ] Conectar con el API gateway (capa `App/actions` y cliente HTTP)
+- [x] Administrador: Inicio, Usuarios, Aeronaves, Certificaciones y Configuración
+- [x] Conectar con el API gateway (capa `App/actions` y cliente HTTP)
+- [x] Tripulante: ver en «Mis Vuelos» las asignaciones que confirma el supervisor, con datos reales
+- [x] Ausencias reales: reporte con soporte, tablero del supervisor y reemplazos
+- [x] Programación y Tripulación del supervisor con datos reales
+- [x] Configuración real para todos los roles
+- [x] Alertas en vivo para el supervisor (SSE) y campana con historial
+- [x] Adaptación a Delta Air Lines: hubs de EE. UU. y normativa FAA
 - [x] Ejecutar las pruebas unitarias y E2E en el CI
+- [ ] Administrador: Reportes
+- [ ] Tripulación: distinguir «día libre» de «sin asignación»
 
 ## Contribuir
 
