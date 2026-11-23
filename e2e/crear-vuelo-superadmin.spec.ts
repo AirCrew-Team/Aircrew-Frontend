@@ -21,6 +21,9 @@ test("E2E-15 el super admin crea un vuelo: sale la confirmación, sube el conteo
   await form.getByLabel(/^Destino/).selectOption("BOS")
   await form.getByLabel(/^Fecha de salida/).fill("2030-04-10")
   await form.getByLabel(/^Hora de salida/).fill("08:00")
+  // La llegada se propone sola: ATL → BOS ≈ 2 h 20 min.
+  await expect(form.getByLabel(/^Fecha de llegada/)).toHaveValue("2030-04-10")
+  await expect(form.getByLabel(/^Hora de llegada/)).toHaveValue("10:20")
   await form.getByLabel(/^Fecha de llegada/).fill("2030-04-10")
   await form.getByLabel(/^Hora de llegada/).fill("10:30")
   await form

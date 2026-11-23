@@ -160,10 +160,10 @@ describe("Vuelos (admin): formulario «Crear vuelo»", () => {
     expect(form.getByText("Hora local de Atlanta.")).toBeInTheDocument()
     expect(form.getByText("Hora local de Los Ángeles.")).toBeInTheDocument()
     expect(form.getByText("5 h 50 min")).toBeInTheDocument()
-    // 281 sillas: Jefe de Cabina + 5 TCP.
+    // 281 sillas: Jefe de Cabina + 5 auxiliares de vuelo.
     expect(
       form.getByText(
-        "Tripulación requerida: Capitán · Primer Oficial · Jefe de Cabina · 5 TCP"
+        "Tripulación requerida: Capitán · Primer Oficial · Jefe de Cabina · 5 auxiliares de vuelo"
       )
     ).toBeInTheDocument()
   })
@@ -188,7 +188,101 @@ describe("Vuelos (admin): formulario «Crear vuelo»", () => {
     expect(form.getByLabelText(/^Origen/)).toHaveValue("CDG")
     expect(form.getByLabelText(/^Destino/)).toHaveValue("ATL")
   })
+})
 
+// Llegada estimada: distancia de la ruta ÷ 820 km/h + 30 min, redondeada a 5 min.
+// ATL → BOS ≈ 1521 km → 2 h 20 min · ATL → LHR ≈ 6761 km → 8 h 45 min.
+describe("Vuelos (admin): llegada estimada", () => {
+  const route = async (
+    user: UserEvent,
+    form: Form,
+    origin: string,
+    destination: string
+  ) => {
+    await user.selectOptions(form.getByLabelText(/^Origen/), origin)
+    await user.selectOptions(form.getByLabelText(/^Destino/), destination)
+  }
+  const arrival = (form: Form) => [
+    (form.getByLabelText(/^Fecha de llegada/) as HTMLInputElement).value,
+    (form.getByLabelText(/^Hora de llegada/) as HTMLInputElement).value,
+  ]
+
+  it("al elegir la ruta y la salida, llena la llegada y muestra la duración estimada", async () => {
+    const { user, form } = await openForm()
+
+    await route(user, form, "ATL", "BOS")
+    setValue(form.getByLabelText(/^Fecha de salida/), "2030-04-10")
+    setValue(form.getByLabelText(/^Hora de salida/), "08:00")
+
+    expect(arrival(form)).toEqual(["2030-04-10", "10:20"])
+    // El texto va repartido entre el párrafo y el número: se compara el párrafo completo.
+    expect(
+      form.getByText(
+        (_, element) =>
+          element?.tagName === "P" &&
+          element.textContent?.replace(/\s+/g, " ").trim() ===
+            "Duración: 2 h 20 min (estimada según la distancia de la ruta; puedes cambiar la llegada)"
+      )
+    ).toBeInTheDocument()
+  })
+
+  it("la llegada va en la hora y el día del destino (puede ser al día siguiente)", async () => {
+    const { user, form } = await openForm()
+
+    // 19:30 en Atlanta (UTC-4) + 8 h 45 min = 09:15 del día siguiente en Londres (UTC+1).
+    setValue(form.getByLabelText(/^Fecha de salida/), "2030-04-10")
+    setValue(form.getByLabelText(/^Hora de salida/), "19:30")
+    await route(user, form, "ATL", "LHR")
+
+    expect(arrival(form)).toEqual(["2030-04-11", "09:15"])
+    expect(form.getByText("Hora local de Londres.")).toBeInTheDocument()
+  })
+
+  it("cambiar la ruta o la salida recalcula; el botón ⇄ también", async () => {
+    const { user, form } = await openForm()
+    await route(user, form, "ATL", "BOS")
+    setValue(form.getByLabelText(/^Fecha de salida/), "2030-04-10")
+    setValue(form.getByLabelText(/^Hora de salida/), "08:00")
+
+    setValue(form.getByLabelText(/^Hora de salida/), "13:00")
+    expect(arrival(form)).toEqual(["2030-04-10", "15:20"])
+
+    await user.selectOptions(form.getByLabelText(/^Destino/), "LHR")
+    expect(arrival(form)).toEqual(["2030-04-11", "02:45"])
+
+    await user.click(
+      form.getByRole("button", { name: "Intercambiar origen y destino" })
+    )
+    // LHR 13:00 (UTC+1) = 12:00Z; + 8 h 45 min = 20:45Z = 16:45 en Atlanta (UTC-4).
+    expect(arrival(form)).toEqual(["2030-04-10", "16:45"])
+  })
+
+  it("una llegada escrita a mano no se reemplaza; «Usar la llegada estimada» la recupera", async () => {
+    const { user, form } = await openForm()
+    await route(user, form, "ATL", "BOS")
+    setValue(form.getByLabelText(/^Fecha de salida/), "2030-04-10")
+    setValue(form.getByLabelText(/^Hora de salida/), "08:00")
+
+    setValue(form.getByLabelText(/^Hora de llegada/), "11:00")
+    setValue(form.getByLabelText(/^Hora de salida/), "09:00")
+
+    expect(arrival(form)).toEqual(["2030-04-10", "11:00"])
+    expect(form.getByText("2 h")).toBeInTheDocument()
+
+    await user.click(
+      form.getByRole("button", {
+        name: "Usar la llegada estimada (10 abr · 11:20)",
+      })
+    )
+
+    expect(arrival(form)).toEqual(["2030-04-10", "11:20"])
+    expect(
+      form.queryByRole("button", { name: /Usar la llegada estimada/ })
+    ).not.toBeInTheDocument()
+  })
+})
+
+describe("Vuelos (admin): aeronaves del formulario", () => {
   it("solo ofrece aeronaves operativas", async () => {
     const { form } = await openForm()
 

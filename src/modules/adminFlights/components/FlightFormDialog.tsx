@@ -24,7 +24,13 @@ import type {
   FlightsCatalog,
 } from "@/modules/adminFlights/types/adminFlights.types"
 import { crewRequirement } from "@/modules/adminFlights/utils/crewRequirement"
-import { formatDuration } from "@/modules/adminFlights/utils/flightTime"
+import { estimatedMinutes } from "@/modules/adminFlights/utils/flightEstimate"
+import {
+  formatDuration,
+  formatInZone,
+  utcToZoned,
+  zonedToUtc,
+} from "@/modules/adminFlights/utils/flightTime"
 
 // Campos con el mismo borde, foco y error que los formularios del proyecto.
 // text-base por debajo de lg: con menos de 16 px iOS hace zoom al enfocar.
@@ -71,6 +77,38 @@ const EMPTY_VALUES: FlightFormValues = {
 // «BOG · Bogotá (El Dorado)».
 const airportLabel = (airport: Airport) =>
   `${airport.code} · ${airport.city} (${airport.name})`
+
+// Llegada estimada: la salida (en la hora del origen) más la duración estimada de la
+// ruta, en la fecha y la hora del destino. null si falta algo o si algún aeropuerto no
+// tiene coordenadas.
+const estimateArrival = (
+  values: Pick<
+    FlightFormValues,
+    "origin" | "destination" | "departureDate" | "departureTime"
+  >,
+  airports: Airport[]
+) => {
+  const origin = airports.find((airport) => airport.code === values.origin)
+  const destination = airports.find(
+    (airport) => airport.code === values.destination
+  )
+  if (!origin || !destination || origin.code === destination.code) return null
+  const minutes = estimatedMinutes(origin, destination)
+  const departure = zonedToUtc(
+    values.departureDate,
+    values.departureTime,
+    origin.timezone
+  )
+  if (minutes === null || !departure) return null
+  const arrival = new Date(departure.getTime() + minutes * 60_000)
+  const local = formatInZone(arrival.toISOString(), destination.timezone)
+  return {
+    ...utcToZoned(arrival, destination.timezone),
+    minutes,
+    // «10 abr · 10:25», para el botón «Usar la llegada estimada».
+    label: `${local.day} · ${local.time}`,
+  }
+}
 
 // Opciones de aeropuerto: primero las bases de la tripulación, luego el resto.
 const AirportOptions = ({ airports }: { airports: Airport[] }) => {
@@ -120,7 +158,7 @@ const FlightForm = ({ catalog, onSaved }: FlightFormProps) => {
     getValues,
     setValue,
     setError,
-    formState: { errors },
+    formState: { errors, isSubmitted },
   } = useForm<FlightFormValues>({
     resolver: zodResolver(schema),
     defaultValues: EMPTY_VALUES,
@@ -137,6 +175,36 @@ const FlightForm = ({ catalog, onSaved }: FlightFormProps) => {
       ? Math.round((arrival.getTime() - departure.getTime()) / 60_000)
       : null
   const validDuration = minutes !== null && minutes > 0
+
+  // Llegada propuesta: la salida más la duración estimada de la ruta, en la hora y el
+  // día del destino. Se llena sola hasta que el admin la cambia a mano.
+  const [arrivalManual, setArrivalManual] = useState(false)
+  const estimate = estimateArrival(values, catalog.airports)
+
+  const applyArrival = (next: ReturnType<typeof estimateArrival>) => {
+    if (!next) return
+    const options = { shouldValidate: isSubmitted }
+    setValue("arrivalDate", next.date, options)
+    setValue("arrivalTime", next.time, options)
+  }
+
+  // Tras cambiar la ruta o la salida: propone la llegada si el admin no la escribió.
+  // Sin coordenadas no hay estimación: al menos se propone el mismo día de la salida.
+  const proposeArrival = () => {
+    if (arrivalManual) return
+    const current = getValues()
+    const next = estimateArrival(current, catalog.airports)
+    if (next) applyArrival(next)
+    else if (current.departureDate && !current.arrivalDate) {
+      setValue("arrivalDate", current.departureDate)
+    }
+  }
+
+  // «Usar la llegada estimada»: vuelve a la propuesta y la sigue actualizando.
+  const restoreEstimatedArrival = () => {
+    setArrivalManual(false)
+    applyArrival(estimateArrival(getValues(), catalog.airports))
+  }
 
   // Crear (POST). El vuelo nace «Programado» y sin tripulación.
   const mutation = useMutation({
@@ -204,6 +272,7 @@ const FlightForm = ({ catalog, onSaved }: FlightFormProps) => {
     const { origin, destination } = getValues()
     setValue("origin", destination)
     setValue("destination", origin)
+    proposeArrival()
   }
 
   return (
@@ -272,7 +341,7 @@ const FlightForm = ({ catalog, onSaved }: FlightFormProps) => {
               <select
                 {...requiredField("origin")}
                 className={controlClass}
-                {...register("origin")}
+                {...register("origin", { onChange: proposeArrival })}
               >
                 <AirportOptions airports={catalog.airports} />
               </select>
@@ -298,7 +367,7 @@ const FlightForm = ({ catalog, onSaved }: FlightFormProps) => {
               <select
                 {...requiredField("destination")}
                 className={controlClass}
-                {...register("destination")}
+                {...register("destination", { onChange: proposeArrival })}
               >
                 <AirportOptions airports={catalog.airports} />
               </select>
@@ -324,14 +393,7 @@ const FlightForm = ({ catalog, onSaved }: FlightFormProps) => {
                   {...requiredField("departureDate")}
                   type="date"
                   className={controlClass}
-                  {...register("departureDate", {
-                    // La llegada suele ser el mismo día: se propone al elegir la salida.
-                    onChange: (event) => {
-                      if (!getValues("arrivalDate")) {
-                        setValue("arrivalDate", event.target.value)
-                      }
-                    },
-                  })}
+                  {...register("departureDate", { onChange: proposeArrival })}
                 />
                 {fieldError("departureDate")}
               </div>
@@ -347,7 +409,7 @@ const FlightForm = ({ catalog, onSaved }: FlightFormProps) => {
                   {...requiredField("departureTime", true)}
                   type="time"
                   className={controlClass}
-                  {...register("departureTime")}
+                  {...register("departureTime", { onChange: proposeArrival })}
                 />
                 <p id={`${id}-departureTime-hint`} className={hintClass}>
                   {values.origin
@@ -368,7 +430,10 @@ const FlightForm = ({ catalog, onSaved }: FlightFormProps) => {
                   {...requiredField("arrivalDate")}
                   type="date"
                   className={controlClass}
-                  {...register("arrivalDate")}
+                  {...register("arrivalDate", {
+                    // Escrita a mano: ya no se reemplaza con la estimada.
+                    onChange: () => setArrivalManual(true),
+                  })}
                 />
                 {fieldError("arrivalDate")}
               </div>
@@ -384,7 +449,9 @@ const FlightForm = ({ catalog, onSaved }: FlightFormProps) => {
                   {...requiredField("arrivalTime", true)}
                   type="time"
                   className={controlClass}
-                  {...register("arrivalTime")}
+                  {...register("arrivalTime", {
+                    onChange: () => setArrivalManual(true),
+                  })}
                 />
                 <p id={`${id}-arrivalTime-hint`} className={hintClass}>
                   {values.destination
@@ -394,18 +461,50 @@ const FlightForm = ({ catalog, onSaved }: FlightFormProps) => {
                 {fieldError("arrivalTime")}
               </div>
             </div>
-            <p aria-live="polite" className={infoClass}>
-              {validDuration ? (
-                <>
-                  Duración:{" "}
-                  <span className="font-semibold text-brand-primary">
-                    {formatDuration(minutes)}
-                  </span>
-                </>
-              ) : (
-                "Elige la ruta y las horas para ver la duración."
+            {/* Duración (se anuncia al cambiar) y, si la llegada se escribió a mano,
+                la opción de volver a la estimada. */}
+            <div
+              aria-live="polite"
+              className={cn(
+                infoClass,
+                "flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
               )}
-            </p>
+            >
+              <p>
+                {validDuration ? (
+                  <>
+                    Duración:{" "}
+                    <span className="font-semibold text-brand-primary">
+                      {formatDuration(minutes)}
+                    </span>
+                    {arrivalManual
+                      ? null
+                      : " (estimada según la distancia de la ruta; puedes cambiar la llegada)"}
+                  </>
+                ) : values.origin &&
+                  values.destination &&
+                  values.departureDate &&
+                  values.departureTime &&
+                  !estimate ? (
+                  // Algún aeropuerto sin coordenadas: no hay con qué estimar.
+                  "No hay datos para estimar esta ruta: escribe la fecha y la hora de llegada."
+                ) : (
+                  "Elige la ruta y la salida: la llegada se calcula sola."
+                )}
+              </p>
+              {arrivalManual && estimate ? (
+                <button
+                  type="button"
+                  onClick={restoreEstimatedArrival}
+                  className={cn(
+                    typography.labelMd,
+                    "inline-flex min-h-11 shrink-0 items-center rounded-md px-3 font-semibold text-brand-secondary transition-colors hover:bg-brand-neutral focus-visible:ring-2 focus-visible:ring-brand-tertiary focus-visible:outline-hidden lg:min-h-8"
+                  )}
+                >
+                  Usar la llegada estimada ({estimate.label})
+                </button>
+              ) : null}
+            </div>
           </div>
         </fieldset>
 

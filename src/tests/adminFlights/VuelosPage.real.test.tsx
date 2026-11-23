@@ -8,6 +8,7 @@ import { useAuthStore } from "@/stores/auth.store"
 
 import {
   API_FLIGHT,
+  API_FLIGHT_OPTIONS,
   apiError,
   FLIGHTS_URL,
   flightsAdminHandlers,
@@ -145,6 +146,48 @@ describe("Vuelos (sesión real): crear", () => {
       within(form.getByLabelText(/^Destino/)).getByRole("option", {
         name: "LHR · Londres (London Heathrow)",
       })
+    ).toBeInTheDocument()
+  })
+
+  it("estima la llegada con las coordenadas que manda el backend", async () => {
+    const { user, form } = await openForm()
+
+    await user.selectOptions(form.getByLabelText(/^Origen/), "ATL")
+    await user.selectOptions(form.getByLabelText(/^Destino/), "BOS")
+    setValue(form.getByLabelText(/^Fecha de salida/), "2030-01-20")
+    setValue(form.getByLabelText(/^Hora de salida/), "08:00")
+
+    // ATL → BOS ≈ 1521 km → 2 h 20 min.
+    expect(form.getByLabelText(/^Fecha de llegada/)).toHaveValue("2030-01-20")
+    expect(form.getByLabelText(/^Hora de llegada/)).toHaveValue("10:20")
+  })
+
+  it("si un aeropuerto no trae coordenadas, no estima: solo propone el mismo día", async () => {
+    server.use(
+      http.get(`${FLIGHTS_URL}/options`, () =>
+        HttpResponse.json({
+          ...API_FLIGHT_OPTIONS,
+          airports: API_FLIGHT_OPTIONS.airports.map((airport) =>
+            airport.code === "BOS"
+              ? { ...airport, latitude: null, longitude: null }
+              : airport
+          ),
+        })
+      )
+    )
+    const { user, form } = await openForm()
+
+    await user.selectOptions(form.getByLabelText(/^Origen/), "ATL")
+    await user.selectOptions(form.getByLabelText(/^Destino/), "BOS")
+    setValue(form.getByLabelText(/^Fecha de salida/), "2030-01-20")
+    setValue(form.getByLabelText(/^Hora de salida/), "08:00")
+
+    expect(form.getByLabelText(/^Fecha de llegada/)).toHaveValue("2030-01-20")
+    expect(form.getByLabelText(/^Hora de llegada/)).toHaveValue("")
+    expect(
+      form.getByText(
+        "No hay datos para estimar esta ruta: escribe la fecha y la hora de llegada."
+      )
     ).toBeInTheDocument()
   })
 

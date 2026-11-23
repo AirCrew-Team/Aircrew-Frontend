@@ -161,10 +161,10 @@ describe("Vuelos (admin): ficha del vuelo", () => {
     expect(ficha.getByText("8 h 45 min")).toBeInTheDocument()
     expect(ficha.getByText("C1")).toBeInTheDocument()
     expect(ficha.getByText("Airbus A330-900neo")).toBeInTheDocument()
-    // Más de 8 h: piloto de relevo. 281 sillas: Jefe de Cabina + 5 TCP.
+    // Más de 8 h: piloto de relevo. 281 sillas: Jefe de Cabina + 5 auxiliares de vuelo.
     expect(
       ficha.getByText(
-        "9 puestos: Capitán · Primer Oficial · Piloto de relevo · Jefe de Cabina · 5 TCP."
+        "9 puestos: Capitán · Primer Oficial · Piloto de relevo · Jefe de Cabina · 5 auxiliares de vuelo."
       )
     ).toBeInTheDocument()
     expect(ficha.getByText("Incompleta")).toBeInTheDocument()

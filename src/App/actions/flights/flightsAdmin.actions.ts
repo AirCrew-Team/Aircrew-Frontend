@@ -79,6 +79,8 @@ interface ApiOptions {
     country: string
     timezone: string
     is_base: boolean
+    latitude: number | null
+    longitude: number | null
   }[]
   aircraft: {
     id: string
@@ -196,6 +198,8 @@ export const getFlightsCatalog = async (): Promise<FlightsCatalog> => {
       country: airport.country,
       timezone: airport.timezone,
       isBase: airport.is_base,
+      latitude: airport.latitude ?? null,
+      longitude: airport.longitude ?? null,
     })),
     aircraft: data.aircraft.map((aircraft) => ({ ...aircraft })),
     statuses: data.statuses.map(({ code, label }) => ({

@@ -21,6 +21,10 @@ export interface Airport {
   timezone: string
   // Es base de tripulación (donde vive la tripulación).
   isBase: boolean
+  // Coordenadas en grados decimales: con ellas se estima la duración de la ruta. null si
+  // el backend no las tiene (aeropuerto agregado a mano).
+  latitude: number | null
+  longitude: number | null
 }
 
 // Aeronave operativa que se puede programar. El modelo es el «tipo de avión».
