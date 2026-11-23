@@ -10,6 +10,7 @@ import {
 import DevRoleSwitcher from "@/components/custom/DevRoleSwitcher"
 import Navbar from "@/components/custom/navbar/Navbar"
 import { useLiveAlerts } from "@/hooks/useLiveAlerts"
+import IdleWarningDialog from "@/modules/shared/session/IdleWarningDialog"
 import { NAV_ITEMS_BY_ROLE } from "@/routes/navigation"
 import { isDemoUser, useAuthStore } from "@/stores/auth.store"
 
@@ -75,6 +76,8 @@ const MainLayout = () => {
       >
         <Outlet />
       </main>
+      {/* Cierre por inactividad: se monta una sola vez, solo con sesión. */}
+      <IdleWarningDialog />
       {import.meta.env.DEV && <DevRoleSwitcher />}
     </div>
   )

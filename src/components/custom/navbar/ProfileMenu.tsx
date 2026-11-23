@@ -2,6 +2,7 @@ import { useRef, useState } from "react"
 import { Link, useLocation } from "react-router"
 
 import { logout as logoutRequest } from "@/App/actions/auth/auth.actions"
+import { announceSignout } from "@/hooks/useIdleLogout"
 import type { AuthUser } from "@/App/types/auth.types"
 import { ChevronDownIcon, LogoutIcon, SettingsIcon } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
@@ -59,6 +60,9 @@ const ProfileMenu = ({ user, photoUrl }: ProfileMenuProps) => {
       // Sin backend o con error, la sesión del navegador se cierra igual.
     }
     logout()
+    // Después del logout: esta pestaña ya desmontó su contador de inactividad y solo lo
+    // reciben las demás.
+    announceSignout()
   }
 
   return (
