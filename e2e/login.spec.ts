@@ -20,7 +20,7 @@ const MENU: Record<Rol, string[]> = {
     "Tripulación",
     "Ausencias",
   ],
-  admin: ["Inicio", "Usuarios", "Aeronaves", "Certificaciones"],
+  admin: ["Inicio", "Usuarios", "Aeronaves", "Vuelos", "Certificaciones"],
 }
 
 test.describe("E2E-01 Login por rol", () => {

@@ -86,6 +86,11 @@ export const ROUTE_CASES: RouteCase[] = [
     section: "Aeronaves",
   },
   {
+    path: PATHS.superAdmin.vuelos,
+    role: ROLES.SUPER_ADMIN,
+    section: "Vuelos",
+  },
+  {
     path: PATHS.superAdmin.certificaciones,
     role: ROLES.SUPER_ADMIN,
     section: "Certificaciones",
