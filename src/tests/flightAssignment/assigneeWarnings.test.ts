@@ -75,6 +75,14 @@ describe("Programación: resumen del tripulante asignado", () => {
     )
   })
 
+  it("con solo la advertencia de inglés, conserva «Habilitado en»", async () => {
+    expect(
+      await loadAssigneeSummary(["Sin nivel de inglés OACI registrado"])
+    ).toBe(
+      "Sin nivel de inglés OACI registrado · Habilitado en A320 · 6 h de 100 este mes"
+    )
+  })
+
   it("sin advertencias, sigue como antes", async () => {
     expect(await loadAssigneeSummary([])).toBe(
       "Habilitado en A320 · 6 h de 100 este mes"
