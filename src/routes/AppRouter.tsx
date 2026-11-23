@@ -114,6 +114,14 @@ const appRoutes: RouteObject[] = [
             }),
           },
           {
+            path: PATHS.superAdmin.vuelos,
+            HydrateFallback: () => null,
+            lazy: async () => ({
+              Component: (await import("@/pages/superAdmin/VuelosPage"))
+                .default,
+            }),
+          },
+          {
             path: PATHS.superAdmin.certificaciones,
             HydrateFallback: () => null,
             lazy: async () => ({

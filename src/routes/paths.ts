@@ -25,6 +25,7 @@ export const PATHS = {
     reportes: "/admin/reportes",
     // Destinos de los botones de las tarjetas del Inicio del admin y del navbar.
     aeronaves: "/admin/aeronaves",
+    vuelos: "/admin/vuelos",
     certificaciones: "/admin/certificaciones",
   },
 } as const
