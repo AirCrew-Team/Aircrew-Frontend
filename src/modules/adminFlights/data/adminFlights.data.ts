@@ -36,10 +36,12 @@ const hub = (
   city: string,
   name: string,
   timezone: string
-): Airport => ({ code, city, name, country: "US", timezone, isBase: true })
+): AirportData => ({ code, city, name, country: "US", timezone, isBase: true })
 
 // Ordenados por ciudad, como los devolverá el backend.
-const AIRPORTS: Airport[] = [
+type AirportData = Omit<Airport, "latitude" | "longitude">
+
+const AIRPORT_DATA: AirportData[] = [
   hub(
     "ATL",
     "Atlanta",
@@ -90,6 +92,28 @@ const AIRPORTS: Airport[] = [
     isBase: false,
   },
 ]
+
+// Coordenadas (grados decimales): las mismas de database/flights_db.sql.
+const COORDINATES: Record<string, [number, number]> = {
+  ATL: [33.6407, -84.4277],
+  BOS: [42.3656, -71.0096],
+  DTW: [42.2162, -83.3554],
+  LAX: [33.9416, -118.4085],
+  MSP: [44.8848, -93.2223],
+  JFK: [40.6413, -73.7781],
+  LGA: [40.7769, -73.874],
+  SLC: [40.7899, -111.9791],
+  SEA: [47.4502, -122.3088],
+  CDG: [49.0097, 2.5479],
+  LHR: [51.47, -0.4543],
+  CUN: [21.0365, -86.8771],
+}
+
+const AIRPORTS: Airport[] = AIRPORT_DATA.map((airport) => ({
+  ...airport,
+  latitude: COORDINATES[airport.code]?.[0] ?? null,
+  longitude: COORDINATES[airport.code]?.[1] ?? null,
+}))
 
 const plane = (
   id: string,

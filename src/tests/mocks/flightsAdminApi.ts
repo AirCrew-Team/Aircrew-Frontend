@@ -23,6 +23,8 @@ export const API_FLIGHT_OPTIONS = {
       country: "US",
       timezone: "America/New_York",
       is_base: true,
+      latitude: 33.6407,
+      longitude: -84.4277,
     },
     {
       code: "LHR",
@@ -32,6 +34,8 @@ export const API_FLIGHT_OPTIONS = {
       country: "GB",
       timezone: "Europe/London",
       is_base: false,
+      latitude: 51.47,
+      longitude: -0.4543,
     },
     {
       code: "BOS",
@@ -41,6 +45,8 @@ export const API_FLIGHT_OPTIONS = {
       country: "US",
       timezone: "America/New_York",
       is_base: true,
+      latitude: 42.3656,
+      longitude: -71.0096,
     },
   ],
   aircraft: [

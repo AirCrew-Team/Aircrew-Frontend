@@ -54,6 +54,20 @@ export const zonedToUtc = (
   return new Date(instant)
 }
 
+// Fecha (AAAA-MM-DD) y hora (HH:mm) de un instante en una zona: lo que se escribe en los
+// campos de fecha y hora. Es lo inverso de zonedToUtc.
+export const utcToZoned = (instant: Date, timeZone: string) => {
+  const parts = Object.fromEntries(
+    partsFormat(timeZone)
+      .formatToParts(instant)
+      .map((part) => [part.type, part.value])
+  )
+  return {
+    date: `${parts.year}-${parts.month}-${parts.day}`,
+    time: `${parts.hour}:${parts.minute}`,
+  }
+}
+
 // Día de hoy (AAAA-MM-DD) en una zona: valor inicial de las fechas del formulario.
 export const todayIn = (timeZone: string, now = new Date()) => {
   const parts = Object.fromEntries(
