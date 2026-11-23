@@ -3,10 +3,14 @@ import { useId } from "react"
 import { EmergencyLineIcon, PhoneIcon } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
+import { isDemoUser, useAuthStore } from "@/stores/auth.store"
 
-// R2: línea de emergencia OCC (estática).
+// R2: línea de emergencia OCC. El número, la extensión y el canal son de ejemplo: solo se
+// ven con la cuenta demo. Con la sesión real no hay un directorio del OCC en el backend,
+// así que la tarjeta solo indica a quién acudir, sin número ni enlace de llamada.
 const EmergencyLineCard = () => {
   const titleId = useId()
+  const demo = useAuthStore((state) => isDemoUser(state.user))
 
   return (
     <section
@@ -41,56 +45,70 @@ const EmergencyLineCard = () => {
         </div>
       </div>
 
-      <p className={cn(typography.bodySm, "text-muted-foreground")}>
-        Canal directo telefónico y de frecuencia con el supervisor de guardia en
-        turno activo las 24 horas.
-      </p>
+      {demo ? (
+        <>
+          <p className={cn(typography.bodySm, "text-muted-foreground")}>
+            Canal directo telefónico y de frecuencia con el supervisor de
+            guardia en turno activo las 24 horas.
+          </p>
 
-      <div className="flex items-center justify-between gap-3 rounded-md bg-brand-primary-dark p-4 text-white forced-colors:border">
-        <div className="flex min-w-0 flex-col">
-          <span
-            className={cn(typography.labelSm, "text-brand-border uppercase")}
-          >
-            Central Telefónica Directa
-          </span>
-          <span
-            className={cn(typography.headlineSm, "font-bold tracking-tight")}
-          >
-            +57 (1) 414-8800
-          </span>
-          <span
+          <div className="flex items-center justify-between gap-3 rounded-md bg-brand-primary-dark p-4 text-white forced-colors:border">
+            <div className="flex min-w-0 flex-col">
+              <span
+                className={cn(
+                  typography.labelSm,
+                  "text-brand-border uppercase"
+                )}
+              >
+                Central Telefónica Directa
+              </span>
+              <span
+                className={cn(
+                  typography.headlineSm,
+                  "font-bold tracking-tight"
+                )}
+              >
+                +1 (404) 555-0123
+              </span>
+              <span
+                className={cn(
+                  typography.labelSm,
+                  "font-mono font-semibold text-brand-border"
+                )}
+              >
+                Extensión 301
+              </span>
+            </div>
+            <a
+              href="tel:+14045550123"
+              aria-label="Llamar a la central OCC, +1 (404) 555-0123"
+              className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/30 bg-brand-secondary text-white shadow-sm transition-colors hover:bg-brand-tertiary focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand-primary-dark focus-visible:outline-hidden active:bg-brand-secondary-hover motion-reduce:transition-none lg:size-10"
+            >
+              <PhoneIcon aria-hidden="true" className="size-5" />
+            </a>
+          </div>
+
+          <div
             className={cn(
               typography.labelSm,
-              "font-mono font-semibold text-brand-border"
+              "flex flex-wrap items-center justify-between gap-2 px-1 text-muted-foreground"
             )}
           >
-            Extensión 301
-          </span>
-        </div>
-        <a
-          href="tel:+5714148800"
-          aria-label="Llamar a la central OCC, +57 (1) 414-8800"
-          className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/30 bg-brand-secondary text-white shadow-sm transition-colors hover:bg-brand-tertiary focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand-primary-dark focus-visible:outline-hidden active:bg-brand-secondary-hover motion-reduce:transition-none lg:size-10"
-        >
-          <PhoneIcon aria-hidden="true" className="size-5" />
-        </a>
-      </div>
-
-      <div
-        className={cn(
-          typography.labelSm,
-          "flex flex-wrap items-center justify-between gap-2 px-1 text-muted-foreground"
-        )}
-      >
-        <span className="flex items-center gap-1">
-          <span
-            aria-hidden="true"
-            className="size-2 shrink-0 rounded-full bg-brand-secondary"
-          />
-          Canal VHF 131.85 MHz
-        </span>
-        <span className="font-mono">SKBO-OCC-DESP</span>
-      </div>
+            <span className="flex items-center gap-1">
+              <span
+                aria-hidden="true"
+                className="size-2 shrink-0 rounded-full bg-brand-secondary"
+              />
+              Canal VHF 131.85 MHz
+            </span>
+            <span className="font-mono">OCC-DESP</span>
+          </div>
+        </>
+      ) : (
+        <p className={cn(typography.bodySm, "text-muted-foreground")}>
+          Comunícate con el centro de operaciones (OCC) de tu base.
+        </p>
+      )}
     </section>
   )
 }

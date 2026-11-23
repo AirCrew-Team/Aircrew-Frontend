@@ -1,10 +1,15 @@
 import { useId, useRef } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useMutation, useQuery } from "@tanstack/react-query"
+import { useMutation } from "@tanstack/react-query"
 import { Controller, useForm, useWatch } from "react-hook-form"
 import { Link } from "react-router"
 import { toast } from "sonner"
 
+import {
+  AbsenceRequestError,
+  reportAbsence,
+} from "@/App/actions/absences/absences.actions"
+import type { ReportAbsenceInput } from "@/App/types/absences.types"
 import {
   ChevronDownIcon,
   CloseIcon,
@@ -15,23 +20,34 @@ import {
 } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
-import AffectedFlightSection from "@/modules/absences/components/AffectedFlightSection"
 import { submitAbsenceReport } from "@/modules/absences/data/absences.data"
-import { affectedFlightQuery } from "@/modules/absences/data/affectedFlight.query"
 import {
   absenceSchema,
   type AbsenceFormInput,
   type AbsenceFormValues,
 } from "@/modules/absences/schemas/absence.schema"
-import type { AbsenceReason } from "@/modules/absences/types/absences.types"
+import { formatDay } from "@/modules/shared/absences/absenceDates"
+import { ABSENCE_REASON_LABELS } from "@/modules/shared/absences/absenceReasons"
 import { PATHS } from "@/routes/paths"
+import { isDemoUser, useAuthStore } from "@/stores/auth.store"
 
-const REASON_OPTIONS = [
-  { value: "incapacidad", label: "Incapacidad médica repentina" },
-  { value: "fatiga", label: "Fatiga operacional / RAC 212" },
-  { value: "calamidad", label: "Calamidad doméstica o familiar" },
-  { value: "traslado", label: "Dificultad de traslado comprobada" },
-] satisfies { value: AbsenceReason; label: string }[]
+const REASON_OPTIONS = Object.entries(ABSENCE_REASON_LABELS)
+
+const SUBMIT_ERROR = "No pudimos enviar el reporte. Intenta de nuevo."
+
+const EMPTY_FORM: AbsenceFormInput = {
+  startDate: "",
+  endDate: "",
+  reason: "",
+  notes: "",
+  attachment: null,
+}
+
+// «el 20 nov» o «del 20 nov al 22 nov».
+const periodText = (startDate: string, endDate: string) =>
+  startDate === endDate
+    ? `el ${formatDay(startDate)}`
+    : `del ${formatDay(startDate)} al ${formatDay(endDate)}`
 
 // Referencia estable: React la llama solo al montar el enlace, así el foco no se
 // vuelve a mover en cada render.
@@ -46,12 +62,22 @@ const fieldLabel = cn(
   "flex items-center gap-1.5 text-brand-primary"
 )
 const fieldError = cn(typography.bodySm, "font-medium text-destructive")
+const dateInputClass = cn(
+  typography.bodyMd,
+  // text-base por debajo de lg: con menos de 16 px iOS hace zoom al enfocar.
+  "min-h-11 w-full rounded-sm border border-muted-foreground/70 bg-muted px-4 py-2 text-brand-primary transition-colors focus-visible:border-brand-tertiary focus-visible:bg-card focus-visible:ring-2 focus-visible:ring-brand-tertiary focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-70 aria-invalid:border-2 aria-invalid:border-destructive motion-reduce:transition-none max-lg:text-base max-lg:leading-6 lg:min-h-10"
+)
 
-// Formulario F1 a F4 con el aviso crítico y las acciones. El envío es simulado: al
-// recargar o volver a entrar, el formulario aparece vacío.
+// Formulario por fechas (F1 a F4) con el aviso crítico y las acciones. Con la sesión real
+// se envía al backend y el formulario se limpia; con una cuenta demo el envío es
+// simulado y el formulario queda bloqueado con «Volver al Inicio».
 const AbsenceReportForm = () => {
   const id = useId()
   const ids = {
+    startDate: `${id}-start-date`,
+    startDateError: `${id}-start-date-error`,
+    endDate: `${id}-end-date`,
+    endDateError: `${id}-end-date-error`,
     reason: `${id}-reason`,
     reasonError: `${id}-reason-error`,
     notes: `${id}-notes`,
@@ -63,17 +89,7 @@ const AbsenceReportForm = () => {
     criticalNotice: `${id}-critical-notice`,
   }
   const attachmentInput = useRef<HTMLInputElement | null>(null)
-
-  const { data: flight } = useQuery(affectedFlightQuery)
-
-  const mutation = useMutation({
-    mutationFn: submitAbsenceReport,
-    onSuccess: (receipt) => {
-      toast.success("Aviso enviado al supervisor", {
-        description: `Se buscará el mejor reemplazo para tu posición en el vuelo ${receipt.flightNumber} y el supervisor lo aprobará.`,
-      })
-    },
-  })
+  const isDemo = useAuthStore((state) => isDemoUser(state.user))
 
   const {
     control,
@@ -81,25 +97,38 @@ const AbsenceReportForm = () => {
     handleSubmit,
     trigger,
     clearErrors,
+    reset,
     formState: { errors },
   } = useForm<AbsenceFormInput, unknown, AbsenceFormValues>({
     resolver: zodResolver(absenceSchema),
-    defaultValues: { reason: "", notes: "", attachment: null },
+    defaultValues: EMPTY_FORM,
   })
   const reason = useWatch({ control, name: "reason" })
   const attachmentRequired = reason === "incapacidad"
 
+  const mutation = useMutation({
+    mutationFn: async (input: ReportAbsenceInput) => {
+      if (isDemo) await submitAbsenceReport(input)
+      else await reportAbsence(input)
+    },
+    onSuccess: (_data, input) => {
+      toast.success("Aviso enviado al supervisor", {
+        description: `Se buscará el mejor reemplazo para tu posición ${periodText(input.startDate, input.endDate)} y el supervisor lo aprobará.`,
+      })
+      if (isDemo) return
+      // Sesión real: el formulario queda vacío y listo para otro reporte.
+      reset(EMPTY_FORM)
+      if (attachmentInput.current) attachmentInput.current.value = ""
+    },
+  })
+
   const onSubmit = (values: AbsenceFormValues) => {
-    if (!flight || mutation.isPending) return
-    mutation.mutate({
-      flightNumber: flight.flightNumber,
-      reason: values.reason,
-      notes: values.notes,
-      attachment: values.attachment,
-    })
+    if (mutation.isPending) return
+    mutation.mutate(values)
   }
 
-  const sent = mutation.isSuccess
+  // Solo la cuenta demo queda bloqueada tras enviar.
+  const sent = isDemo && mutation.isSuccess
 
   return (
     <form
@@ -114,7 +143,63 @@ const AbsenceReportForm = () => {
         disabled={sent || mutation.isPending}
         className="flex min-w-0 flex-col gap-6"
       >
-        <AffectedFlightSection />
+        {/* F1: fechas «YYYY-MM-DD» del input nativo, sin hora. */}
+        <fieldset className="flex min-w-0 flex-col gap-2">
+          <legend className={cn(fieldLabel, "mb-2")}>
+            <span aria-hidden="true" className={stepBadge}>
+              1
+            </span>
+            Fechas de la Ausencia
+          </legend>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1">
+              <label htmlFor={ids.startDate} className={fieldLabel}>
+                Fecha de inicio
+                <span aria-hidden="true" className="text-destructive">
+                  *
+                </span>
+              </label>
+              <input
+                id={ids.startDate}
+                type="date"
+                aria-required="true"
+                aria-invalid={errors.startDate ? true : undefined}
+                aria-describedby={
+                  errors.startDate ? ids.startDateError : undefined
+                }
+                className={dateInputClass}
+                {...register("startDate", { deps: "endDate" })}
+              />
+              {errors.startDate ? (
+                <p id={ids.startDateError} className={fieldError}>
+                  {errors.startDate.message}
+                </p>
+              ) : null}
+            </div>
+            <div className="flex flex-col gap-1">
+              <label htmlFor={ids.endDate} className={fieldLabel}>
+                Fecha de fin
+                <span aria-hidden="true" className="text-destructive">
+                  *
+                </span>
+              </label>
+              <input
+                id={ids.endDate}
+                type="date"
+                aria-required="true"
+                aria-invalid={errors.endDate ? true : undefined}
+                aria-describedby={errors.endDate ? ids.endDateError : undefined}
+                className={dateInputClass}
+                {...register("endDate")}
+              />
+              {errors.endDate ? (
+                <p id={ids.endDateError} className={fieldError}>
+                  {errors.endDate.message}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </fieldset>
 
         {/* F2 */}
         <div className="flex flex-col gap-1">
@@ -142,9 +227,9 @@ const AbsenceReportForm = () => {
               <option value="" disabled>
                 Selecciona la tipología de novedad operacional…
               </option>
-              {REASON_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
+              {REASON_OPTIONS.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
                 </option>
               ))}
             </select>
@@ -325,15 +410,17 @@ const AbsenceReportForm = () => {
             Al enviar este reporte, el sistema liberará tu posición
             inmediatamente para que el algoritmo de supervisión OCC asigne un
             tripulante en guardia standby. Esta acción genera trazabilidad
-            auditada bajo RAC 121.
+            auditada bajo 14 CFR Part 121.
           </p>
         </div>
       </div>
 
       {mutation.isError ? (
+        // 400 y 409: el texto del backend; el resto (5xx, red, simulación), el genérico.
         <p role="alert" className={cn(typography.bodyMd, "text-destructive")}>
-          No se pudo enviar el aviso. Intenta de nuevo o llama a la línea de
-          emergencia OCC.
+          {mutation.error instanceof AbsenceRequestError
+            ? mutation.error.message
+            : SUBMIT_ERROR}
         </p>
       ) : null}
 
@@ -346,8 +433,7 @@ const AbsenceReportForm = () => {
               "text-center text-brand-primary sm:text-left"
             )}
           >
-            Aviso enviado al supervisor para el vuelo{" "}
-            {mutation.data.flightNumber}.
+            {`Aviso enviado al supervisor para tu ausencia ${periodText(mutation.variables.startDate, mutation.variables.endDate)}.`}
           </p>
           <Link
             ref={focusOnMount}
@@ -375,7 +461,6 @@ const AbsenceReportForm = () => {
             type="submit"
             // El botón se describe con la consecuencia del envío (liberar la posición).
             aria-describedby={ids.criticalNotice}
-            disabled={!flight}
             // Enviando: aria-disabled y no disabled, para que el foco no caiga a <body>
             // y siga en el botón si hay que reintentar; onSubmit ignora el segundo envío.
             aria-disabled={mutation.isPending || undefined}

@@ -6,7 +6,7 @@ import { typography } from "@/App/utils/typography"
 import { Button } from "@/components/custom/Button"
 import { cn } from "@/lib/utils"
 import CreateUserDialog from "@/modules/users/components/CreateUserDialog"
-import { getUsersStats } from "@/modules/users/data/users.data"
+import { useUsersApi } from "@/modules/users/hooks/useUsersApi"
 import { useUsersSearchParams } from "@/modules/users/hooks/useUsersSearchParams"
 import type { UserRoleGroup } from "@/modules/users/types/users.types"
 
@@ -26,6 +26,7 @@ const UsersToolbar = () => {
   // Ventana «Añadir usuario» abierta o cerrada.
   const [createOpen, setCreateOpen] = useState(false)
   const { search, role, setSearch, setRole } = useUsersSearchParams()
+  const { getUsersStats } = useUsersApi()
   // Conteos de los filtros: misma consulta que los indicadores (UsersStats).
   const { data: stats } = useQuery({
     queryKey: ["users", "stats"],

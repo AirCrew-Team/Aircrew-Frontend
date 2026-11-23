@@ -1,65 +1,57 @@
-import { useId } from "react"
-
+import { myProfileQueryKey } from "@/App/actions/profile/profile.actions"
 import { SecurityIcon } from "@/App/utils/icons"
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
-import { changePassword } from "@/modules/profile/data/profile.data"
-import type { UserProfile } from "@/modules/profile/types/profile.types"
+import SectionCard from "@/modules/profile/components/SectionCard"
 import ChangePasswordPanel from "@/modules/shared/password/components/ChangePasswordPanel"
 
-// «Último cambio: hace 42 días»; «hoy» si se acaba de cambiar.
-const lastChangeText = (days: number) =>
-  days === 0 ? "hoy" : `hace ${days} ${days === 1 ? "día" : "días"}`
+const DAY_MS = 24 * 60 * 60 * 1000
 
-interface SecuritySectionProps {
-  userId: string
-  security: UserProfile["security"]
+const startOfDay = (date: Date) =>
+  new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
+
+// «hace 42 días», o «hoy» si fue el mismo día (días de calendario en hora local).
+const lastChangeText = (changedAt: string | null) => {
+  if (!changedAt) return "Sin registro"
+  const days = Math.round(
+    (startOfDay(new Date()) - startOfDay(new Date(changedAt))) / DAY_MS
+  )
+  if (days <= 0) return "hoy"
+  return `hace ${days} ${days === 1 ? "día" : "días"}`
 }
 
-// F4 (común): la contraseña, con el panel compartido y su propio botón (aparte del perfil).
-const SecuritySection = ({ userId, security }: SecuritySectionProps) => {
-  const titleId = useId()
+interface SecuritySectionProps {
+  number: number
+  userId: string
+  // password_changed_at del perfil; undefined en las cuentas demo (no se muestra).
+  passwordChangedAt: string | null | undefined
+  disabled: boolean
+}
 
+// Seguridad (común): el último cambio y el panel compartido, con su propio botón y su
+// propia petición (aparte de «Guardar cambios»).
+const SecuritySection = ({
+  number,
+  userId,
+  passwordChangedAt,
+  disabled,
+}: SecuritySectionProps) => {
   return (
-    <section
-      aria-labelledby={titleId}
-      className="flex flex-col gap-4 rounded-xl border border-brand-border/70 bg-card p-4 shadow-sm sm:p-6"
+    <SectionCard
+      title={`${number}. Seguridad`}
+      icon={<SecurityIcon aria-hidden="true" className="size-4.5" />}
     >
-      <div className="-mx-4 -mt-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-t-xl border-b border-brand-neutral bg-background px-4 pt-4 pb-3 sm:-mx-6 sm:-mt-6 sm:px-6">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-sm bg-brand-border text-brand-primary">
-            <SecurityIcon aria-hidden="true" className="size-4.5" />
-          </span>
-          <h2
-            id={titleId}
-            className={cn(
-              typography.headlineSm,
-              "min-w-0 font-bold text-brand-primary"
-            )}
-          >
-            4. Seguridad y Contraseña
-          </h2>
-        </div>
-        <p
-          className={cn(
-            typography.labelSm,
-            "shrink-0 rounded-sm bg-brand-border px-2 py-0.5 text-brand-secondary-hover uppercase"
-          )}
-        >
-          Último cambio: {lastChangeText(security.lastPasswordChangeDays)}
+      {passwordChangedAt === undefined ? null : (
+        <p className={cn(typography.bodyMd, "text-brand-primary")}>
+          Último cambio de contraseña: {lastChangeText(passwordChangedAt)}
         </p>
-      </div>
-
-      <p className={cn(typography.bodySm, "text-muted-foreground")}>
-        Tu contraseña protege el acceso a tus vuelos, tus ausencias y tus datos
-        de contacto.
-      </p>
+      )}
 
       <ChangePasswordPanel
-        changePassword={(input) => changePassword(userId, input)}
-        profileQueryKey={["profile", userId]}
+        profileQueryKey={myProfileQueryKey(userId)}
+        disabled={disabled}
       />
-    </section>
+    </SectionCard>
   )
 }
 

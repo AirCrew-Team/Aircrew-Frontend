@@ -1,16 +1,25 @@
-import { useId, useState } from "react"
+import { useEffect, useId, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
+import { useLocation, useSearchParams } from "react-router"
 
+import { getAbsences } from "@/App/actions/absences/absences.actions"
+import type { Absence } from "@/App/types/absences.types"
 import { SearchIcon } from "@/App/utils/icons"
 import { normalizeForSearch } from "@/App/utils/text"
 import { typography } from "@/App/utils/typography"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
+import AbsenceDetail from "@/modules/absenceTracking/components/AbsenceDetail"
+import AbsenceDetailHeader from "@/modules/absenceTracking/components/AbsenceDetailHeader"
+import AbsenceTrackingCard from "@/modules/absenceTracking/components/AbsenceTrackingCard"
+import CrewAbsenceCard from "@/modules/absenceTracking/components/CrewAbsenceCard"
 import TrackingColumn from "@/modules/absenceTracking/components/TrackingColumn"
 import { getAbsenceTracking } from "@/modules/absenceTracking/data/absenceTracking.data"
 import type {
   TrackedAbsence,
   TrackingStatus,
 } from "@/modules/absenceTracking/types/absenceTracking.types"
+import { isDemoUser, useAuthStore } from "@/stores/auth.store"
 
 // Columnas en orden; el estado nunca va solo en el color del punto (el título lo dice).
 const COLUMNS: {
@@ -45,34 +54,89 @@ const matchesSearch = (absence: TrackedAbsence, search: string) =>
     absence.status === "por_aprobar" ? "" : absence.replacement.fullName,
   ].some((value) => normalizeForSearch(value).includes(search))
 
+// Ausencias reales: sin vuelo, se busca en el tripulante, su código y el reemplazo, el
+// de la ausencia o el de sus vuelos (todos pueden llegar en null).
+const matchesRealSearch = (absence: Absence, search: string) =>
+  [
+    absence.crew_name ?? "",
+    absence.employee_code ?? "",
+    absence.replacement_name ?? "",
+    ...absence.flights.map((flight) => flight.replacement_name ?? ""),
+  ].some((value) => normalizeForSearch(value).includes(search))
+
+// Estado (el de sus vuelos, si los tiene) → columna: pending_ack espera el «Enterado» del
+// reemplazo. Las canceladas no llegan (las quita getAbsences).
+const REAL_COLUMN: Record<Absence["status"], TrackingStatus | null> = {
+  reported: "por_aprobar",
+  pending_ack: "esperando_confirmacion",
+  covered: "cubierta",
+  cancelled: null,
+}
+
 const absencesLabel = (count: number) =>
   `${count} ${count === 1 ? "ausencia" : "ausencias"}`
 
 // Como el aviso de recálculo de Recomendaciones: tarjeta blanca sobre el fondo de la página.
 const messageClass = "rounded-xl bg-card p-4 shadow-sm sm:p-5"
 
-// B: buscador, resultados para el lector y las tres columnas por estado.
+// B: buscador, resultados para el lector y las tres columnas por estado. Las cuentas demo
+// ven las ausencias de ejemplo; la sesión real, las del backend con su popup de detalle.
 const AbsenceTrackingBoard = () => {
   const id = useId()
   const [search, setSearch] = useState("")
-  const { data, isPending, isError } = useQuery({
+  // Última ausencia abierta: al cerrar se conserva, así el detalle sigue visible durante la
+  // animación de salida en lugar de quedar vacío.
+  const [detailId, setDetailId] = useState<string | null>(null)
+  const [isDetailOpen, setIsDetailOpen] = useState(false)
+  // ?ausencia=<id> (aviso de la campana) abre su detalle una vez por navegación, aunque
+  // no esté en la lista: el detalle carga por id. Luego se quita de la URL, así el mismo
+  // aviso vuelve a abrirlo.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const { key: locationKey } = useLocation()
+  const [handledKey, setHandledKey] = useState<string | null>(null)
+  const requestedId = searchParams.get("ausencia")
+  if (requestedId && handledKey !== locationKey) {
+    setHandledKey(locationKey)
+    setDetailId(requestedId)
+    setIsDetailOpen(true)
+  }
+  useEffect(() => {
+    if (requestedId) setSearchParams({}, { replace: true })
+  }, [requestedId, setSearchParams])
+  const isDemo = useAuthStore((state) => isDemoUser(state.user))
+  const demo = useQuery({
     queryKey: ["absences", "tracking"],
     queryFn: getAbsenceTracking,
+    enabled: isDemo,
   })
+  const real = useQuery({
+    queryKey: ["absences", "list"],
+    queryFn: getAbsences,
+    enabled: !isDemo,
+  })
+  // La consulta deshabilitada se queda en «pending»: cuenta solo la de la sesión.
+  const { data, isPending } = isDemo ? demo : real
 
   const query = search.trim()
   const normalizedQuery = normalizeForSearch(query)
-  const visible = (data ?? []).filter((absence) =>
+  const visibleDemo = (demo.data ?? []).filter((absence) =>
     matchesSearch(absence, normalizedQuery)
   )
+  const visibleReal = (real.data ?? []).filter((absence) =>
+    matchesRealSearch(absence, normalizedQuery)
+  )
+  const visibleCount = isDemo ? visibleDemo.length : visibleReal.length
+  const searchLabel = isDemo ? "Buscar vuelo o tripulante" : "Buscar tripulante"
 
   return (
     <div className="flex flex-col gap-4">
       {/* Siempre montado; sin datos (carga, error o turno vacío) queda vacío. */}
       <p role="status" className="sr-only">
-        {data?.length ? absencesLabel(visible.length) : ""}
+        {data?.length ? absencesLabel(visibleCount) : ""}
       </p>
 
+      {/* Sin datos tras la carga es el error de carga. Una recarga en segundo plano que
+          falla (p. ej. tras un aviso en vivo) conserva los datos: el tablero sigue igual. */}
       {isPending ? (
         <p
           role="status"
@@ -84,7 +148,7 @@ const AbsenceTrackingBoard = () => {
         >
           Cargando ausencias…
         </p>
-      ) : isError ? (
+      ) : !data ? (
         <p
           role="alert"
           className={cn(typography.bodyMd, messageClass, "text-destructive")}
@@ -99,13 +163,16 @@ const AbsenceTrackingBoard = () => {
             "text-muted-foreground"
           )}
         >
-          No hay ausencias reportadas en el turno.
+          {/* La lista real trae todas las ausencias, no solo las del turno. */}
+          {isDemo
+            ? "No hay ausencias reportadas en el turno."
+            : "No hay ausencias reportadas."}
         </p>
       ) : (
         <>
           <div className="relative w-full lg:w-72 lg:self-end">
             <label htmlFor={`${id}-search`} className="sr-only">
-              Buscar vuelo o tripulante
+              {searchLabel}
             </label>
             <SearchIcon
               aria-hidden="true"
@@ -116,7 +183,7 @@ const AbsenceTrackingBoard = () => {
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Buscar vuelo o tripulante…"
+              placeholder={`${searchLabel}…`}
               className={cn(
                 typography.bodySm,
                 // text-base por debajo de lg: con menos de 16 px iOS hace zoom al enfocar.
@@ -126,7 +193,7 @@ const AbsenceTrackingBoard = () => {
           </div>
 
           {/* Sin región viva: el status de resultados ya anuncia «0 ausencias». */}
-          {visible.length === 0 && query ? (
+          {visibleCount === 0 && query ? (
             <p
               className={cn(
                 typography.bodyMd,
@@ -139,18 +206,72 @@ const AbsenceTrackingBoard = () => {
           ) : null}
 
           <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
-            {COLUMNS.map((column) => (
-              <TrackingColumn
-                key={column.status}
-                title={column.title}
-                dotClassName={column.dotClassName}
-                absences={visible.filter(
-                  (absence) => absence.status === column.status
-                )}
-              />
-            ))}
+            {COLUMNS.map((column) =>
+              isDemo ? (
+                <TrackingColumn
+                  key={column.status}
+                  title={column.title}
+                  dotClassName={column.dotClassName}
+                  absences={visibleDemo.filter(
+                    (absence) => absence.status === column.status
+                  )}
+                  renderCard={(absence) => (
+                    <AbsenceTrackingCard absence={absence} />
+                  )}
+                />
+              ) : (
+                <TrackingColumn
+                  key={column.status}
+                  title={column.title}
+                  dotClassName={column.dotClassName}
+                  absences={visibleReal.filter(
+                    (absence) => REAL_COLUMN[absence.status] === column.status
+                  )}
+                  renderCard={(absence) => (
+                    <CrewAbsenceCard
+                      absence={absence}
+                      onShowDetail={() => {
+                        setDetailId(absence.id)
+                        setIsDetailOpen(true)
+                      }}
+                    />
+                  )}
+                />
+              )
+            )}
           </div>
         </>
+      )}
+
+      {/* Un solo popup para todas las tarjetas reales; su contenido (y la consulta del
+          detalle) se monta al abrirlo y se desmonta al cerrarlo. Las cuentas demo no
+          tienen detalle. Se cierra con la X, con Esc o al pulsar fuera. */}
+      {isDemo ? null : (
+        <Dialog
+          open={isDetailOpen}
+          onOpenChange={(open) => {
+            if (!open) setIsDetailOpen(false)
+          }}
+        >
+          {/* Sin la X genérica de shadcn: la pone AbsenceDetailHeader, en español. Ancho
+              amplio para la vista previa de un PDF. */}
+          <DialogContent
+            showCloseButton={false}
+            className="flex max-h-[calc(100svh-2rem)] flex-col gap-0 overflow-hidden bg-muted p-0 ring-0 sm:max-w-4xl"
+          >
+            <AbsenceDetailHeader />
+            {/* Cuerpo con su propio desplazamiento: el encabezado queda fijo. */}
+            <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
+              {detailId ? (
+                <AbsenceDetail
+                  key={detailId}
+                  id={detailId}
+                  listed={real.data?.find((absence) => absence.id === detailId)}
+                />
+              ) : null}
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   )

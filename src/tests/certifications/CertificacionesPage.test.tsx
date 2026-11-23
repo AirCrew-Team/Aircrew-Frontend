@@ -16,9 +16,9 @@ const LAZY = { timeout: 3000 }
 const TODAY = new Date(2026, 10, 10, 15, 0)
 
 const H1 = "Certificaciones y Licencias"
-const OVERLINE = "Auditoría RAC / DGAC • Expediente de Vuelo"
+const OVERLINE = "Auditoría FAA • Expediente de Vuelo"
 const DESCRIPTION =
-  "Registro oficial de aptitud técnica y médica auditado por la Aeronáutica Civil (Aerocivil / RAC). Consulta oficial de solo lectura."
+  "Registro oficial de aptitud técnica y médica auditado por la Administración Federal de Aviación (FAA). Consulta oficial de solo lectura."
 
 const SUMMARY = [
   {
@@ -42,31 +42,31 @@ const SUMMARY_TITLES = SUMMARY.map(({ title }) => title)
 
 const CARDS = [
   {
-    title: "Sincronización RAC en Tiempo Real",
+    title: "Sincronización FAA en Tiempo Real",
     texts: [
-      "API Aerocivil conectada",
+      "API FAA conectada",
       "En línea",
-      "Las horas de vuelo, calificaciones y chequeos médicos se concilian automáticamente con la base de datos central de la Dirección General de Aviación Civil.",
-      "Última comprobación: Hoy, 06:15 COT",
-      "Hash: #RAC-88192-OK",
+      "Las horas de vuelo, calificaciones y chequeos médicos se concilian automáticamente con la base de datos central de la Administración Federal de Aviación (FAA).",
+      "Última comprobación: Hoy, 06:15 UTC",
+      "Hash: #FAA-88192-OK",
     ],
   },
   {
     title: "Simulador A320 FFS Nivel D",
     texts: [
       "Calendario de recurrentes",
-      "Tu próximo entrenamiento en simulador de vuelo completo para la renovación anual está agendado en el centro de instrucción Bogotá.",
+      "Tu próximo entrenamiento en simulador de vuelo completo para la renovación anual está agendado en el centro de instrucción de tu base.",
       "08 Jul 2027 al 11 Jul 2027",
       "Simulador 3 • Instructor Cap. R. Morales",
     ],
   },
   {
-    title: "Jefatura de Instrucción y Entrenamiento Aerocivil",
+    title: "Jefatura de Instrucción y Entrenamiento",
     texts: [
       "Soporte y Trámites",
       "Para renovaciones de certificados o actualización de bitácora, comunícate con instrucción:",
       "instruccion@aircrew.aero",
-      "Ext. 4022 • Operaciones Base SKBO",
+      "Ext. 4022 • Operaciones de Base",
     ],
   },
 ] as const
@@ -154,7 +154,7 @@ const COLUMN_HEADERS = [
   "Certificación / Licencia",
   "Organismo / Alcance",
   "Fecha de vencimiento",
-  "Estado RAC",
+  "Estado FAA",
   "Observación operacional",
   "Acción",
 ]
@@ -306,15 +306,12 @@ describe("Certificaciones: resumen por estado (CE-02)", () => {
 })
 
 describe("Certificaciones: lista de licencias (CE-05)", () => {
-  it("CE-05: se ve «5 licencias cargadas en expediente digital (SKBO Base)» y la etiqueta «RAC 121»", async () => {
+  it("CE-05: se ve «5 licencias cargadas en expediente digital» y la etiqueta «FAA Part 121»", async () => {
     renderRoute(PATHS.tripulante.certificaciones)
     const main = await findLoadedPage()
 
-    getByFullText(
-      main,
-      "5 licencias cargadas en expediente digital (SKBO Base)"
-    )
-    getByFullText(main, "RAC 121")
+    getByFullText(main, "5 licencias cargadas en expediente digital")
+    getByFullText(main, "FAA Part 121")
   })
 
   it("CE-05: la lista <ul> «Licencias» tiene 5 <li> con un <article> cada uno y los h3 en el orden de la tabla", async () => {
@@ -457,7 +454,7 @@ describe("Certificaciones: tarjetas T1, T2 y T3 (CE-12)", () => {
       within(card).getByRole("link", { name: "instruccion@aircrew.aero" })
     ).toHaveAttribute("href", "mailto:instruccion@aircrew.aero")
     expect(within(card).getAllByRole("link")).toHaveLength(1)
-    const extension = getByFullText(card, "Ext. 4022 • Operaciones Base SKBO")
+    const extension = getByFullText(card, "Ext. 4022 • Operaciones de Base")
     expect(extension.closest("a")).toBeNull()
   })
 })
@@ -465,15 +462,15 @@ describe("Certificaciones: tarjetas T1, T2 y T3 (CE-12)", () => {
 describe("Certificaciones: correcciones de la auditoría de accesibilidad", () => {
   it.each([
     {
-      title: "Sincronización RAC en Tiempo Real",
-      after: ["API Aerocivil conectada", "En línea"],
+      title: "Sincronización FAA en Tiempo Real",
+      after: ["API FAA conectada", "En línea"],
     },
     {
       title: "Simulador A320 FFS Nivel D",
       after: ["Calendario de recurrentes"],
     },
     {
-      title: "Jefatura de Instrucción y Entrenamiento Aerocivil",
+      title: "Jefatura de Instrucción y Entrenamiento",
       after: ["Soporte y Trámites"],
     },
   ])(

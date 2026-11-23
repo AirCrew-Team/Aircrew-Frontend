@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { keepPreviousData, useQuery } from "@tanstack/react-query"
 
 import {
@@ -6,6 +6,7 @@ import {
   CabinCrewIcon,
   EditIcon,
   FlightIcon,
+  LockIcon,
   SecurityIcon,
   SupervisorIcon,
   DeleteIcon,
@@ -16,13 +17,19 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue"
 import { cn } from "@/lib/utils"
 import DeleteUserDialog from "@/modules/users/components/DeleteUserDialog"
 import EditUserDialog from "@/modules/users/components/EditUserDialog"
+import PermanentDeleteUserDialog from "@/modules/users/components/PermanentDeleteUserDialog"
 import UserDetailDialog from "@/modules/users/components/UserDetailDialog"
 import UsersPagination from "@/modules/users/components/UsersPagination"
-import UserStatusBadge from "@/modules/users/components/UserStatusBadge"
-import { USERS_PAGE_SIZE, getUsers } from "@/modules/users/data/users.data"
+import UserStatusBadge, {
+  AccountStatusTag,
+} from "@/modules/users/components/UserStatusBadge"
+import { USERS_PAGE_SIZE } from "@/modules/users/data/users.data"
+import { useUsersApi } from "@/modules/users/hooks/useUsersApi"
 import { useUsersSearchParams } from "@/modules/users/hooks/useUsersSearchParams"
 import type { CrewUser } from "@/modules/users/types/users.types"
+import { SHIFT_LABEL } from "@/modules/users/utils/userLabels"
 import { fullName, initials } from "@/modules/users/utils/userName"
+import { useAuthStore } from "@/stores/auth.store"
 
 // Cargos de cabina. En la tripulación, el resto (Comandante y Copiloto) son de
 // cabina de mando.
@@ -69,14 +76,28 @@ const MobileLabel = ({ children }: { children: string }) => (
 // Bloque 4: tabla de usuarios con su paginación.
 const UsersTable = () => {
   const { page, search, role, setPage, hrefForPage } = useUsersSearchParams()
+  const { getUsers } = useUsersApi()
   // La búsqueda espera 300 ms sin teclear antes de consultar: una petición por búsqueda,
   // no por tecla. El campo de la barra sigue mostrando el texto al instante.
   const debouncedSearch = useDebouncedValue(search)
   // ID del usuario cuyo detalle está abierto; null con la ventana cerrada.
   const [detailUserId, setDetailUserId] = useState<string | null>(null)
-  // Usuario en edición (lápiz) y usuario a eliminar (papelera); null sin ventana abierta.
+  // Usuario en edición (lápiz), a desactivar (candado) y a eliminar definitivamente
+  // (papelera); null sin ventana abierta.
   const [editUserId, setEditUserId] = useState<string | null>(null)
   const [userToDelete, setUserToDelete] = useState<CrewUser | null>(null)
+  const [userToErase, setUserToErase] = useState<CrewUser | null>(null)
+  // Nadie puede eliminar su propia cuenta (EU-05): su papelera queda deshabilitada.
+  const sessionUserId = useAuthStore((state) => state.user?.id)
+  const selfHintId = useId()
+  // Tras eliminar, la fila (y su botón) desaparece: el foco pasa al contenido. Va en un
+  // efecto que corre después de que el diálogo se cierra (y devuelve el foco al botón).
+  const focusAfterErase = useRef(false)
+  useEffect(() => {
+    if (userToErase !== null || !focusAfterErase.current) return
+    focusAfterErase.current = false
+    document.getElementById("contenido")?.focus()
+  }, [userToErase])
 
   const params = {
     page,
@@ -182,6 +203,9 @@ const UsersTable = () => {
                   Base
                 </th>
                 <th role="columnheader" scope="col" className={headerClass}>
+                  Turno
+                </th>
+                <th role="columnheader" scope="col" className={headerClass}>
                   Estado
                 </th>
                 <th
@@ -200,8 +224,9 @@ const UsersTable = () => {
               {data.items.map((user) => {
                 const name = fullName(user)
                 const RoleIcon = roleIcon(user)
+                const isSelf = user.id === sessionUserId
                 return (
-                  // Tarjeta (por debajo de lg): nombre arriba, luego ID, rol, base y
+                  // Tarjeta (por debajo de lg): nombre arriba, luego ID, rol, base, turno y
                   // estado en dos columnas, y los botones abajo a todo el ancho.
                   <tr
                     key={user.id}
@@ -240,6 +265,10 @@ const UsersTable = () => {
                           >
                             {user.email}
                           </span>
+                          {/* Pendiente de activación o inactivo (nada si está activo). */}
+                          <span className="mt-1 empty:hidden">
+                            <AccountStatusTag user={user} />
+                          </span>
                         </div>
                       </div>
                     </td>
@@ -251,7 +280,7 @@ const UsersTable = () => {
                           "rounded-sm bg-brand-neutral px-2 py-1 font-mono text-brand-primary"
                         )}
                       >
-                        {user.id}
+                        {user.code ?? "—"}
                       </span>
                     </td>
                     <td role="cell" className={cellClass}>
@@ -281,7 +310,21 @@ const UsersTable = () => {
                           aria-hidden="true"
                           className="size-4 shrink-0 text-muted-foreground"
                         />
-                        {user.base}
+                        {user.base ?? "—"}
+                      </span>
+                    </td>
+                    {/* Turno: solo supervisores; los demás roles no tienen. */}
+                    <td role="cell" className={cellClass}>
+                      <MobileLabel>Turno</MobileLabel>
+                      <span
+                        className={cn(
+                          typography.bodySm,
+                          "font-medium text-brand-primary"
+                        )}
+                      >
+                        {user.roleGroup === "supervisor" && user.shift
+                          ? SHIFT_LABEL[user.shift]
+                          : "—"}
                       </span>
                     </td>
                     <td role="cell" className={cellClass}>
@@ -293,8 +336,9 @@ const UsersTable = () => {
                       role="cell"
                       className={cn(cellClass, "max-lg:col-span-2")}
                     >
-                      {/* Ojo (detalle), lápiz (editar) y papelera (eliminar). En la tarjeta
-                          de celular quedan a la derecha, separados del resto. */}
+                      {/* Ojo (detalle), lápiz (editar), candado (desactivar) y papelera
+                          (eliminar). En la tarjeta de celular quedan a la derecha,
+                          separados del resto. */}
                       <div className="flex items-center justify-end gap-1 max-lg:border-t max-lg:border-brand-border max-lg:pt-2">
                         <button
                           type="button"
@@ -322,16 +366,47 @@ const UsersTable = () => {
                         </button>
                         <button
                           type="button"
-                          aria-label={`Eliminar a ${name}`}
-                          title="Eliminar"
+                          aria-label={`Desactivar a ${name}`}
+                          title={
+                            user.isActive ? "Desactivar" : "Usuario inactivo"
+                          }
+                          // Un usuario ya inactivo no se vuelve a desactivar.
+                          disabled={!user.isActive}
                           onClick={() => setUserToDelete(user)}
                           className={cn(
                             actionClass,
-                            "text-destructive hover:bg-destructive/10"
+                            "text-destructive hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                          )}
+                        >
+                          <LockIcon aria-hidden="true" className="size-4" />
+                        </button>
+                        {/* Eliminar: también inactivos y pendientes. En la fila propia queda
+                            con aria-disabled (enfocable, con la explicación). */}
+                        <button
+                          type="button"
+                          aria-label={`Eliminar a ${name}`}
+                          title={
+                            isSelf
+                              ? "No puedes eliminar tu propia cuenta"
+                              : "Eliminar"
+                          }
+                          aria-disabled={isSelf || undefined}
+                          aria-describedby={isSelf ? selfHintId : undefined}
+                          onClick={
+                            isSelf ? undefined : () => setUserToErase(user)
+                          }
+                          className={cn(
+                            actionClass,
+                            "text-destructive hover:bg-destructive/10 aria-disabled:cursor-not-allowed aria-disabled:opacity-40 aria-disabled:hover:bg-transparent"
                           )}
                         >
                           <DeleteIcon aria-hidden="true" className="size-4" />
                         </button>
+                        {isSelf ? (
+                          <span id={selfHintId} className="sr-only">
+                            No puedes eliminar tu propia cuenta.
+                          </span>
+                        ) : null}
                       </div>
                     </td>
                   </tr>
@@ -366,10 +441,19 @@ const UsersTable = () => {
       />
       {/* Edición: el formulario del alta, lleno con los datos del usuario. */}
       <EditUserDialog userId={editUserId} onClose={() => setEditUserId(null)} />
-      {/* Confirmación de eliminación. */}
+      {/* Confirmación de desactivación. */}
       <DeleteUserDialog
         user={userToDelete}
         onClose={() => setUserToDelete(null)}
+      />
+      {/* Confirmación de eliminación definitiva. */}
+      <PermanentDeleteUserDialog
+        user={userToErase}
+        onClose={() => setUserToErase(null)}
+        onDeleted={() => {
+          focusAfterErase.current = true
+          setUserToErase(null)
+        }}
       />
     </section>
   )

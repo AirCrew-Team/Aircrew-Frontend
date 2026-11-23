@@ -156,6 +156,23 @@
   h1, h2, h3, h4, h5, h6 {
     @apply font-heading;
     }
+  /* Todo lo que se puede pulsar muestra la mano, y lo deshabilitado, «no permitido».
+     Las clases cursor-* de un componente (p. ej. cursor-wait al guardar) ganan sobre esta
+     regla porque son utilidades. */
+  :is(
+      button, a[href], summary, select,
+      label:has(input[type="checkbox"], input[type="radio"], [role="switch"], [role="checkbox"]),
+      input[type="checkbox"], input[type="radio"], input[type="file"],
+      [role="button"], [role="tab"], [role="menuitem"], [role="menuitemcheckbox"],
+      [role="menuitemradio"], [role="option"], [role="switch"], [role="checkbox"], [role="radio"]
+    ) {
+    cursor: pointer;
+    }
+  :is(button, select, input, [role="button"], [role="tab"], [role="switch"], [role="checkbox"], [role="radio"]):is(
+      :disabled, [aria-disabled="true"], [data-disabled]
+    ) {
+    cursor: not-allowed;
+    }
 }
 
 /* Toasts con richColors (sonner) en tema claro: textos más oscuros para llegar al 4,5:1 de

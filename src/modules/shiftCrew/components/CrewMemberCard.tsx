@@ -4,6 +4,7 @@ import { Link } from "react-router"
 import {
   AbsenceIcon,
   ArrowRightIcon,
+  AvailabilityIcon,
   ChevronDownIcon,
   ClockIcon,
   ConfirmedIcon,
@@ -61,6 +62,11 @@ const STATUS_CHIPS = {
     Icon: AbsenceIcon,
     className: "bg-error-container text-on-error-container",
   },
+  sin_asignar: {
+    label: "Sin asignación",
+    Icon: AvailabilityIcon,
+    className: "bg-brand-neutral text-brand-primary",
+  },
 }
 
 // «AV-8805 · BOG a CUN»: la flecha es decorativa y el lector oye « a ».
@@ -72,13 +78,16 @@ const route = (flight: FlightRef) => (
   </>
 )
 
-// Línea principal y, salvo en descanso, la secundaria del bloque de contexto.
+// Línea principal y, salvo en descanso y sin asignación, la secundaria del bloque de contexto.
 const contextLines = (member: CrewMember) => {
   switch (member.status) {
     case "guardia":
       return {
         main: member.location,
-        secondary: `a ${member.minutesToRamp} min de rampa`,
+        secondary:
+          member.minutesToRamp === null
+            ? "tiempo a rampa sin dato"
+            : `a ${member.minutesToRamp} min de rampa`,
       }
     case "en_vuelo":
       return {
@@ -93,7 +102,12 @@ const contextLines = (member: CrewMember) => {
     case "descanso":
       return { main: `Descanso hasta ${member.restUntilUtc}`, secondary: null }
     case "ausente":
-      return { main: member.reason, secondary: member.flight.flightNumber }
+      return {
+        main: member.reason,
+        secondary: member.flight?.flightNumber ?? null,
+      }
+    case "sin_asignar":
+      return { main: "Sin vuelo ni guardia en el turno", secondary: null }
   }
 }
 

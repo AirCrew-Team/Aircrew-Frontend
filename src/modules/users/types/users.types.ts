@@ -1,25 +1,51 @@
-// Tipos de los datos de la pantalla Usuarios del super admin.
+// Tipos de los datos de la pantalla Usuarios del super admin. Son los de la interfaz:
+// App/actions/users traduce desde y hacia los nombres en inglés del backend.
 
 // Rol del usuario: es el valor del filtro en la URL (?role=tripulacion).
 export type UserRoleGroup = "tripulacion" | "supervisor" | "administrador"
 
-export type UserStatus = "disponible" | "guardia" | "vuelo" | "permiso_medico"
+// Estado operativo. «fuera_turno» y «licencia» solo los tiene un supervisor;
+// «vuelo», «permiso_medico» y «vacaciones», un tripulante.
+export type UserStatus =
+  | "disponible"
+  | "guardia"
+  | "vuelo"
+  | "permiso_medico"
+  | "vacaciones"
+  | "fuera_turno"
+  | "licencia"
+
+// Turno del supervisor (backend: morning / afternoon / night).
+export type UserShift = "turno_1" | "turno_2" | "turno_3"
 
 export interface CrewUser {
-  // Código del tripulante, ej. "AC-1108".
+  // UUID del backend: se usa para ver, editar y desactivar.
   id: string
+  // Código del empleado (employee_code), ej. "AC-1108". El de un tripulante lo asigna
+  // el backend; null si no tiene (administrador, o supervisor sin código).
+  code: string | null
+  // El backend guarda un solo nombre: la primera palabra va en firstName y el resto en
+  // lastName. Al enviar se vuelven a unir.
   firstName: string
   lastName: string
   email: string
   roleGroup: UserRoleGroup
-  // Cargo que se muestra en la tabla, ej. "Comandante". Para Supervisor y
+  // Cargo que se muestra en la tabla: el del tripulante, ej. "Comandante";
+  // "Supervisor" o "Administrador" en los demás.
   roleTitle: string
-  // Código IATA de la base (hub de Delta), ej. "ATL".
-  base: string
-  status: UserStatus
+  // Código IATA de la base (hub de Delta), ej. "ATL". null en administradores.
+  base: string | null
+  // null: administrador, o el servicio de tripulación no respondió.
+  status: UserStatus | null
+  // Solo supervisores.
+  shift: UserShift | null
+  // true hasta que la persona abre el correo de activación y crea su contraseña.
+  pendingActivation: boolean
+  // false: desactivado. No puede iniciar sesión, pero sigue en la lista.
+  isActive: boolean
 }
 
-// Parámetros que se enviarán al backend para pedir una página de la lista.
+// Parámetros que se envían al backend para pedir una página de la lista.
 export interface UsersListParams {
   page: number
   pageSize: number
@@ -36,14 +62,12 @@ export interface UsersListResponse {
   total: number
 }
 
-// Ficha técnica de un usuario (ventana «Detalle del Usuario»). Incluye los datos de la
-// fila de la tabla y los que solo se piden al abrir el detalle.
+// Ficha técnica de un usuario (ventana «Detalle del Usuario»). Horas de vuelo,
+// descanso, licencia, habilitaciones y la nota de disponibilidad todavía no existen en
+// el backend: solo los traen los datos de ejemplo, y la ventana los oculta si no vienen.
 export interface UserDetail extends CrewUser {
-  // Base con su ciudad, ej. "Base ATL / Atlanta".
+  // Base con el texto del catálogo, ej. "Base ATL / Atlanta".
   baseLabel: string
-  // Turno en curso, ej. "Bloque EST (UTC-5)".
-  shift: string
-  // Horas de vuelo y descanso: solo Tripulación (Supervisor y Administrador no vuelan).
   flight?: {
     hours: {
       total: number
@@ -53,11 +77,10 @@ export interface UserDetail extends CrewUser {
     // Descanso acumulado y mínimo exigido, en minutos.
     rest: { minutes: number; requiredMinutes: number }
   }
-  availability: { label: string; note: string }
-  // Licencia FAA y certificados: solo Tripulación.
+  availability: { label: string; note?: string }
   license?: UserLicense
-  phone: { number: string; note: string }
-  // Habilitación en tipos de aeronave (ej. Type Rating A350): solo Tripulación.
+  // Celular en E.164 (null si no tiene) y, en los ejemplos, una nota.
+  phone: { number: string | null; note?: string }
   rating?: { title: string; description: string; tags: string[] }
 }
 
@@ -67,8 +90,9 @@ export interface UserLicense {
   certificates: string[]
 }
 
-// Datos que se envían al crear un usuario. El ID, las horas, el descanso y la
-// disponibilidad los asigna o calcula el backend.
+// Datos del formulario al crear o editar. Ni contraseña (cada persona la crea desde su
+// correo de activación), ni código del tripulante (lo asigna el backend), ni licencia y
+// certificados (van en la pantalla de certificados).
 export interface CreateUserInput {
   firstName: string
   lastName: string
@@ -76,21 +100,31 @@ export interface CreateUserInput {
   // Formato internacional E.164, ej. "+14045550142".
   phone: string
   roleGroup: UserRoleGroup
-  // Solo Tripulación elige cargo; Supervisor y Administrador envían el nombre del rol.
+  // Cargo: solo Tripulación (se envía como position).
   roleTitle: string
+  // Tripulación y Supervisor; "" en Administrador.
   base: string
-  // Solo Tripulación: Supervisor y Administrador no tienen licencia.
-  license?: UserLicense
+  // Solo Supervisor; "" en los demás.
+  shift: UserShift | ""
+  // Estado operativo: solo Supervisor (se envía como operational_status); "" en los demás.
+  status: UserStatus | ""
 }
 
-// Opciones de las listas del formulario de creación (catálogos del backend).
+// Opción de una lista con código y texto.
+export interface CatalogOption<Value extends string = string> {
+  value: Value
+  label: string
+}
+
+// Opciones de las listas del formulario (GET /catalogs/user-options).
 export interface UserCatalogs {
-  // Código IATA y nombre, ej. { code: "ATL", label: "Base ATL / Atlanta" }.
+  // Código IATA y texto, ej. { code: "ATL", label: "Base ATL / Atlanta" }.
   bases: { code: string; label: string }[]
-  // Cargos de Tripulación (Supervisor y Administrador no tienen cargo).
-  crewTitles: string[]
-  // Certificados que puede tener cada cargo, ej. "Comandante": ["Private Pilot (PPL)", …].
-  certificatesByTitle: Record<string, string[]>
+  // Cargos de un tripulante, ej. "Comandante".
+  crewPositions: string[]
+  shifts: CatalogOption<UserShift>[]
+  crewStatuses: CatalogOption<UserStatus>[]
+  supervisorStatuses: CatalogOption<UserStatus>[]
 }
 
 // Indicadores del encabezado y conteos de los filtros.
@@ -98,7 +132,7 @@ export interface UsersStats {
   total: number
   inFlight: number
   onDuty: number
-  // Porcentaje de tripulantes con certificado médico vigente.
-  medicalFitnessPercent: number
+  // Porcentaje de tripulantes con certificado médico vigente. null: sin datos médicos.
+  medicalFitnessPercent: number | null
   byRole: Record<UserRoleGroup, number>
 }

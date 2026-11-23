@@ -10,14 +10,11 @@ import AircraftFormDialog, {
   type AircraftFormTarget,
 } from "@/modules/aircraft/components/AircraftFormDialog"
 import {
-  getAircraftStats,
-  getFleetManifest,
-} from "@/modules/aircraft/data/aircraft.data"
+  useAircraftApi,
+  useMaintenanceLabel,
+} from "@/modules/aircraft/hooks/useAircraftApi"
 import { useAircraftSearchParams } from "@/modules/aircraft/hooks/useAircraftSearchParams"
-import type {
-  AircraftFilter,
-  AircraftStats,
-} from "@/modules/aircraft/types/aircraft.types"
+import type { AircraftFilter, AircraftStats } from "@/App/types/aircraft.types"
 import { FILTER_OPTIONS } from "@/modules/aircraft/utils/aircraftStatus"
 import { downloadFile, toManifestCsv } from "@/modules/aircraft/utils/manifest"
 
@@ -34,6 +31,8 @@ const countFor = (stats: AircraftStats, value?: AircraftFilter) => {
 const AircraftToolbar = () => {
   const id = useId()
   const { search, filter, setSearch, setFilter } = useAircraftSearchParams()
+  const { getAircraftStats, getFleetManifest } = useAircraftApi()
+  const maintenanceLabel = useMaintenanceLabel()
   // Formulario de registro: {} abierto (sin aeronave), null cerrado.
   const [formTarget, setFormTarget] = useState<AircraftFormTarget | null>(null)
   // Conteos de los filtros: misma consulta que los indicadores (AircraftStats).
@@ -49,7 +48,7 @@ const AircraftToolbar = () => {
       const today = new Date().toISOString().slice(0, 10)
       downloadFile(
         `manifiesto-flota-${today}.csv`,
-        toManifestCsv(fleet),
+        toManifestCsv(fleet, maintenanceLabel),
         "text/csv;charset=utf-8"
       )
       toast.success("Manifiesto exportado", {

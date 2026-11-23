@@ -1,9 +1,12 @@
+import { getMyCertification } from "@/App/actions/certifications/myCertification.actions"
 import type {
   Certification,
   RecurrentTraining,
 } from "@/modules/shared/certifications/types/certifications.types"
+import { formatShortDate } from "@/modules/shared/certifications/utils/expiry"
+import { withDemo } from "@/modules/shared/session/demoSession"
 
-// Datos simulados con la forma de las acciones reales: se moverán a App/actions cuando exista la API.
+// Datos de ejemplo (cuenta demo).
 // Las fechas son «hoy + N días» al llamar, en ISO local de solo día (nunca toISOString, que es UTC).
 export const daysFromToday = (days: number) => {
   const now = new Date()
@@ -13,7 +16,7 @@ export const daysFromToday = (days: number) => {
   return `${date.getFullYear()}-${month}-${day}`
 }
 
-export const getCertifications = (): Promise<Certification[]> =>
+const demoCertifications = (): Promise<Certification[]> =>
   Promise.resolve([
     {
       id: "atp",
@@ -142,3 +145,128 @@ export const getRecurrentTraining = (): Promise<RecurrentTraining> =>
     endsOn: daysFromToday(243),
     location: "Simulador 3 • Instructor Cap. R. Morales",
   })
+
+// --- Sesión real (FE-4): GET /crew/certifications/me. El backend no tiene emisor, alcance
+// ni vencimiento de las licencias: los certificados llevan el estado del expediente, y el
+// único vencimiento es el del certificado médico. Habilitaciones e inglés salen del perfil.
+
+// Con qué coteja el super_admin al verificar (VERIFICATION_NOTES del backend).
+const VERIFIED_BY_AREA: Record<string, string> = {
+  flight_deck: "Cotejada con Airmen Inquiry (registro de la FAA)",
+  cabin: "Cotejada con tu certificado físico",
+}
+
+// «2026-11-01T15:00:00.000Z» → «2026-11-01» con el día local.
+const localIsoDate = (iso: string) => {
+  const date = new Date(iso)
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+  return `${date.getFullYear()}-${month}-${day}`
+}
+
+const PROFILE_NOTE = "Registrado en tu perfil de tripulante"
+
+const certificationsFromApi = async (): Promise<Certification[]> => {
+  const record = await getMyCertification()
+  if (!record) return []
+
+  const verified = record.status === "verified"
+  const recordLabel = verified ? "Verificado" : "Por verificar"
+  const updatedOn = record.updated_at
+    ? formatShortDate(localIsoDate(record.updated_at))
+    : null
+  const certificates = record.certificate_details.map(
+    (detail): Certification => ({
+      id: detail.code,
+      kind: detail.is_license ? "license" : "course",
+      name: detail.name,
+      code:
+        detail.is_license && record.license_number
+          ? `Licencia N.º ${record.license_number}`
+          : null,
+      issuer: null,
+      scope: null,
+      expiresAt: null,
+      undatedStatus: verified ? "verificado" : "por_verificar",
+      observation: verified
+        ? ((record.area && VERIFIED_BY_AREA[record.area]) ??
+          "Cotejada por la administración")
+        : "Pendiente de cotejo por la administración",
+      appointment: null,
+      details: [
+        {
+          label: "Número de licencia",
+          value: record.license_number ?? "Sin registrar",
+        },
+        { label: "Estado del expediente", value: recordLabel },
+        {
+          label: "Copia del certificado",
+          value: record.file ? record.file.file_name : "Sin copia cargada",
+        },
+        ...(updatedOn
+          ? [{ label: "Última actualización", value: updatedOn }]
+          : []),
+      ],
+    })
+  )
+  const medical: Certification[] = record.medical_expires_on
+    ? [
+        {
+          id: "medical",
+          kind: "medical",
+          name: "Certificado médico",
+          code: null,
+          issuer: null,
+          scope: null,
+          expiresAt: record.medical_expires_on,
+          observation: PROFILE_NOTE,
+          appointment: null,
+          details: [
+            {
+              label: "Vencimiento",
+              value: formatShortDate(record.medical_expires_on),
+            },
+          ],
+        },
+      ]
+    : []
+  const ratings = record.ratings.map((rating): Certification => ({
+    id: `rating-${rating}`,
+    kind: "typeRating",
+    name: `Habilitación de tipo ${rating}`,
+    code: null,
+    issuer: null,
+    scope: null,
+    expiresAt: null,
+    undatedStatus: "registrado",
+    observation: PROFILE_NOTE,
+    appointment: null,
+    details: [{ label: "Familia de aeronave", value: rating }],
+  }))
+  const english: Certification[] = record.english_level
+    ? [
+        {
+          id: "english",
+          kind: "language",
+          name: `Inglés OACI nivel ${record.english_level}`,
+          code: null,
+          issuer: null,
+          scope: null,
+          expiresAt: null,
+          undatedStatus: "registrado",
+          observation: PROFILE_NOTE,
+          appointment: null,
+          details: [
+            { label: "Nivel OACI", value: `${record.english_level} de 6` },
+          ],
+        },
+      ]
+    : []
+  return [...certificates, ...medical, ...ratings, ...english]
+}
+
+// La cuenta demo usa los datos de ejemplo; la sesión real, el backend.
+export const getCertifications = withDemo(
+  certificationsFromApi,
+  demoCertifications
+)

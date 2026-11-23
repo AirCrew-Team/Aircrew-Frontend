@@ -7,13 +7,13 @@ import { typography } from "@/App/utils/typography"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import UserDialogHeader from "@/modules/users/components/UserDialogHeader"
-import {
-  getUserCatalogs,
-  getUserDetail,
-  updateUser,
-} from "@/modules/users/data/users.data"
+import { useUsersApi } from "@/modules/users/hooks/useUsersApi"
 import type { CreateUserFormValues } from "@/modules/users/schemas/createUser.schema"
-import type { UserDetail } from "@/modules/users/types/users.types"
+import type {
+  CreateUserInput,
+  UserDetail,
+  UserRoleGroup,
+} from "@/modules/users/types/users.types"
 import { fullName } from "@/modules/users/utils/userName"
 
 // Carga diferida: el formulario (con react-phone-number-input y los datos de teléfonos
@@ -21,23 +21,42 @@ import { fullName } from "@/modules/users/utils/userName"
 // entrar a Usuarios.
 const UserForm = lazy(() => import("@/modules/users/components/UserForm"))
 
-// Valores del formulario a partir de la ficha del usuario. Supervisor y Administrador no
-// tienen cargo propio ni licencia: esos campos empiezan vacíos.
-const toFormValues = (user: UserDetail): CreateUserFormValues => {
-  const isCrew = user.roleGroup === "tripulacion"
-  return {
-    firstName: user.firstName,
-    lastName: user.lastName,
-    email: user.email,
-    // El campo del celular trabaja en E.164: «+1 404 555 0142» → «+14045550142».
-    phone: user.phone.number.replace(/[^\d+]/g, ""),
-    roleGroup: user.roleGroup,
-    roleTitle: isCrew ? user.roleTitle : "",
-    base: user.base,
-    licenseNumber: user.license?.number ?? "",
-    certificates: user.license?.certificates ?? [],
-  }
-}
+// Valores del formulario a partir de la ficha del usuario. Cada rol solo trae sus
+// campos: el cargo es del tripulante, el turno del supervisor y la base de los dos.
+const toFormValues = (user: UserDetail): CreateUserFormValues => ({
+  firstName: user.firstName,
+  lastName: user.lastName,
+  email: user.email,
+  // El campo del celular trabaja en E.164: «+1 404 555 0142» → «+14045550142».
+  phone: (user.phone.number ?? "").replace(/[^\d+]/g, ""),
+  roleGroup: user.roleGroup,
+  roleTitle: user.roleGroup === "tripulacion" ? user.roleTitle : "",
+  base: user.base ?? "",
+  shift: user.shift ?? "",
+  // Solo lo usa el supervisor. Un supervisor sin estado se abre con «Sin estado» ("") y
+  // no se envía nada salvo que lo cambien. Al pasar de administrador a supervisor,
+  // «Disponible», como hace el backend.
+  status: user.roleGroup === "supervisor" ? (user.status ?? "") : "disponible",
+})
+
+// Los mismos valores con la forma que envía el formulario: con ellos la acción manda
+// solo lo que cambió. Como el formulario, solo el supervisor lleva estado.
+const toInput = (values: CreateUserFormValues): CreateUserInput => ({
+  ...values,
+  roleGroup: values.roleGroup as UserRoleGroup,
+  shift: values.shift as CreateUserInput["shift"],
+  status:
+    values.roleGroup === "supervisor"
+      ? (values.status as CreateUserInput["status"])
+      : "",
+})
+
+// El rol de un tripulante no se cambia (su perfil vive en crew). Supervisor y
+// Administrador solo pueden pasar del uno al otro.
+const roleOptionsFor = (user: UserDetail): UserRoleGroup[] =>
+  user.roleGroup === "tripulacion"
+    ? ["tripulacion"]
+    : ["supervisor", "administrador"]
 
 // Mientras llegan los datos del usuario, los catálogos o el código del formulario.
 const LoadingText = () => (
@@ -57,8 +76,9 @@ interface EditUserDialogProps {
 
 // Ventana «Editar usuario»: el mismo formulario del alta, lleno con los datos actuales.
 // Pide la ficha (["users", "detail", id], la misma de «Ver más información») y los
-// catálogos. Al guardar, envía los cambios (con la API, un PUT del usuario).
+// catálogos. Al guardar envía solo lo que cambió (PATCH del usuario).
 const EditUserDialog = ({ userId, onClose }: EditUserDialogProps) => {
+  const { getUserDetail, getUserCatalogs, updateUser } = useUsersApi()
   // Último usuario abierto: al cerrar, userId pasa a null, pero el formulario sigue
   // visible durante la animación de salida en lugar de cambiar a «Cargando…».
   const [shownUserId, setShownUserId] = useState(userId)
@@ -110,10 +130,17 @@ const EditUserDialog = ({ userId, onClose }: EditUserDialogProps) => {
               key={detail.data.id}
               catalogs={catalogs.data}
               defaultValues={toFormValues(detail.data)}
+              roleOptions={roleOptionsFor(detail.data)}
               submitLabel="Guardar cambios"
               pendingLabel="Guardando cambios…"
-              // Edición (PUT): repetirla da el mismo resultado, no usa la clave.
-              onSave={(input) => updateUser(detail.data.id, input)}
+              // Solo se envía lo que cambió respecto a los datos con que se abrió.
+              onSave={(input) =>
+                updateUser(
+                  detail.data.id,
+                  input,
+                  toInput(toFormValues(detail.data))
+                )
+              }
               onSaved={(user) => {
                 toast.success("Usuario actualizado", {
                   description: `Los cambios de ${fullName(user)} quedaron guardados.`,

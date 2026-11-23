@@ -1,33 +1,23 @@
-import { useEffect, useId, useMemo } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useId, useState } from "react"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
 
-import type { AuthUser } from "@/App/types/auth.types"
 import {
-  ClockIcon,
-  CommuteIcon,
-  DepartureIcon,
-  FlightIcon,
-  LogbookIcon,
-  RadioChannelIcon,
-  SupervisorIcon,
-} from "@/App/utils/icons"
+  deleteMyPhoto,
+  myPhotoUrl,
+  myProfileQueryKey,
+  uploadMyPhoto,
+} from "@/App/actions/profile/profile.actions"
+import { ROLES, type AuthUser, type Role } from "@/App/types/auth.types"
+import type { MyProfile } from "@/App/types/profile.types"
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
-import {
-  getCrewProfile,
-  getSupervisorProfile,
-  getUserProfile,
-} from "@/modules/profile/data/profile.data"
 import PhotoUploadControls from "@/modules/shared/photo/PhotoUploadControls"
 
-interface IdentityCardProps {
-  user: AuthUser
-  isCrew: boolean
-  // Foto elegida: un archivo nuevo, null (quitada) o undefined (la guardada).
-  photo: File | null | undefined
-  photoError: string | null
-  onPhotoChange: (photo: File | null) => void
-  onPhotoError: (message: string | null) => void
+const ROLE_LABELS: Record<Role, string> = {
+  [ROLES.TRIPULANTE]: "Tripulante",
+  [ROLES.SUPER_VISOR]: "Supervisor",
+  [ROLES.SUPER_ADMIN]: "Administrador",
 }
 
 // Mismo criterio que el navbar: iniciales de las dos primeras palabras del nombre.
@@ -39,134 +29,80 @@ const getInitials = (name: string) =>
     .map((word) => word.charAt(0).toUpperCase())
     .join("")
 
-// I1 (común): identidad desde el store; estado y foto desde el perfil. La foto se sube o se
-// quita aquí y se guarda con «Guardar Cambios». Debajo, la lista rápida de cada rol: datos
-// de vuelo (tripulante) o base y turno (supervisor).
-const IdentityCard = ({
-  user,
-  isCrew,
-  photo,
-  photoError,
-  onPhotoChange,
-  onPhotoError,
-}: IdentityCardProps) => {
+const formatMonthYear = (iso: string) =>
+  new Intl.DateTimeFormat("es-US", { month: "long", year: "numeric" }).format(
+    new Date(iso)
+  )
+
+interface IdentityCardProps {
+  user: AuthUser
+  // null en las cuentas demo: solo el nombre y el rol del store.
+  profile: MyProfile | null
+  // Cargo del tripulante, de crew (no del store).
+  crewPosition: string | undefined
+}
+
+// Tarjeta de identidad (común): foto real o iniciales, nombre y rol del store, cargo del
+// tripulante, estado y fecha de alta. La foto se sube y se quita al momento.
+const IdentityCard = ({ user, profile, crewPosition }: IdentityCardProps) => {
   const nameId = useId()
-  const profile = useQuery({
-    queryKey: ["profile", user.id],
-    queryFn: () => getUserProfile(user.id),
-  })
-  const crew = useQuery({
-    queryKey: ["profile", "crew", user.id],
-    queryFn: () => getCrewProfile(user.id),
-    enabled: isCrew,
-  })
-  const supervisor = useQuery({
-    queryKey: ["profile", "supervisor", user.id],
-    queryFn: () => getSupervisorProfile(user.id),
-    enabled: !isCrew,
-  })
+  const queryClient = useQueryClient()
+  const isDemo = profile === null
+  const [photoError, setPhotoError] = useState<string | null>(null)
+  // URL que no se pudo cargar: vuelven las iniciales hasta que haya otra versión.
+  const [brokenSrc, setBrokenSrc] = useState<string | null>(null)
 
-  // Vista previa de la foto nueva desde la memoria del navegador. Se libera al cambiarla
-  // o al salir, para no dejar la imagen ocupando memoria.
-  const previewUrl = useMemo(
-    () =>
-      photo && typeof URL.createObjectURL === "function"
-        ? URL.createObjectURL(photo)
-        : null,
-    [photo]
-  )
-  useEffect(
-    () => () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl)
+  const photoMutation = useMutation({
+    mutationFn: async (file: File | null) => {
+      if (file) return (await uploadMyPhoto(file)).photo_updated_at
+      await deleteMyPhoto()
+      return null
     },
-    [previewUrl]
-  )
-  const shownPhoto = photo === undefined ? profile.data?.photoUrl : previewUrl
+    onSuccess: (photoUpdatedAt, file) => {
+      queryClient.setQueryData<MyProfile>(
+        myProfileQueryKey(user.id),
+        (old) => old && { ...old, photo_updated_at: photoUpdatedAt }
+      )
+      toast.success(file ? "Foto actualizada." : "Foto eliminada.")
+    },
+  })
 
-  // Estado de la lista rápida del rol.
-  const { isPending, isError } = isCrew ? crew : supervisor
+  const savedPhoto = profile?.photo_updated_at
+    ? myPhotoUrl(profile.photo_updated_at)
+    : null
+  const shownPhoto = savedPhoto !== brokenSrc ? savedPhoto : null
 
-  const crewStats = crew.data
-    ? [
-        {
-          label: "Base Principal",
-          value: crew.data.quickStats.base,
-          Icon: DepartureIcon,
-        },
-        {
-          label: "Flota Asignada",
-          value: crew.data.quickStats.fleet,
-          Icon: FlightIcon,
-        },
-        {
-          label: "Horas de Vuelo Totales",
-          value: crew.data.quickStats.totalHours,
-          Icon: LogbookIcon,
-        },
-        {
-          label: "Traslado a Base",
-          value: crew.data.quickStats.commute,
-          Icon: CommuteIcon,
-        },
-      ]
-    : []
-
-  const supervisorStats = supervisor.data
-    ? [
-        {
-          label: "Base Asignada",
-          value: supervisor.data.quickStats.base,
-          Icon: DepartureIcon,
-        },
-        {
-          label: "Turno",
-          value: supervisor.data.quickStats.shift,
-          Icon: ClockIcon,
-        },
-        {
-          label: "Área",
-          value: supervisor.data.quickStats.area,
-          Icon: SupervisorIcon,
-        },
-        {
-          label: "Canal OCC",
-          value: supervisor.data.quickStats.occChannel,
-          Icon: RadioChannelIcon,
-        },
-      ]
-    : []
-
-  const quickStats = isCrew ? crewStats : supervisorStats
+  const error =
+    photoError ??
+    (photoMutation.isError
+      ? photoMutation.variables
+        ? "No se pudo subir la foto. Intenta de nuevo."
+        : "No se pudo quitar la foto. Intenta de nuevo."
+      : null)
 
   return (
     <section
       aria-labelledby={nameId}
       className="flex flex-col items-center gap-4 rounded-xl border border-brand-border/70 bg-card p-4 text-center shadow-sm sm:p-6"
     >
-      <div className="relative">
-        {shownPhoto ? (
-          <img
-            src={shownPhoto}
-            alt={`Foto de perfil de ${user.fullName}`}
-            className="size-28 rounded-xl object-cover shadow-md"
-          />
-        ) : (
-          <span
-            aria-hidden="true"
-            className={cn(
-              typography.headlineLg,
-              "flex size-28 items-center justify-center rounded-xl bg-brand-secondary font-bold text-white shadow-md forced-colors:border"
-            )}
-          >
-            {getInitials(user.fullName)}
-          </span>
-        )}
-        {crew.data ? (
-          <span className="absolute right-0 bottom-0 flex size-8 items-center justify-center rounded-lg bg-brand-primary text-white shadow-sm ring-2 ring-card forced-colors:border">
-            <FlightIcon aria-hidden="true" className="size-4" />
-          </span>
-        ) : null}
-      </div>
+      {shownPhoto ? (
+        <img
+          src={shownPhoto}
+          alt={`Foto de perfil de ${user.fullName}`}
+          onError={() => setBrokenSrc(shownPhoto)}
+          className="size-28 rounded-xl object-cover shadow-md"
+        />
+      ) : (
+        <span
+          aria-hidden="true"
+          className={cn(
+            typography.headlineLg,
+            "flex size-28 items-center justify-center rounded-xl bg-brand-secondary font-bold text-white shadow-md forced-colors:border"
+          )}
+        >
+          {getInitials(user.fullName)}
+        </span>
+      )}
 
       <div className="flex min-w-0 flex-col items-center gap-0.5">
         <h2
@@ -179,103 +115,51 @@ const IdentityCard = ({
           {user.fullName}
         </h2>
         <p className={cn(typography.labelLg, "text-brand-secondary")}>
-          {user.position}
+          {ROLE_LABELS[user.role]}
         </p>
-        {profile.isPending ? (
-          <p
-            role="status"
-            className={cn(typography.bodySm, "text-muted-foreground")}
-          >
-            Cargando perfil…
+        {crewPosition ? (
+          <p className={cn(typography.bodySm, "text-muted-foreground")}>
+            {crewPosition}
           </p>
-        ) : profile.isError ? (
-          <p role="alert" className={cn(typography.bodySm, "text-destructive")}>
-            No se pudo cargar el perfil.
-          </p>
-        ) : (
-          <div className="flex flex-wrap justify-center gap-1 pt-1.5">
-            <p
-              className={cn(
-                typography.labelSm,
-                "flex items-center gap-1 rounded-full bg-brand-border px-2 py-0.5 tracking-wide text-brand-primary uppercase"
-              )}
-            >
-              <span
-                aria-hidden="true"
-                className="size-1.5 shrink-0 rounded-full bg-brand-secondary"
-              />
-              {profile.data.status} • ID: {profile.data.employeeCode}
-            </p>
-            {crew.data ? (
-              <p
-                className={cn(
-                  typography.labelSm,
-                  "rounded-full bg-brand-neutral px-2 py-0.5 text-muted-foreground uppercase"
-                )}
-              >
-                {crew.data.category}
-              </p>
-            ) : null}
-          </div>
-        )}
+        ) : null}
       </div>
 
-      {/* Ancho completo y texto a la izquierda, como los controles del admin. */}
+      {profile ? (
+        <div className="flex flex-col items-center gap-1.5">
+          <p
+            className={cn(
+              typography.labelSm,
+              "flex items-center gap-1 rounded-full bg-brand-border px-2 py-0.5 tracking-wide text-brand-primary uppercase"
+            )}
+          >
+            <span
+              aria-hidden="true"
+              className="size-1.5 shrink-0 rounded-full bg-brand-secondary"
+            />
+            {profile.is_active ? "Cuenta activa" : "Cuenta inactiva"}
+          </p>
+          <p className={cn(typography.bodySm, "text-muted-foreground")}>
+            En AirCrew desde {formatMonthYear(profile.created_at)}
+          </p>
+        </div>
+      ) : null}
+
+      {/* Ancho completo y texto a la izquierda. */}
       <div className="w-full text-left">
         <PhotoUploadControls
-          hasPhoto={Boolean(shownPhoto)}
-          error={photoError}
-          onPhotoChange={onPhotoChange}
-          onPhotoError={onPhotoError}
+          hasPhoto={Boolean(savedPhoto)}
+          error={error}
+          disabled={isDemo}
+          pending={
+            photoMutation.isPending
+              ? photoMutation.variables
+                ? "upload"
+                : "remove"
+              : null
+          }
+          onPhotoChange={(file) => photoMutation.mutate(file)}
+          onPhotoError={setPhotoError}
         />
-      </div>
-
-      <div className="w-full border-t border-brand-border/70 pt-4 text-left">
-        {isPending ? (
-          <p
-            role="status"
-            className={cn(typography.bodySm, "text-muted-foreground")}
-          >
-            {isCrew ? "Cargando datos de vuelo…" : "Cargando datos del turno…"}
-          </p>
-        ) : isError ? (
-          <p role="alert" className={cn(typography.bodySm, "text-destructive")}>
-            {isCrew
-              ? "No se pudieron cargar los datos de vuelo."
-              : "No se pudieron cargar los datos del turno."}
-          </p>
-        ) : (
-          <dl className="flex flex-col gap-2">
-            {quickStats.map(({ label, value, Icon }) => (
-              <div
-                key={label}
-                className="group flex flex-wrap items-start justify-between gap-x-3 gap-y-0.5 py-1"
-              >
-                <dt
-                  className={cn(
-                    typography.bodySm,
-                    "flex items-center gap-1.5 text-muted-foreground"
-                  )}
-                >
-                  <Icon
-                    aria-hidden="true"
-                    className="size-4 shrink-0 text-brand-secondary"
-                  />
-                  {label}
-                </dt>
-                {/* ml-auto: si salta de línea sigue alineado a la derecha. El último (traslado o canal) va en azul, como la referencia. */}
-                <dd
-                  className={cn(
-                    typography.labelMd,
-                    "ml-auto text-right font-semibold text-brand-primary group-last:font-bold group-last:text-brand-secondary"
-                  )}
-                >
-                  {value}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        )}
       </div>
     </section>
   )

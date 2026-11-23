@@ -9,10 +9,11 @@ import { useAuthStore } from "@/stores/auth.store"
 import { renderRoute } from "../utils/renderRoute"
 import { findToast } from "../utils/toasts"
 
-// Formulario «Añadir usuario» (Delta Air Lines, datos de EE. UU.): apertura, campos según
-// el rol, validaciones, celular por país, alta con Idempotency-Key, refresco de la tabla
-// y errores. Va en su propio archivo porque el alta simulada guarda el usuario en memoria
-// y cambiaría los conteos de los otros tests.
+// Formulario «Añadir usuario» (Delta Air Lines, datos de EE. UU.) con la cuenta demo:
+// apertura, campos según el rol, validaciones, celular por país, alta, refresco de la
+// tabla y errores. Va en su propio archivo porque el alta simulada guarda el usuario en
+// memoria y cambiaría los conteos de los otros tests. La sesión real (backend) se prueba
+// en UsuariosPage.real.test.tsx.
 
 // Estos tests llenan el formulario campo por campo con userEvent: con la máquina cargada
 // (suite completa en paralelo) pueden pasar de los 5 s por defecto. Más margen, solo aquí.
@@ -62,8 +63,13 @@ const createWithoutSaving = () => {
   usersData.overrides.createUser = (input) =>
     Promise.resolve({
       ...(input as object),
-      id: "AC-0000",
+      id: "demo-0000",
+      code: null,
       status: "disponible",
+      shift: null,
+      base: null,
+      pendingActivation: true,
+      isActive: true,
     })
 }
 
@@ -109,55 +115,35 @@ const fillValidCrewForm = async (
   await user.selectOptions(form.getByLabelText(/^Rol/), "tripulacion")
   await user.selectOptions(form.getByLabelText(/^Cargo/), "Comandante")
   await user.selectOptions(form.getByLabelText(/^Base/), "ATL")
-  await user.type(
-    form.getByLabelText(/^Número de licencia/),
-    "FAA ATP #7001-US"
-  )
-  for (const certificate of [
-    "Airline Transport Pilot (ATP)",
-    "Instrument Rating (IR)",
-    "Multi-Engine (ME)",
-  ]) {
-    await user.click(form.getByRole("checkbox", { name: certificate }))
-  }
 }
-
-// Nombres de las casillas de certificados visibles.
-const certificateNames = (dialog: HTMLElement) =>
-  within(dialog)
-    .queryAllByRole("checkbox")
-    .map((checkbox) => checkbox.closest("label")?.textContent?.trim())
 
 const optionTexts = (select: HTMLElement) =>
   within(select)
     .getAllByRole("option")
     .map((option) => option.textContent)
 
-const PILOT = [
-  "Private Pilot (PPL)",
-  "Commercial Pilot (CPL)",
-  "Airline Transport Pilot (ATP)",
-  "Instrument Rating (IR)",
-  "Multi-Engine (ME)",
-]
-
 describe("Añadir usuario: formulario", () => {
   it("abre con datos personales y operativos, EE. UU. por defecto y «Alta de usuarios»", async () => {
-    const { dialog } = await openForm()
+    const { user, dialog } = await openForm()
+    const form = within(dialog)
 
     expect(
-      within(dialog).getByText("Alta de usuarios · Flight Ops Central")
+      form.getByText("Alta de usuarios · Flight Ops Central")
     ).toBeInTheDocument()
     for (const legend of ["Datos personales", "Datos operativos"]) {
-      expect(
-        within(dialog).getByRole("group", { name: legend })
-      ).toBeInTheDocument()
+      expect(form.getByRole("group", { name: legend })).toBeInTheDocument()
     }
-    // Cargo y Licencia dependen del rol: sin rol todavía no aparecen.
-    expect(within(dialog).queryByLabelText(/^Cargo/)).not.toBeInTheDocument()
+    // Cargo, base y turno dependen del rol: sin rol todavía no aparecen.
+    for (const label of [/^Cargo/, /^Base/, /^Turno/]) {
+      expect(form.queryByLabelText(label)).not.toBeInTheDocument()
+    }
+    // Ni licencia ni certificados (van en la pantalla de certificados), ni contraseña,
+    // ni código de empleado (lo asigna el backend).
     expect(
-      within(dialog).queryByRole("group", { name: "Licencia" })
+      form.queryByRole("group", { name: "Licencia" })
     ).not.toBeInTheDocument()
+    expect(form.queryByLabelText(/contraseña/i)).not.toBeInTheDocument()
+    expect(form.queryByLabelText(/código/i)).not.toBeInTheDocument()
 
     // Celular: selector de país de react-phone-number-input, EE. UU. por defecto y
     // primero de la lista, con los nombres en español.
@@ -169,8 +155,10 @@ describe("Añadir usuario: formulario", () => {
     expect(
       within(country).getByRole("option", { name: "España" })
     ).toBeInTheDocument()
-    // Bases: los hubs de Delta.
-    const bases = within(within(dialog).getByLabelText(/^Base/))
+
+    // Bases: las del catálogo (hubs de Delta).
+    await user.selectOptions(form.getByLabelText(/^Rol/), "tripulacion")
+    const bases = within(form.getByLabelText(/^Base/))
       .getAllByRole("option")
       .map((option) => option.getAttribute("value"))
     expect(bases).toEqual([
@@ -185,14 +173,9 @@ describe("Añadir usuario: formulario", () => {
       "SLC",
       "SEA",
     ])
-    // Pie sin la nota de obligatorios; el botón de crear es solo texto.
+    // El botón de crear es solo texto.
     expect(
-      within(dialog).queryByText(/Campos obligatorios/)
-    ).not.toBeInTheDocument()
-    expect(
-      within(dialog)
-        .getByRole("button", { name: "Crear usuario" })
-        .querySelector("svg")
+      form.getByRole("button", { name: "Crear usuario" }).querySelector("svg")
     ).toBeNull()
   })
 
@@ -207,15 +190,13 @@ describe("Añadir usuario: formulario", () => {
     ])
   })
 
-  it("Tripulación muestra el cargo con sus 5 opciones (sin Ingeniero de Vuelo); la licencia aparece al elegir el cargo", async () => {
+  it("Tripulación muestra el cargo (5 opciones del catálogo) y la base, sin turno", async () => {
     const { user, dialog } = await openForm()
+    const form = within(dialog)
 
-    await user.selectOptions(
-      within(dialog).getByLabelText(/^Rol/),
-      "tripulacion"
-    )
+    await user.selectOptions(form.getByLabelText(/^Rol/), "tripulacion")
 
-    expect(optionTexts(within(dialog).getByLabelText(/^Cargo/))).toEqual([
+    expect(optionTexts(form.getByLabelText(/^Cargo/))).toEqual([
       "Selecciona…",
       "Comandante",
       "Copiloto",
@@ -223,116 +204,51 @@ describe("Añadir usuario: formulario", () => {
       "Sobrecargo Principal",
       "Sobrecargo",
     ])
-    // Sin cargo todavía no se muestra la licencia (no hay certificados que ofrecer).
-    expect(
-      within(dialog).queryByRole("group", { name: "Licencia" })
-    ).not.toBeInTheDocument()
-
-    await user.selectOptions(
-      within(dialog).getByLabelText(/^Cargo/),
-      "Comandante"
-    )
-
-    expect(
-      within(dialog).getByRole("group", { name: "Licencia" })
-    ).toBeInTheDocument()
-    // Sin certificado médico ni tipo de licencia.
-    expect(within(dialog).queryByText(/médico/i)).not.toBeInTheDocument()
-    expect(
-      within(dialog).queryByLabelText(/^Tipo de licencia/)
-    ).not.toBeInTheDocument()
+    expect(form.getByLabelText(/^Base/)).toBeInTheDocument()
+    expect(form.queryByLabelText(/^Turno/)).not.toBeInTheDocument()
   })
 
-  it.each(["supervisor", "administrador"])(
-    "%s no pide cargo ni licencia",
-    async (role) => {
-      const { user, dialog } = await openForm()
+  it("Supervisor muestra la base y el turno (Turno 1 a 3), sin cargo", async () => {
+    const { user, dialog } = await openForm()
+    const form = within(dialog)
 
-      await user.selectOptions(within(dialog).getByLabelText(/^Rol/), role)
+    await user.selectOptions(form.getByLabelText(/^Rol/), "supervisor")
 
-      expect(within(dialog).queryByLabelText(/^Cargo/)).not.toBeInTheDocument()
-      expect(
-        within(dialog).queryByRole("group", { name: "Licencia" })
-      ).not.toBeInTheDocument()
+    expect(form.queryByLabelText(/^Cargo/)).not.toBeInTheDocument()
+    expect(form.getByLabelText(/^Base/)).toBeInTheDocument()
+    const shift = form.getByLabelText(/^Turno/)
+    expect(shift).toHaveAttribute("aria-required", "true")
+    expect(optionTexts(shift)).toEqual([
+      "Selecciona…",
+      "Turno 1",
+      "Turno 2",
+      "Turno 3",
+    ])
+  })
+
+  it("Administrador solo pide nombre, correo y celular", async () => {
+    const { user, dialog } = await openForm()
+    const form = within(dialog)
+
+    await user.selectOptions(form.getByLabelText(/^Rol/), "administrador")
+
+    for (const label of [/^Cargo/, /^Base/, /^Turno/]) {
+      expect(form.queryByLabelText(label)).not.toBeInTheDocument()
     }
-  )
-
-  it.each([
-    { title: "Comandante", certificates: PILOT },
-    { title: "Copiloto", certificates: PILOT },
-    {
-      title: "Auxiliar de Vuelo",
-      certificates: ["Certificate of Demonstrated Proficiency (CDP)"],
-    },
-    {
-      title: "Sobrecargo Principal",
-      certificates: [
-        "Certificate of Demonstrated Proficiency (CDP)",
-        "Liderazgo",
-        "Manejo de conflictos",
-        "Aduanas / Inmigración",
-      ],
-    },
-    {
-      title: "Sobrecargo",
-      certificates: [
-        "Certificate of Demonstrated Proficiency (CDP)",
-        "Liderazgo",
-        "Manejo de conflictos",
-        "Aduanas / Inmigración",
-      ],
-    },
-  ])("«$title» ofrece sus certificados", async ({ title, certificates }) => {
-    const { user, dialog } = await openForm()
-
-    await user.selectOptions(
-      within(dialog).getByLabelText(/^Rol/),
-      "tripulacion"
-    )
-    // Sin cargo todavía no hay certificados.
-    expect(within(dialog).queryAllByRole("checkbox")).toHaveLength(0)
-
-    await user.selectOptions(within(dialog).getByLabelText(/^Cargo/), title)
-
-    expect(certificateNames(dialog)).toEqual(certificates)
   })
 
-  it("los certificados son chips seleccionables (casillas accesibles)", async () => {
+  it("al dejar de ser Supervisor, el turno se oculta y se borra lo elegido", async () => {
     const { user, dialog } = await openForm()
     const form = within(dialog)
 
+    await user.selectOptions(form.getByLabelText(/^Rol/), "supervisor")
+    await user.selectOptions(form.getByLabelText(/^Turno/), "turno_3")
     await user.selectOptions(form.getByLabelText(/^Rol/), "tripulacion")
-    await user.selectOptions(form.getByLabelText(/^Cargo/), "Copiloto")
-    const atp = form.getByRole("checkbox", {
-      name: "Airline Transport Pilot (ATP)",
-    })
 
-    await user.click(atp)
-    expect(atp).toBeChecked()
-    // Con teclado: espacio desmarca.
-    atp.focus()
-    await user.keyboard(" ")
-    expect(atp).not.toBeChecked()
-  })
-
-  it("al cambiar de cargo se desmarcan los certificados", async () => {
-    const { user, dialog } = await openForm()
-    const form = within(dialog)
-
-    await user.selectOptions(form.getByLabelText(/^Rol/), "tripulacion")
-    await user.selectOptions(form.getByLabelText(/^Cargo/), "Sobrecargo")
-    await user.click(
-      form.getByRole("checkbox", {
-        name: "Certificate of Demonstrated Proficiency (CDP)",
-      })
-    )
-    await user.selectOptions(form.getByLabelText(/^Cargo/), "Auxiliar de Vuelo")
-
-    expect(
-      form.getByRole("checkbox", {
-        name: "Certificate of Demonstrated Proficiency (CDP)",
-      })
-    ).not.toBeChecked()
+    expect(form.queryByLabelText(/^Turno/)).not.toBeInTheDocument()
+    // Al volver a Supervisor, el turno empieza vacío.
+    await user.selectOptions(form.getByLabelText(/^Rol/), "supervisor")
+    expect(form.getByLabelText(/^Turno/)).toHaveValue("")
   })
 
   it("enviar vacío marca los obligatorios, enfoca el primero y no crea nada", async () => {
@@ -349,7 +265,6 @@ describe("Añadir usuario: formulario", () => {
       "Ingresa el correo.",
       "Ingresa el celular de contacto.",
       "Selecciona el rol.",
-      "Selecciona la base.",
     ]) {
       expect(within(dialog).getByText(message)).toBeInTheDocument()
     }
@@ -358,7 +273,7 @@ describe("Añadir usuario: formulario", () => {
     )
   })
 
-  it("con Tripulación, el cargo es obligatorio", async () => {
+  it("con Tripulación, el cargo y la base son obligatorios", async () => {
     const { user, dialog } = await openForm()
 
     await user.selectOptions(
@@ -367,35 +282,23 @@ describe("Añadir usuario: formulario", () => {
     )
     await submit(user, dialog)
 
-    expect(
-      await within(dialog).findByText("Selecciona el cargo.")
-    ).toBeInTheDocument()
+    for (const message of ["Selecciona el cargo.", "Selecciona la base."]) {
+      expect(await within(dialog).findByText(message)).toBeInTheDocument()
+    }
   })
 
-  it("con cargo elegido, el número de licencia y al menos un certificado son obligatorios", async () => {
+  it("con Supervisor, la base y el turno son obligatorios", async () => {
     const { user, dialog } = await openForm()
 
     await user.selectOptions(
       within(dialog).getByLabelText(/^Rol/),
-      "tripulacion"
-    )
-    await user.selectOptions(
-      within(dialog).getByLabelText(/^Cargo/),
-      "Comandante"
+      "supervisor"
     )
     await submit(user, dialog)
 
-    const group = within(dialog).getByRole("group", { name: /^Certificados/ })
-    expect(
-      await within(dialog).findByText("Ingresa el número de licencia.")
-    ).toBeInTheDocument()
-    expect(
-      within(dialog).getByText("Selecciona al menos un certificado.")
-    ).toBeInTheDocument()
-    expect(group).toHaveAttribute("aria-invalid", "true")
-    expect(group).toHaveAccessibleDescription(
-      "Selecciona al menos un certificado."
-    )
+    for (const message of ["Selecciona la base.", "Selecciona el turno."]) {
+      expect(await within(dialog).findByText(message)).toBeInTheDocument()
+    }
   })
 
   it("valida el formato del correo y del celular", async () => {
@@ -474,41 +377,43 @@ describe("Añadir usuario: formulario", () => {
     )
   })
 
-  it.each([
-    { role: "supervisor", title: "Supervisor" },
-    { role: "administrador", title: "Administrador" },
-  ])(
-    "un $title se envía sin cargo propio ni licencia",
-    async ({ role, title }) => {
-      createWithoutSaving()
-      const { user, dialog } = await openForm()
-
-      await fillPersonalData(user, dialog)
-      await user.selectOptions(within(dialog).getByLabelText(/^Rol/), role)
-      await user.selectOptions(within(dialog).getByLabelText(/^Base/), "JFK")
-      await submit(user, dialog)
-
-      await waitFor(() =>
-        expect(lastCreateInput()).toMatchObject({
-          roleGroup: role,
-          roleTitle: title,
-          base: "JFK",
-          license: undefined,
-        })
-      )
-    }
-  )
-
-  it("un Administrador se envía con todos sus datos", async () => {
+  it("un Supervisor se envía con su base y su turno, sin cargo", async () => {
     createWithoutSaving()
     const { user, dialog } = await openForm()
+    const form = within(dialog)
 
     await fillPersonalData(user, dialog)
-    await user.selectOptions(
-      within(dialog).getByLabelText(/^Rol/),
-      "administrador"
+    await user.selectOptions(form.getByLabelText(/^Rol/), "supervisor")
+    await user.selectOptions(form.getByLabelText(/^Base/), "JFK")
+    await user.selectOptions(form.getByLabelText(/^Turno/), "turno_1")
+    await submit(user, dialog)
+
+    await waitFor(() =>
+      expect(lastCreateInput()).toEqual({
+        firstName: "Laura",
+        lastName: "Gómez",
+        email: "laura.gomez@aircrew-ops.com",
+        phone: "+14045550123",
+        roleGroup: "supervisor",
+        roleTitle: "",
+        base: "JFK",
+        shift: "turno_1",
+        // D14 (FE-5): el estado operativo del supervisor empieza en «Disponible».
+        status: "disponible",
+      })
     )
-    await user.selectOptions(within(dialog).getByLabelText(/^Base/), "ATL")
+  })
+
+  it("un Administrador se envía solo con sus datos personales", async () => {
+    createWithoutSaving()
+    const { user, dialog } = await openForm()
+    const form = within(dialog)
+
+    await fillPersonalData(user, dialog)
+    // Lo elegido con otro rol no se envía al cambiar a Administrador.
+    await user.selectOptions(form.getByLabelText(/^Rol/), "supervisor")
+    await user.selectOptions(form.getByLabelText(/^Base/), "JFK")
+    await user.selectOptions(form.getByLabelText(/^Rol/), "administrador")
     await submit(user, dialog)
 
     await waitFor(() =>
@@ -518,9 +423,10 @@ describe("Añadir usuario: formulario", () => {
         email: "laura.gomez@aircrew-ops.com",
         phone: "+14045550123",
         roleGroup: "administrador",
-        roleTitle: "Administrador",
-        base: "ATL",
-        license: undefined,
+        roleTitle: "",
+        base: "",
+        shift: "",
+        status: "",
       })
     )
   })
@@ -534,7 +440,7 @@ describe("Añadir usuario: formulario", () => {
     const email = within(dialog).getByLabelText(/^Correo/)
     await waitFor(() =>
       expect(email).toHaveAccessibleDescription(
-        "Ya existe un usuario con ese correo."
+        "Ya existe un usuario con ese email."
       )
     )
     expect(email).toHaveFocus()
@@ -573,49 +479,48 @@ describe("Añadir usuario: formulario", () => {
   })
 
   // Último del archivo: el alta queda guardada en memoria para el resto del archivo.
-  it("con datos válidos crea el usuario, avisa, cierra y la tabla y los conteos se actualizan", async () => {
+  it("con datos válidos crea el usuario pendiente de activación, avisa del correo y la tabla y los conteos se actualizan", async () => {
     const { user, dialog } = await openForm()
 
     await fillValidCrewForm(user, dialog)
     await submit(user, dialog)
 
-    // Mientras se envía, el botón lo indica y no permite reenviar.
+    // Mientras se envía, el botón lo indica y no permite reenviar (doble clic).
     expect(
       within(dialog).getByRole("button", { name: "Creando usuario…" })
     ).toBeDisabled()
 
     const toast = await findToast("Usuario creado")
     expect(toast).toHaveTextContent(
-      "Laura Gómez quedó registrado con el ID AC-6001."
+      "Se envió un correo a laura.gomez@aircrew-ops.com para que Laura Gómez active la cuenta."
     )
     await waitFor(() =>
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
     )
 
-    // Se envió lo del formulario, con una clave de idempotencia.
-    const call = usersData.calls.find((entry) => entry.name === "createUser")
-    expect(call?.args[0]).toEqual({
-      firstName: "Laura",
-      lastName: "Gómez",
-      email: "laura.gomez@aircrew-ops.com",
-      // Formato internacional E.164: indicativo + número, sin espacios.
-      phone: "+14045550123",
-      roleGroup: "tripulacion",
-      roleTitle: "Comandante",
-      base: "ATL",
-      license: {
-        number: "FAA ATP #7001-US",
-        certificates: [
-          "Airline Transport Pilot (ATP)",
-          "Instrument Rating (IR)",
-          "Multi-Engine (ME)",
-        ],
+    // Se envió lo del formulario, una sola vez.
+    const calls = usersData.calls.filter((entry) => entry.name === "createUser")
+    expect(calls).toHaveLength(1)
+    expect(calls[0].args).toEqual([
+      {
+        firstName: "Laura",
+        lastName: "Gómez",
+        email: "laura.gomez@aircrew-ops.com",
+        // Formato internacional E.164: indicativo + número, sin espacios.
+        phone: "+14045550123",
+        roleGroup: "tripulacion",
+        roleTitle: "Comandante",
+        base: "ATL",
+        shift: "",
+        status: "",
       },
-    })
-    expect(call?.args[1]).toEqual(expect.any(String))
+    ])
 
-    // La tabla, los indicadores y los filtros se refrescan con el nuevo usuario.
-    expect(await screen.findByText("Laura Gómez")).toBeInTheDocument()
+    // La tabla, los indicadores y los filtros se refrescan con el nuevo usuario, que
+    // aparece pendiente de activación y con el código que le asignó el backend.
+    const row = (await screen.findByText("Laura Gómez")).closest("tr")
+    expect(row).toHaveTextContent("Pendiente de activación")
+    expect(row).toHaveTextContent("AC-6001")
     expect(
       await screen.findByRole("button", { name: "Todos (185)" })
     ).toBeInTheDocument()

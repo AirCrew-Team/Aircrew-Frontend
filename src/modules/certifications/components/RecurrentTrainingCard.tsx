@@ -5,17 +5,43 @@ import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
 import { getRecurrentTraining } from "@/modules/shared/certifications/data/certifications.data"
 import { formatShortDate } from "@/modules/shared/certifications/utils/expiry"
+import { isDemoUser, useAuthStore } from "@/stores/auth.store"
 
 // T2: próximo entrenamiento recurrente en simulador.
+// Con la sesión real aún no hay entrenamientos: estado vacío y sin consulta.
 const RecurrentTrainingCard = () => {
+  const demo = useAuthStore((state) => isDemoUser(state.user))
   const { data, isPending, isError } = useQuery({
     queryKey: ["certifications", "recurrentTraining"],
     queryFn: getRecurrentTraining,
+    enabled: demo,
   })
 
   return (
     <div className="flex flex-col gap-2 rounded-xl border border-brand-border/70 bg-card p-5 shadow-sm sm:p-6">
-      {isPending ? (
+      {!demo ? (
+        <>
+          <h2
+            className={cn(
+              typography.headlineSm,
+              "font-bold text-balance text-brand-primary"
+            )}
+          >
+            Entrenamiento recurrente
+          </h2>
+          <p
+            className={cn(
+              typography.labelSm,
+              "order-first font-bold tracking-wider text-muted-foreground uppercase"
+            )}
+          >
+            Calendario de recurrentes
+          </p>
+          <p className={cn(typography.bodySm, "text-muted-foreground")}>
+            No tienes entrenamientos recurrentes agendados.
+          </p>
+        </>
+      ) : isPending ? (
         <p
           role="status"
           className={cn(typography.bodySm, "text-muted-foreground")}
@@ -47,7 +73,8 @@ const RecurrentTrainingCard = () => {
           {/* mb-2: aire mínimo sobre el recuadro cuando la tarjeta no se estira. */}
           <p className={cn(typography.bodySm, "mb-2 text-muted-foreground")}>
             Tu próximo entrenamiento en simulador de vuelo completo para la
-            renovación anual está agendado en el centro de instrucción Bogotá.
+            renovación anual está agendado en el centro de instrucción de tu
+            base.
           </p>
           <div className="mt-auto flex items-center gap-3 rounded-md bg-brand-neutral px-3 py-2.5">
             <CalendarIcon

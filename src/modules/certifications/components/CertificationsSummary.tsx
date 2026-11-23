@@ -8,16 +8,17 @@ import {
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
 import { getCertifications } from "@/modules/shared/certifications/data/certifications.data"
-import { getExpiryInfo } from "@/modules/shared/certifications/utils/expiry"
+import { getCertificationStatus } from "@/modules/shared/certifications/utils/expiry"
 
 // R: contadores por estado, calculados sobre la misma query que la lista.
+// Lo que está por verificar (sesión real) no cuenta como al día ni como vencido.
 const CertificationsSummary = () => {
-  const { data, isPending, isError } = useQuery({
+  const { data: certifications, isPending } = useQuery({
     queryKey: ["certifications", "list"],
     queryFn: getCertifications,
   })
 
-  if (isPending) {
+  if (!certifications && isPending) {
     return (
       <p
         role="status"
@@ -28,7 +29,8 @@ const CertificationsSummary = () => {
     )
   }
 
-  if (isError) {
+  // Sin datos y sin carga pendiente: la consulta falló.
+  if (!certifications) {
     return (
       <p role="alert" className={cn(typography.bodySm, "text-destructive")}>
         No se pudo cargar el resumen de certificaciones.
@@ -40,11 +42,11 @@ const CertificationsSummary = () => {
   const current: string[] = []
   const upcoming: string[] = []
   const expired: string[] = []
-  for (const certification of data) {
-    const { status } = getExpiryInfo(certification.expiresAt, today)
+  for (const certification of certifications) {
+    const { status } = getCertificationStatus(certification, today)
     if (status === "vencido") expired.push(certification.name)
     else if (status === "proximo") upcoming.push(certification.name)
-    else current.push(certification.name)
+    else if (status !== "por_verificar") current.push(certification.name)
   }
 
   // Tonos de la referencia: vigente en azul de marca, próximo con el número en azul y

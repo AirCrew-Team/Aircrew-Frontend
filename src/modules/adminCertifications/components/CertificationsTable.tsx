@@ -18,13 +18,20 @@ import CertificationFormDialog, {
 import CertificationStatusBadge from "@/modules/adminCertifications/components/CertificationStatusBadge"
 import DeleteCertificationDialog from "@/modules/adminCertifications/components/DeleteCertificationDialog"
 import {
-  CERTIFICATIONS_PAGE_SIZE,
-  getCertifications,
-} from "@/modules/adminCertifications/data/adminCertifications.data"
-import { useCertificationsSearchParams } from "@/modules/adminCertifications/hooks/useCertificationsSearchParams"
-import type { CrewCertification } from "@/modules/adminCertifications/types/adminCertifications.types"
-import { CERTIFICATES } from "@/modules/adminCertifications/utils/certificates"
+  useCertificationCatalog,
+  useCertificationsApi,
+} from "@/modules/adminCertifications/hooks/useCertificationsApi"
 import {
+  CERTIFICATIONS_PAGE_SIZE,
+  useCertificationsSearchParams,
+} from "@/modules/adminCertifications/hooks/useCertificationsSearchParams"
+import type { CrewCertification } from "@/modules/adminCertifications/types/adminCertifications.types"
+import {
+  certificateName,
+  certificateShort,
+} from "@/modules/adminCertifications/utils/certificates"
+import {
+  crewCode,
   crewInitials,
   crewName,
 } from "@/modules/adminCertifications/utils/crewFormat"
@@ -63,6 +70,9 @@ const MobileLabel = ({ children }: { children: string }) => (
 const CertificationsTable = () => {
   const { page, search, filter, setPage, hrefForPage } =
     useCertificationsSearchParams()
+  const { getCertifications } = useCertificationsApi()
+  // Nombres y etiquetas cortas de los certificados; sin catálogo se ven los códigos.
+  const { data: catalog } = useCertificationCatalog()
   // La búsqueda espera 300 ms sin teclear antes de consultar: una petición por búsqueda,
   // no por tecla. El campo de la barra sigue mostrando el texto al instante.
   const debouncedSearch = useDebouncedValue(search)
@@ -237,7 +247,7 @@ const CertificationsTable = () => {
                               "break-all text-muted-foreground"
                             )}
                           >
-                            {crew.email}
+                            {crew.email ?? "—"}
                           </span>
                         </div>
                       </div>
@@ -250,7 +260,7 @@ const CertificationsTable = () => {
                           "rounded-sm bg-brand-neutral px-2 py-1 font-mono text-brand-primary"
                         )}
                       >
-                        {crew.id}
+                        {crewCode(crew)}
                       </span>
                     </td>
                     {/* Cargo con su ícono (avión: cabina de mando; asiento: cabina) y la base. */}
@@ -274,7 +284,7 @@ const CertificationsTable = () => {
                           "block pl-5.5 text-muted-foreground"
                         )}
                       >
-                        Base {crew.base}
+                        Base {crew.base ?? "—"}
                       </span>
                     </td>
                     {/* Licencia: el número, o «Sin registrar» si no tiene certificación. */}
@@ -304,13 +314,13 @@ const CertificationsTable = () => {
                           {crew.certificates.map((code) => (
                             <li
                               key={code}
-                              title={CERTIFICATES[code]?.name}
+                              title={certificateName(catalog, code)}
                               className={cn(
                                 typography.labelSm,
                                 "rounded-full bg-brand-neutral px-2 py-0.5 text-brand-primary"
                               )}
                             >
-                              {CERTIFICATES[code]?.short ?? code}
+                              {certificateShort(catalog, code)}
                             </li>
                           ))}
                         </ul>

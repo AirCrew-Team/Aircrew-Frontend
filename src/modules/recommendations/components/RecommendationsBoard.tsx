@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useLocation, useSearchParams } from "react-router"
 import { toast } from "sonner"
 
 import { RecalculatingIcon } from "@/App/utils/icons"
@@ -9,14 +10,34 @@ import { cn } from "@/lib/utils"
 import CandidateList from "@/modules/recommendations/components/CandidateList"
 import RequestHeader from "@/modules/recommendations/components/RequestHeader"
 import RequestQueue from "@/modules/recommendations/components/RequestQueue"
-import { getPendingReplacementRequests } from "@/modules/recommendations/data/recommendations.data"
+import {
+  confirmCandidate,
+  getPendingReplacementRequests,
+  regenerateCandidates,
+} from "@/modules/recommendations/data/recommendations.data"
 import type { Candidate } from "@/modules/recommendations/types/recommendations.types"
+import { apiErrorMessage } from "@/service/api-error"
 
 // Encabezado, cola y candidatos de la solicitud seleccionada. Guarda el estado de la
-// pantalla (sin persistir hasta que exista la API): selección, asignadas y en recálculo.
+// pantalla mientras el backend responde: selección, asignadas y en recálculo.
 const RecommendationsBoard = () => {
+  const queryClient = useQueryClient()
   // null: aún no se eligió ninguna, así que vale la primera seleccionable.
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  // ?solicitud=<id> (aviso de la campana) la elige una vez por navegación. Si la cola aún
+  // no llegó, `selected` la toma al llegar; si ya no está, vale la selección por defecto.
+  // Luego se quita de la URL, así el mismo aviso vuelve a elegirla.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const { key: locationKey } = useLocation()
+  const [handledKey, setHandledKey] = useState<string | null>(null)
+  const requestedId = searchParams.get("solicitud")
+  if (requestedId && handledKey !== locationKey) {
+    setHandledKey(locationKey)
+    setSelectedId(requestedId)
+  }
+  useEffect(() => {
+    if (requestedId) setSearchParams({}, { replace: true })
+  }, [requestedId, setSearchParams])
   const [confirmedIds, setConfirmedIds] = useState<string[]>([])
   const [recalculatingIds, setRecalculatingIds] = useState<string[]>([])
   const selectedTabRef = useRef<HTMLButtonElement>(null)
@@ -35,17 +56,20 @@ const RecommendationsBoard = () => {
   const queue = (requests ?? []).filter(
     (request) => !confirmedIds.includes(request.id)
   )
-  const selectable = queue.filter(
-    (request) => !recalculatingIds.includes(request.id)
-  )
+  // En recálculo: las que pidió el supervisor y las que la IA todavía está buscando.
+  const busyIds = [
+    ...recalculatingIds,
+    ...queue
+      .filter((request) => request.aiState === "buscando")
+      .map((request) => request.id),
+  ]
+  const selectable = queue.filter((request) => !busyIds.includes(request.id))
   // Si todas las que quedan están en recálculo, queda la primera con su aviso (nunca en blanco).
   const selected =
     queue.find((request) => request.id === selectedId) ??
     selectable.at(0) ??
     queue.at(0)
-  const recalculating = selected
-    ? recalculatingIds.includes(selected.id)
-    : false
+  const recalculating = selected ? busyIds.includes(selected.id) : false
 
   // El diálogo y su botón se desmontan con la lista, así que Base UI no puede devolver
   // el foco: va al tab que queda seleccionado o, si no queda ninguno, al contenido.
@@ -63,23 +87,68 @@ const RecommendationsBoard = () => {
     setActionCount((count) => count + 1)
   }
 
-  const assign = (candidate: Candidate) => {
-    if (!selected) return
-    setConfirmedIds((ids) => [...ids, selected.id])
-    selectMostUrgentExcept(selected.id)
-    toast.success(
-      `${candidate.fullName} asignado al vuelo ${selected.flightNumber}`,
-      { description: "Se notificó al tripulante." }
-    )
+  const refreshLists = () => {
+    void queryClient.invalidateQueries({ queryKey: ["replacements"] })
+    void queryClient.invalidateQueries({ queryKey: ["absences"] })
   }
 
-  const requestSuggestions = () => {
+  // La solicitud sale de la cola de inmediato; si el backend rechaza (p. ej. el candidato
+  // ya no cumple una regla), vuelve a la cola y se muestra el motivo.
+  const assign = (candidate: Candidate) => {
     if (!selected) return
-    setRecalculatingIds((ids) => [...ids, selected.id])
-    selectMostUrgentExcept(selected.id)
+    const request = selected
+    setConfirmedIds((ids) => [...ids, request.id])
+    selectMostUrgentExcept(request.id)
+    confirmCandidate(request.id, candidate.id)
+      .then(() => {
+        toast.success(
+          `${candidate.fullName} asignado al vuelo ${request.flightNumber}`,
+          { description: "Se notificó al tripulante." }
+        )
+        refreshLists()
+      })
+      .catch((error: unknown) => {
+        setConfirmedIds((ids) => ids.filter((id) => id !== request.id))
+        toast.error(`No se pudo asignar a ${candidate.fullName}`, {
+          description: apiErrorMessage(error, "Inténtalo de nuevo."),
+        })
+        refreshLists()
+      })
+  }
+
+  // La IA busca otra ronda (≈20 s) teniendo en cuenta el motivo, si lo hay.
+  const requestSuggestions = (reason: string) => {
+    if (!selected) return
+    const request = selected
+    setRecalculatingIds((ids) => [...ids, request.id])
+    selectMostUrgentExcept(request.id)
+    const stopRecalculating = () =>
+      setRecalculatingIds((ids) => ids.filter((id) => id !== request.id))
     toast.success(
-      `Se pidieron nuevas sugerencias para el vuelo ${selected.flightNumber}`
+      `Se pidieron nuevas sugerencias para el vuelo ${request.flightNumber}`
     )
+
+    regenerateCandidates(request.id, reason)
+      .then((candidates) => {
+        queryClient.setQueryData(
+          ["replacements", "candidates", request.id],
+          candidates
+        )
+        stopRecalculating()
+        toast.success(
+          `Nuevas sugerencias listas para el vuelo ${request.flightNumber}`
+        )
+        void queryClient.invalidateQueries({
+          queryKey: ["replacements", "pending"],
+        })
+      })
+      .catch((error: unknown) => {
+        stopRecalculating()
+        toast.error(
+          `No se pudieron obtener sugerencias para el vuelo ${request.flightNumber}`,
+          { description: apiErrorMessage(error, "Inténtalo de nuevo.") }
+        )
+      })
   }
 
   return (
@@ -113,7 +182,7 @@ const RecommendationsBoard = () => {
         >
           <RequestQueue
             requests={queue}
-            recalculatingIds={recalculatingIds}
+            recalculatingIds={busyIds}
             selectedId={selected?.id}
             selectedTabRef={selectedTabRef}
           />

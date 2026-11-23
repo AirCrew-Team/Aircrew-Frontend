@@ -5,11 +5,8 @@ import { ROLES } from "@/App/types/auth.types"
 import MainLayout from "@/layouts/MainLayout"
 import LoginPage from "@/pages/LoginPage"
 import NotFoundPage from "@/pages/NotFoundPage"
-import AeronavesPage from "@/pages/superAdmin/AeronavesPage"
-import SuperAdminCertificacionesPage from "@/pages/superAdmin/CertificacionesPage"
 import SuperAdminInicioPage from "@/pages/superAdmin/InicioPage"
 import ReportesPage from "@/pages/superAdmin/ReportesPage"
-import UsuariosPage from "@/pages/superAdmin/UsuariosPage"
 import AusenciasPage from "@/pages/superVisor/AusenciasPage"
 import SuperVisorInicioPage from "@/pages/superVisor/InicioPage"
 import ProgramacionPage from "@/pages/superVisor/ProgramacionPage"
@@ -22,13 +19,28 @@ import MisVuelosPage from "@/pages/tripulante/MisVuelosPage"
 import { PATHS } from "./paths"
 import ProtectedRoute from "./ProtectedRoute"
 import RootRedirect from "./RootRedirect"
+import SessionGate from "./SessionGate"
 
 // Cada rol tiene su grupo: protección por rol → diseño base → páginas.
 // Las páginas comunes a los tres roles van en un grupo propio, sin prefijo de rol.
-// Se exporta para que los tests monten las rutas reales con createMemoryRouter.
-export const routes: RouteObject[] = [
+const appRoutes: RouteObject[] = [
   { path: PATHS.root, element: <RootRedirect /> },
   { path: PATHS.login, element: <LoginPage /> },
+  // Públicas y en diferido: react-hook-form + zod, igual que /configuracion.
+  {
+    path: PATHS.activarCuenta,
+    HydrateFallback: () => null,
+    lazy: async () => ({
+      Component: (await import("@/pages/ActivarCuentaPage")).default,
+    }),
+  },
+  {
+    path: PATHS.restablecerContrasena,
+    HydrateFallback: () => null,
+    lazy: async () => ({
+      Component: (await import("@/pages/RestablecerContrasenaPage")).default,
+    }),
+  },
   {
     element: <ProtectedRoute allowedRoles={[ROLES.TRIPULANTE]} />,
     children: [
@@ -83,13 +95,40 @@ export const routes: RouteObject[] = [
         element: <MainLayout />,
         children: [
           { path: PATHS.superAdmin.inicio, element: <SuperAdminInicioPage /> },
-          { path: PATHS.superAdmin.usuarios, element: <UsuariosPage /> },
+          // Carga diferida: react-hook-form + zod, igual que /configuracion.
+          {
+            path: PATHS.superAdmin.usuarios,
+            HydrateFallback: () => null,
+            lazy: async () => ({
+              Component: (await import("@/pages/superAdmin/UsuariosPage"))
+                .default,
+            }),
+          },
           { path: PATHS.superAdmin.reportes, element: <ReportesPage /> },
-          // Páginas aún sin contenido: destinos del navbar y de las tarjetas del Inicio.
-          { path: PATHS.superAdmin.aeronaves, element: <AeronavesPage /> },
+          {
+            path: PATHS.superAdmin.aeronaves,
+            HydrateFallback: () => null,
+            lazy: async () => ({
+              Component: (await import("@/pages/superAdmin/AeronavesPage"))
+                .default,
+            }),
+          },
+          {
+            path: PATHS.superAdmin.vuelos,
+            HydrateFallback: () => null,
+            lazy: async () => ({
+              Component: (await import("@/pages/superAdmin/VuelosPage"))
+                .default,
+            }),
+          },
           {
             path: PATHS.superAdmin.certificaciones,
-            element: <SuperAdminCertificacionesPage />,
+            HydrateFallback: () => null,
+            lazy: async () => ({
+              Component: (
+                await import("@/pages/superAdmin/CertificacionesPage")
+              ).default,
+            }),
           },
         ],
       },
@@ -120,6 +159,12 @@ export const routes: RouteObject[] = [
     ],
   },
   { path: "*", element: <NotFoundPage /> },
+]
+
+// SessionGate envuelve todas las rutas: restaura la sesión con /auth/me al arrancar.
+// Se exporta para que los tests monten las rutas reales con createMemoryRouter.
+export const routes: RouteObject[] = [
+  { element: <SessionGate />, children: appRoutes },
 ]
 
 const router = createBrowserRouter(routes)

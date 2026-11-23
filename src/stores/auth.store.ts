@@ -1,8 +1,9 @@
 import { create } from "zustand"
 
 import { ROLES, type AuthUser, type Role } from "@/App/types/auth.types"
+import { queryClient } from "@/lib/query-client"
 
-// Sesión simulada mientras no exista la integración con el backend.
+// Usuarios simulados de las cuentas demo y del selector «Rol (dev)» (D4).
 const MOCK_USERS: Record<Role, AuthUser> = {
   [ROLES.TRIPULANTE]: {
     id: "mock-tripulante",
@@ -27,17 +28,43 @@ const MOCK_USERS: Record<Role, AuthUser> = {
   },
 }
 
+const DEMO_USER_IDS = new Set(Object.values(MOCK_USERS).map((user) => user.id))
+
+// true si la sesión es de una cuenta demo o del selector «Rol (dev)»: esas pantallas
+// usan datos de ejemplo en lugar del backend.
+export const isDemoUser = (user: AuthUser | null): boolean =>
+  user !== null && DEMO_USER_IDS.has(user.id)
+
 interface AuthState {
   user: AuthUser | null
+  // "checking" mientras SessionGate pregunta al backend si la cookie sigue viva.
+  status: "checking" | "ready"
+  // Usuario real que devuelve el backend (login o /auth/me).
+  setUser: (user: AuthUser) => void
   // Pone el usuario simulado del rol indicado. Lo usan el Login (cuentas demo) y el
-  // selector «Rol (dev)»; se reemplaza al conectar la API real.
+  // selector «Rol (dev)».
   setMockRole: (role: Role) => void
   logout: () => void
 }
 
-// Arranca sin sesión: al abrir la app se ve el Login. La sesión no se guarda al recargar.
-export const useAuthStore = create<AuthState>()((set) => ({
-  user: null,
-  setMockRole: (role) => set({ user: MOCK_USERS[role] }),
-  logout: () => set({ user: null }),
-}))
+// Arranca comprobando la sesión: SessionGate pide /auth/me y deja el estado en "ready".
+// La caché de TanStack Query se vacía al cerrar sesión y al pasar a otro usuario, para
+// que nadie vea datos del anterior (spec cierre-tareas-johan, D3). Restaurar la misma
+// sesión (mismo id) la conserva.
+export const useAuthStore = create<AuthState>()((set, get) => {
+  const setSessionUser = (user: AuthUser) => {
+    if (get().user?.id !== user.id) queryClient.clear()
+    set({ user, status: "ready" })
+  }
+
+  return {
+    user: null,
+    status: "checking",
+    setUser: setSessionUser,
+    setMockRole: (role) => setSessionUser(MOCK_USERS[role]),
+    logout: () => {
+      queryClient.clear()
+      set({ user: null, status: "ready" })
+    },
+  }
+})

@@ -6,6 +6,7 @@ import { ROLES } from "@/App/types/auth.types"
 import { PATHS } from "@/routes/paths"
 import { useAuthStore } from "@/stores/auth.store"
 
+import { REAL_USERS } from "../mocks/profileApi"
 import { renderRoute } from "../utils/renderRoute"
 
 // La ruta se carga con `lazy` (react-hook-form + zod): la primera espera de la pantalla
@@ -30,7 +31,7 @@ const FIELD = {
 const REASON_OPTIONS = [
   { value: "", text: "Selecciona la tipología de novedad operacional…" },
   { value: "incapacidad", text: "Incapacidad médica repentina" },
-  { value: "fatiga", text: "Fatiga operacional / RAC 212" },
+  { value: "fatiga", text: "Fatiga operacional / 14 CFR 117.5" },
   { value: "calamidad", text: "Calamidad doméstica o familiar" },
   { value: "traslado", text: "Dificultad de traslado comprobada" },
 ]
@@ -48,14 +49,15 @@ const MEDICAL_SERVICE =
 
 const CRITICAL_NOTICE_TITLE = "Aviso Operacional Crítico"
 const CRITICAL_NOTICE_TEXT =
-  "Al enviar este reporte, el sistema liberará tu posición inmediatamente para que el algoritmo de supervisión OCC asigne un tripulante en guardia standby. Esta acción genera trazabilidad auditada bajo RAC 121."
+  "Al enviar este reporte, el sistema liberará tu posición inmediatamente para que el algoritmo de supervisión OCC asigne un tripulante en guardia standby. Esta acción genera trazabilidad auditada bajo 14 CFR Part 121."
 
 const loadingStatuses = (container: HTMLElement) =>
   within(container)
     .queryAllByRole("status")
     .filter((element) => /^cargando/i.test(element.textContent?.trim() ?? ""))
 
-// Espera a que la pantalla tenga su <form> con el vuelo de F1 ya cargado.
+// Espera a que la pantalla tenga su <form> listo. Spec ausencias-reales: ya no hay vuelo
+// que cargar; el formulario está listo cuando tiene «Fecha de inicio».
 const findLoadedForm = async () => {
   const main = await screen.findByRole("main")
   const form = await waitFor(() => {
@@ -63,7 +65,11 @@ const findLoadedForm = async () => {
     expect(element, "la pantalla debe tener un <form>").not.toBeNull()
     return element as HTMLFormElement
   }, LAZY)
-  await waitFor(() => expect(form).toHaveTextContent("AV-8520"))
+  await waitFor(() =>
+    expect(
+      within(form).getByLabelText(/Fecha de inicio/, { selector: "input" })
+    ).toBeInTheDocument()
+  )
   await waitFor(() => expect(loadingStatuses(main)).toHaveLength(0))
   return { main, form }
 }
@@ -192,9 +198,9 @@ describe("Reportar Ausencia: columna derecha", () => {
     expect(items[1]).toHaveTextContent(POLICY_POINTS[1])
 
     const call = within(main).getByRole("link", {
-      name: "Llamar a la central OCC, +57 (1) 414-8800",
+      name: "Llamar a la central OCC, +1 (404) 555-0123",
     })
-    expect(call).toHaveAttribute("href", "tel:+5714148800")
+    expect(call).toHaveAttribute("href", "tel:+14045550123")
 
     expect(main).toHaveTextContent(MEDICAL_SERVICE)
   })
@@ -219,12 +225,42 @@ describe("Reportar Ausencia: columna derecha", () => {
       "Supervisor de Guardia",
       "Canal directo telefónico y de frecuencia con el supervisor de guardia en turno activo las 24 horas.",
       "Central Telefónica Directa",
-      "+57 (1) 414-8800",
+      "+1 (404) 555-0123",
       "Extensión 301",
       "Canal VHF 131.85 MHz",
-      "SKBO-OCC-DESP",
+      "OCC-DESP",
     ]) {
       expect(main).toHaveTextContent(text)
+    }
+  })
+})
+
+describe("Reportar Ausencia: línea de emergencia con la sesión real", () => {
+  it("I-4: con la sesión real no hay número, extensión, canal ni enlace de llamada inventados: solo el aviso de comunicarse con el OCC de la base", async () => {
+    useAuthStore.getState().setUser(REAL_USERS.crew)
+    renderRoute(PATHS.tripulante.reportarAusencia)
+    const main = await screen.findByRole("main")
+
+    const title = await within(main).findByRole(
+      "heading",
+      { level: 2, name: "Línea de Emergencia OCC" },
+      LAZY
+    )
+    const card = title.closest("section") as HTMLElement
+    expect(card).toHaveTextContent(
+      "Comunícate con el centro de operaciones (OCC) de tu base."
+    )
+    expect(card.querySelector("a")).toBeNull()
+    expect(main.querySelector('a[href^="tel:"]')).toBeNull()
+    for (const text of [
+      "555",
+      "Extensión",
+      "VHF",
+      "OCC-DESP",
+      "Central Telefónica Directa",
+      "Canal directo telefónico",
+    ]) {
+      expect(card).not.toHaveTextContent(text)
     }
   })
 })
@@ -246,7 +282,8 @@ describe("Reportar Ausencia: ajustes de lector de pantalla", () => {
     )
   })
 
-  it("A11Y-AUS-5: el formulario es un landmark con el nombre del h1 y F1 ya no es una región", async () => {
+  // Spec ausencias-reales: F1 (vuelo afectado) se quitó; su ausencia la comprueba AU-04.
+  it("A11Y-AUS-5: el formulario es un landmark con el nombre del h1", async () => {
     renderRoute(PATHS.tripulante.reportarAusencia)
     const main = await screen.findByRole("main")
     expect(
@@ -256,13 +293,6 @@ describe("Reportar Ausencia: ajustes de lector de pantalla", () => {
         LAZY
       )
     ).toBeInTheDocument()
-    await within(main).findByRole("heading", {
-      level: 2,
-      name: "Vuelo o Turno Afectado",
-    })
-    expect(
-      within(main).queryByRole("region", { name: "Vuelo o Turno Afectado" })
-    ).toBeNull()
   })
 
   it("A11Y-AUS-6: «Enviar Aviso a Despacho» se describe con el aviso operacional crítico", async () => {

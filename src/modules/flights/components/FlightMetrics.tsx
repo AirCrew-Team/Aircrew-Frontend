@@ -18,14 +18,15 @@ const titleClass = cn(
 const figureClass = cn(typography.headlineLg, "font-bold text-foreground")
 const unitClass = cn(typography.bodyMd, "text-muted-foreground")
 
-// M1 a M3: una sola query para las tres tarjetas del mes.
+// M1 a M3: una sola query para las tres tarjetas del mes (con la sesión real, el mes
+// actual de crew-members/me/metrics).
 const FlightMetrics = () => {
-  const { data, isPending, isError } = useQuery({
+  const { data: metrics, isPending } = useQuery({
     queryKey: ["flights", "metrics"],
     queryFn: getFlightMetrics,
   })
 
-  if (isPending) {
+  if (!metrics && isPending) {
     return (
       <p
         role="status"
@@ -36,7 +37,8 @@ const FlightMetrics = () => {
     )
   }
 
-  if (isError) {
+  // Sin datos y sin carga pendiente: la consulta falló.
+  if (!metrics) {
     return (
       <p role="alert" className={cn(typography.bodySm, "text-destructive")}>
         No se pudieron cargar las métricas.
@@ -44,8 +46,13 @@ const FlightMetrics = () => {
     )
   }
 
-  const { fdp, rest, month } = data
+  const { fdp, rest, month } = metrics
   const usedPercent = Math.round((fdp.usedHours / fdp.maxHours) * 100)
+  // Un decimal, como las horas del backend (sin restos de coma flotante); nunca negativo.
+  const margin = Math.max(
+    0,
+    Math.round((fdp.maxHours - fdp.usedHours) * 10) / 10
+  )
 
   return (
     <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
@@ -76,9 +83,7 @@ const FlightMetrics = () => {
               "font-medium text-brand-secondary"
             )}
           >
-            <SpokenText
-              text={`+${fdp.maxHours - fdp.usedHours}h de margen disponible seguro`}
-            />
+            <SpokenText text={`+${margin}h de margen disponible seguro`} />
           </p>
         </div>
         <div className="flex flex-col gap-1.5">
@@ -104,7 +109,9 @@ const FlightMetrics = () => {
             )}
           >
             <span>Acumulado: {usedPercent}%</span>{" "}
-            <span>Ciclo cierra en {fdp.cycleClosesInDays} días</span>
+            {fdp.cycleClosesInDays === null ? null : (
+              <span>Ciclo cierra en {fdp.cycleClosesInDays} días</span>
+            )}
           </p>
         </div>
       </div>
@@ -180,7 +187,7 @@ const FlightMetrics = () => {
               {month.international} Int.
             </span>{" "}
             <span className="font-medium text-muted-foreground">
-              Troncales MIA/LIM
+              {month.internationalLabel}
             </span>
           </p>
         </div>

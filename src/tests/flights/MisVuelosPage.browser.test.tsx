@@ -385,7 +385,7 @@ describe("Mis Vuelos: buscador (MV-08)", () => {
     expect(search).toHaveAttribute("type", "search")
     expect(search).toHaveAttribute(
       "placeholder",
-      "Buscar vuelo (ej. AV-9344, MIA)…"
+      "Buscar vuelo (ej. DL1102, LAX)…"
     )
   })
 

@@ -20,15 +20,20 @@ const countClass = cn(
   "leading-none tabular-nums md:leading-none"
 )
 
-// P: la base (en servicio = total − ausentes) y la guardia para reemplazos, de la que la IA
-// saca los reemplazos. Cada cifra y cada línea es el texto completo de un elemento propio.
+// P: la base (en servicio = total − ausentes − sin asignación; aptos = total − ausentes) y
+// la guardia para reemplazos, de la que la IA saca los reemplazos. Cada cifra y cada línea
+// es el texto completo de un elemento propio.
 const CrewOverview = ({ crew }: CrewOverviewProps) => {
   const baseId = useId()
   const guardId = useId()
   const total = crew.members.length
-  const onDuty =
+  const fit =
     total - crew.members.filter(({ status }) => status === "ausente").length
-  const percent = Math.round((onDuty / total) * 100)
+  const unassigned = crew.members.filter(
+    ({ status }) => status === "sin_asignar"
+  ).length
+  const onDuty = fit - unassigned
+  const percent = Math.round((fit / total) * 100)
   const guards = crew.members.filter((member) => member.status === "guardia")
   const available = guards.filter(
     ({ replacementBlocker }) => replacementBlocker === null
@@ -57,8 +62,16 @@ const CrewOverview = ({ crew }: CrewOverviewProps) => {
           </span>
         </p>
         <p className={cn(typography.bodySm, "text-muted-foreground")}>
-          {`${percent} % de la tripulación del turno está apta (${onDuty} de ${total}).`}
+          {`${percent} % de la tripulación del turno está apta (${fit} de ${total}).`}
         </p>
+        {/* D13: por qué «en servicio» y «apta» no coinciden. Sin libres no se muestra. */}
+        {unassigned > 0 ? (
+          <p className={cn(typography.bodySm, "text-muted-foreground")}>
+            {unassigned === 1
+              ? "1 sin asignación no cuenta como en servicio."
+              : `${unassigned} sin asignación no cuentan como en servicio.`}
+          </p>
+        ) : null}
         <BaseIcon
           aria-hidden="true"
           className="absolute top-1/2 right-5 size-12 shrink-0 -translate-y-1/2 rounded-xl bg-brand-neutral p-3 text-brand-primary sm:right-6"
@@ -84,8 +97,9 @@ const CrewOverview = ({ crew }: CrewOverviewProps) => {
           </span>
         </p>
         <p className={cn(typography.bodyMd, "max-w-[46ch] text-white/90")}>
-          La IA propone los reemplazos entre la guardia disponible. Quien no
-          cumple descanso, habilitación o certificaciones queda fuera.
+          La IA propone los reemplazos con prioridad para la guardia disponible
+          y también entre quienes están sin asignación. Quien no cumple
+          descanso, habilitación o certificaciones queda fuera.
         </p>
         <Link
           to={PATHS.superVisor.solicitudesReemplazo}

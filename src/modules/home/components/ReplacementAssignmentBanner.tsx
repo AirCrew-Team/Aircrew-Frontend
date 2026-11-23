@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
 import { AcceptIcon, ArrowRightIcon, WarningIcon } from "@/App/utils/icons"
@@ -7,18 +7,25 @@ import { typography } from "@/App/utils/typography"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import DotSeparator from "@/modules/home/components/DotSeparator"
-import { getReplacementAssignments } from "@/modules/home/data/home.data"
+import {
+  acknowledgeReplacement,
+  getReplacementAssignments,
+} from "@/modules/home/data/home.data"
+import type { ReplacementAssignment } from "@/modules/home/types/home.types"
 
 // Bloque 3: asignaciones de reemplazo aprobadas por el Supervisor. Se ve una sola,
 // la primera sin «Enterado»; si no queda ninguna, no se pinta nada.
+// Con la sesión real, «Enterado» la confirma en el backend (POST …/acknowledge).
 const ReplacementAssignmentBanner = () => {
+  const queryClient = useQueryClient()
   const titleId = useId()
   const detailId = useId()
   const chipRef = useRef<HTMLSpanElement>(null)
   // Solo se mueve el foco tras pulsar «Enterado», nunca al montar.
   const focusAfterAcknowledgeRef = useRef(false)
   const [detailOpen, setDetailOpen] = useState(false)
-  // Números de vuelo marcados como «Enterado» (sin persistir hasta que exista la API).
+  // Ids marcados como «Enterado»: se ocultan al pulsar, sin esperar la respuesta. Si falla,
+  // vuelven a mostrarse.
   const [acknowledged, setAcknowledged] = useState<string[]>([])
   const {
     data: assignments,
@@ -28,9 +35,29 @@ const ReplacementAssignmentBanner = () => {
     queryKey: ["replacements", "assignments"],
     queryFn: getReplacementAssignments,
   })
+  const acknowledge = useMutation({
+    mutationFn: (item: ReplacementAssignment) =>
+      acknowledgeReplacement(item.id),
+    onSuccess: (_, item) => {
+      toast.success(
+        `Asignación del vuelo ${item.flightNumber} marcada como enterada`
+      )
+    },
+    onError: (_, item) => {
+      setAcknowledged((list) => list.filter((id) => id !== item.id))
+      toast.error(
+        `No se pudo marcar como enterada la asignación del vuelo ${item.flightNumber}.`
+      )
+    },
+    // Con éxito o sin él: la lista y los vuelos del tripulante cambian en el backend.
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ["replacements"] })
+      void queryClient.invalidateQueries({ queryKey: ["flights"] })
+    },
+  })
 
   const unacknowledged = (assignments ?? []).filter(
-    (item) => !acknowledged.includes(item.flightNumber)
+    (item) => !acknowledged.includes(item.id)
   )
   const assignment = unacknowledged.at(0)
   const pendingCount = unacknowledged.length - 1
@@ -42,7 +69,7 @@ const ReplacementAssignmentBanner = () => {
     focusAfterAcknowledgeRef.current = false
     if (chipRef.current) chipRef.current.focus()
     else document.getElementById("contenido")?.focus()
-  }, [assignment?.flightNumber])
+  }, [assignment?.id])
 
   if (!isPending && !isError && !assignment) return null
 
@@ -146,8 +173,10 @@ const ReplacementAssignmentBanner = () => {
                   {assignment.dayLabel},{" "}
                   <strong className="font-semibold text-brand-primary">
                     {assignment.departureUtc} UTC
-                  </strong>{" "}
-                  ({assignment.departureLocal} local)
+                  </strong>
+                  {assignment.departureLocal
+                    ? ` (${assignment.departureLocal} local)`
+                    : null}
                 </span>
                 <DotSeparator />
                 <span>{assignment.aircraft}</span>
@@ -165,12 +194,10 @@ const ReplacementAssignmentBanner = () => {
                   "h-11 w-full gap-2 rounded-md bg-brand-secondary px-4 text-white shadow-sm hover:bg-brand-secondary-hover focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-brand-tertiary focus-visible:ring-offset-2 focus-visible:ring-offset-card active:bg-brand-primary lg:h-10 lg:w-auto lg:px-6"
                 )}
                 onClick={() => {
-                  setAcknowledged((list) => [...list, assignment.flightNumber])
+                  setAcknowledged((list) => [...list, assignment.id])
                   setDetailOpen(false)
                   focusAfterAcknowledgeRef.current = true
-                  toast.success(
-                    `Asignación del vuelo ${assignment.flightNumber} marcada como enterada`
-                  )
+                  acknowledge.mutate(assignment)
                 }}
               >
                 <AcceptIcon aria-hidden="true" className="size-4.5" />
@@ -213,7 +240,14 @@ const ReplacementAssignmentBanner = () => {
                   Motivo
                 </dt>
                 <dd className="font-medium">
-                  {`${assignment.reason} Aprobada por ${assignment.approvedBy}. ${assignment.compliance}`}
+                  {[
+                    assignment.reason,
+                    assignment.approvedBy &&
+                      `Aprobada por ${assignment.approvedBy}.`,
+                    assignment.compliance,
+                  ]
+                    .filter(Boolean)
+                    .join(" ") || "Sin motivo registrado."}
                 </dd>
               </div>
               {assignment.details.map((detail) => (
@@ -227,7 +261,9 @@ const ReplacementAssignmentBanner = () => {
                     {detail.label}
                   </dt>
                   <dd className="font-medium">{detail.value}</dd>
-                  <dd className="text-muted-foreground">{detail.note}</dd>
+                  {detail.note ? (
+                    <dd className="text-muted-foreground">{detail.note}</dd>
+                  ) : null}
                 </div>
               ))}
             </dl>

@@ -22,17 +22,21 @@ export interface AirportStatus {
   headline: string
   // Texto corto bajo el título.
   summary: string
-  // Pista en uso, ej. "RWY 13R".
-  activeRunway: string
-  // Presión de referencia del aeropuerto, ej. "1022 hPa".
-  localQnh: string
+  // Pista en uso, ej. "RWY 13R". null: no hay dato (sesión real) y no se muestra.
+  activeRunway: string | null
+  // Presión de referencia del aeropuerto, ej. "1022 hPa". null: no hay dato.
+  localQnh: string | null
 }
 
 // Tarjeta «Gestión de Usuarios» (UsersCard).
 export interface UsersSummary {
   registeredCrew: number
-  // Porcentaje de tripulantes aptos en el turno actual.
-  availabilityPercent: number
+  // Tripulantes activos disponibles para un reemplazo (crew_available). Los datos de
+  // ejemplo no lo tienen.
+  availableCrew?: number
+  // Porcentaje de tripulantes aptos en el turno actual. null: el backend aún no tiene
+  // datos médicos.
+  availabilityPercent: number | null
 }
 
 // Tarjeta «Flota de Aeronaves» (FleetCard).
@@ -45,14 +49,27 @@ export interface FleetSummary {
   total: number
 }
 
-// Tarjeta «Certificaciones y Licencias» (CertificationsOverviewCard).
-export interface CertificationsRenewals {
-  // Licencias que deben renovarse.
-  toRenew: number
-  // Alertas de vencimiento dentro de los próximos `alertWindowDays` días.
-  expiringAlerts: number
-  alertWindowDays: number
-}
+// Tarjeta «Certificaciones y Licencias» (CertificationsOverviewCard). Los datos de
+// ejemplo hablan de renovaciones; la sesión real, de verificación, porque
+// GET /certifications/stats no trae vencimientos.
+export type CertificationsOverview =
+  | {
+      kind: "renewals"
+      // Licencias que deben renovarse.
+      toRenew: number
+      // Alertas de vencimiento dentro de los próximos `alertWindowDays` días.
+      expiringAlerts: number
+      alertWindowDays: number
+    }
+  | {
+      kind: "verification"
+      // Tripulantes activos y cuántos tienen el certificado verificado, por verificar
+      // o sin certificado.
+      total: number
+      verified: number
+      pendingVerification: number
+      uncertified: number
+    }
 
 // Resumen de guardias (StandbySummary).
 export interface StandbySummary {
@@ -62,6 +79,7 @@ export interface StandbySummary {
   standbyCrew: number
   // Bloque horario cubierto por la guardia, ej. "vespertino".
   block: string
-  // Demoras causadas por falta de tripulación.
-  staffingDelays: number
+  // Demoras causadas por falta de tripulación. null: no hay dato (sesión real: el
+  // backend aún no lo calcula) y no se muestra.
+  staffingDelays: number | null
 }

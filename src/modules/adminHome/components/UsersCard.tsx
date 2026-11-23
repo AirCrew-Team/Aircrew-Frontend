@@ -1,16 +1,28 @@
 import { useQuery } from "@tanstack/react-query"
 
+import { getUsersSummary as getRealUsersSummary } from "@/App/actions/users/users.actions"
 import { PositionIcon } from "@/App/utils/icons"
-import ModuleCard from "@/modules/shared/opsHome/components/ModuleCard"
 import { getUsersSummary } from "@/modules/adminHome/data/adminHome.data"
+import type { UsersSummary } from "@/modules/adminHome/types/adminHome.types"
+import ModuleCard from "@/modules/shared/opsHome/components/ModuleCard"
 import { PATHS } from "@/routes/paths"
+import { isDemoUser, useAuthStore } from "@/stores/auth.store"
 
-// Tarjeta 1: nómina de tripulantes y disponibilidad del turno.
+// Sesión real: tripulantes registrados (by_role.crew) y disponibles (crew_available) de
+// GET /users/stats. El porcentaje de aptos todavía no existe en el backend: «—».
+const getBackendUsersSummary = async (): Promise<UsersSummary> => {
+  const { registeredCrew, availableCrew } = await getRealUsersSummary()
+  return { registeredCrew, availableCrew, availabilityPercent: null }
+}
+
+// Tarjeta 1: nómina de tripulantes y disponibilidad del turno. Las cuentas demo ven los
+// datos de ejemplo.
 const UsersCard = () => {
+  const isDemo = useAuthStore((state) => isDemoUser(state.user))
   // Consulta propia: si este servicio falla, solo esta tarjeta muestra el error.
   const { data, isPending, isError } = useQuery({
     queryKey: ["users", "summary"],
-    queryFn: getUsersSummary,
+    queryFn: isDemo ? getUsersSummary : getBackendUsersSummary,
   })
 
   return (
@@ -31,8 +43,14 @@ const UsersCard = () => {
       metric={
         data
           ? {
-              label: "Disponibilidad en turno",
-              value: `${data.availabilityPercent}% Apto`,
+              label:
+                data.availableCrew === undefined
+                  ? "Disponibilidad en turno"
+                  : `${data.availableCrew} tripulantes disponibles`,
+              value:
+                data.availabilityPercent === null
+                  ? "— Apto"
+                  : `${data.availabilityPercent}% Apto`,
             }
           : undefined
       }

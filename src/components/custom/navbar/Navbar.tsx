@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useLocation } from "react-router"
 
-import type { AuthUser } from "@/App/types/auth.types"
+import { ROLES, type AuthUser } from "@/App/types/auth.types"
 import type { NavItem } from "@/App/types/navigation.types"
 import { CloseIcon, MenuIcon } from "@/App/utils/icons"
 import { cn } from "@/lib/utils"
@@ -15,11 +15,13 @@ import { barButton } from "./navbar.styles"
 interface NavbarProps {
   items: NavItem[]
   user: AuthUser
+  // Foto de perfil del avatar (la pide MainLayout); sin ella, las iniciales.
+  photoUrl?: string | null
 }
 
 const MOBILE_MENU_ID = "navbar-mobile-menu"
 
-const Navbar = ({ items, user }: NavbarProps) => {
+const Navbar = ({ items, user, photoUrl }: NavbarProps) => {
   const { pathname } = useLocation()
   // Guarda la ruta en la que se abrió el menú móvil: al navegar deja de coincidir y se cierra solo.
   const [mobileOpenAt, setMobileOpenAt] = useState<string | null>(null)
@@ -37,8 +39,9 @@ const Navbar = ({ items, user }: NavbarProps) => {
           <NavbarLinks items={items} className="hidden lg:block" />
 
           <div className="flex items-center gap-1 sm:gap-2 lg:border-l lg:border-brand-border/15 lg:pl-4">
-            <NotificationsMenu />
-            <ProfileMenu user={user} />
+            {/* El super_admin no tiene notificaciones (D11): sin campana. */}
+            {user.role === ROLES.SUPER_ADMIN ? null : <NotificationsMenu />}
+            <ProfileMenu user={user} photoUrl={photoUrl} />
             <button
               type="button"
               aria-label={isMobileOpen ? "Cerrar menú" : "Abrir menú"}

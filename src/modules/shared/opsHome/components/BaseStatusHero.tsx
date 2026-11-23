@@ -103,16 +103,19 @@ const BaseStatusHero = ({
                 {status.summary}
               </p>
             </div>
-            {/* Lista de pares etiqueta/valor (dl). Móvil: dos columnas de igual ancho
-                que llenan la fila. Desde md: recuadros del tamaño de su contenido. */}
-            <dl className="grid shrink-0 grid-cols-2 gap-3 md:flex">
-              {status.stats.map((stat) => (
-                <div key={stat.label} className={statClass}>
-                  <dt className={statLabelClass}>{stat.label}</dt>
-                  <dd className={statValueClass}>{stat.value}</dd>
-                </div>
-              ))}
-            </dl>
+            {/* Lista de pares etiqueta/valor (dl), sin lista vacía si no hay datos.
+                Móvil: dos columnas de igual ancho que llenan la fila. Desde md:
+                recuadros del tamaño de su contenido. */}
+            {status.stats.length > 0 ? (
+              <dl className="grid shrink-0 grid-cols-2 gap-3 md:flex">
+                {status.stats.map((stat) => (
+                  <div key={stat.label} className={statClass}>
+                    <dt className={statLabelClass}>{stat.label}</dt>
+                    <dd className={statValueClass}>{stat.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : null}
           </>
         ) : null}
       </div>

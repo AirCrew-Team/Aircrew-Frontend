@@ -6,6 +6,11 @@ import { ROLES } from "@/App/types/auth.types"
 import { PATHS } from "@/routes/paths"
 import { useAuthStore } from "@/stores/auth.store"
 
+import {
+  dateInput,
+  localDate,
+  typeDate,
+} from "../realAbsences/realAbsencesTestUtils"
 import { renderRoute } from "../utils/renderRoute"
 import { queryAllToasts, queryToast, toastDescription } from "../utils/toasts"
 
@@ -15,6 +20,10 @@ const LAZY = { timeout: 3000 }
 
 // Validación (RA-06 a RA-09), envío correcto (RA-11) y «Volver al Inicio» (RA-13)
 // con los datos simulados reales; submitAbsenceReport tarda unos 400 ms.
+// Spec ausencias-reales: el formulario pasa de vuelo a fechas. Los envíos rellenan antes
+// «Fecha de inicio» y «Fecha de fin» válidas, y ya no hay vuelo (AV-8520) que esperar ni
+// que comprobar. Con la cuenta demo, el estado tras enviar sigue como hoy (bloqueado y con
+// «Volver al Inicio»): «el formulario se limpia» es solo de la sesión real (AU-06).
 
 type DataFn = (...args: unknown[]) => Promise<unknown>
 
@@ -67,10 +76,29 @@ const ERROR = {
 } as const
 
 const SUCCESS_TITLE = "Aviso enviado al supervisor"
-const SUCCESS_DESCRIPTION =
-  "Se buscará el mejor reemplazo para tu posición en el vuelo AV-8520 y el supervisor lo aprobará."
-const SENT_TEXT = "Aviso enviado al supervisor para el vuelo AV-8520."
 const NOTES = "Fiebre alta desde la madrugada."
+const START = /Fecha de inicio/
+const END = /Fecha de fin/
+
+// «YYYY-MM-DD» → «21 nov», calculado aquí y no con el formatDay de la pantalla.
+const MONTHS = [
+  "ene",
+  "feb",
+  "mar",
+  "abr",
+  "may",
+  "jun",
+  "jul",
+  "ago",
+  "sep",
+  "oct",
+  "nov",
+  "dic",
+]
+const shortDay = (date: string) => {
+  const [, month, day] = date.split("-").map(Number)
+  return `${day} ${MONTHS[month - 1]}`
+}
 
 const MAX_BYTES = 10 * 1024 * 1024
 
@@ -87,16 +115,16 @@ const pdf = (name: string, size?: number) => {
 const normalize = (text: string | null) =>
   (text ?? "").replace(/\s+/g, " ").trim()
 
-// El elemento más interno cuyo texto completo (normalizado) es `text`.
-const getByFullText = (container: HTMLElement, text: string) => {
+// El elemento más interno cuyo texto completo (normalizado) cumple `text`.
+const getByFullText = (container: HTMLElement, text: RegExp) => {
   const matches = Array.from(
     container.querySelectorAll<HTMLElement>("*")
-  ).filter((element) => normalize(element.textContent) === text)
+  ).filter((element) => text.test(normalize(element.textContent)))
   const innermost = matches.filter(
     (element) =>
       !matches.some((other) => other !== element && element.contains(other))
   )
-  expect(innermost, `debe verse el texto «${text}»`).toHaveLength(1)
+  expect(innermost, `debe verse el texto ${text}`).toHaveLength(1)
   return innermost[0]
 }
 
@@ -136,14 +164,22 @@ const setup = async (options?: Parameters<typeof userEvent.setup>[0]) => {
     expect(element, "la pantalla debe tener un <form>").not.toBeNull()
     return element as HTMLFormElement
   }, LAZY)
-  await waitFor(() => expect(form).toHaveTextContent("AV-8520"))
   await waitFor(() => expect(loadingStatuses(main)).toHaveLength(0))
+  const start = await waitFor(() => dateInput(form, START))
+  const end = dateInput(form, END)
   const scope = within(form)
   return {
     user,
     router,
     main,
     form,
+    start,
+    end,
+    // Rellena un rango válido (mañana a pasado mañana) para que solo cuente lo que prueba cada test.
+    fillDates: async () => {
+      await typeDate(user, start, localDate(1))
+      await typeDate(user, end, localDate(2))
+    },
     reason: scope.getByRole("combobox", { name: FIELD.reason }),
     notes: scope.getByRole("textbox", { name: FIELD.notes }),
     attachment: getAttachmentInput(form),
@@ -163,8 +199,10 @@ afterEach(() => {
 
 describe("Reportar Ausencia: validación", () => {
   it("RA-06: enviar sin motivo muestra «Selecciona el motivo de la ausencia.» en línea, marca aria-invalid en el select, le da el foco y no sale ningún toast", async () => {
-    const { user, reason, submit } = await setup()
+    const { user, reason, submit, fillDates } = await setup()
     expect(reason).not.toHaveAttribute("aria-invalid", "true")
+    // Con las fechas vacías, el foco iría a «Fecha de inicio», que ahora va antes.
+    await fillDates()
 
     await user.click(submit)
 
@@ -179,7 +217,8 @@ describe("Reportar Ausencia: validación", () => {
   })
 
   it("RA-07: con «Incapacidad médica repentina» y sin archivo, el envío muestra «Adjunta el soporte médico de la incapacidad.» y no sale ningún toast", async () => {
-    const { user, reason, attachment, submit } = await setup()
+    const { user, reason, attachment, submit, fillDates } = await setup()
+    await fillDates()
 
     await user.selectOptions(reason, "incapacidad")
     await user.click(submit)
@@ -211,7 +250,8 @@ describe("Reportar Ausencia: validación", () => {
   })
 
   it("A11Y-AUS-3: tras el error de obligatorio con incapacidad, cambiar a «Fatiga» quita el error y el aria-invalid del archivo", async () => {
-    const { user, reason, attachment, submit } = await setup()
+    const { user, reason, attachment, submit, fillDates } = await setup()
+    await fillDates()
 
     await user.selectOptions(reason, "incapacidad")
     await user.click(submit)
@@ -227,8 +267,9 @@ describe("Reportar Ausencia: validación", () => {
     expect(attachment).not.toHaveAttribute("aria-invalid", "true")
   })
 
-  it("RA-07: con «Fatiga operacional / RAC 212» y sin archivo, el envío sale bien", async () => {
-    const { user, reason, submit } = await setup()
+  it("RA-07: con «Fatiga operacional / 14 CFR 117.5» y sin archivo, el envío sale bien", async () => {
+    const { user, reason, submit, fillDates } = await setup()
+    await fillDates()
 
     await user.selectOptions(reason, "fatiga")
     await user.click(submit)
@@ -236,18 +277,19 @@ describe("Reportar Ausencia: validación", () => {
     await findSuccessToast()
     expect(screen.queryByText(ERROR.attachmentRequired)).toBeNull()
     expect(submitCalls()).toHaveLength(1)
-    expect(submitCalls()[0].args[0]).toMatchObject({
-      flightNumber: "AV-8520",
-      reason: "fatiga",
-      attachment: null,
-    })
+    const input = submitCalls()[0].args[0] as Record<string, unknown>
+    expect(input).toMatchObject({ reason: "fatiga", attachment: null })
+    // Ya no hay vuelo: la simulación recibe las fechas (AU-05 comprueba sus valores).
+    expect(input).not.toHaveProperty("flightNumber")
   })
 
   it("RA-08: al elegir un .txt aparece enseguida, sin enviar, «Formato no admitido. Usa PDF, PNG o JPG.» y el envío queda bloqueado", async () => {
     // Sin applyAccept, user-event descartaría el .txt por el atributo accept.
-    const { user, main, reason, attachment, submit } = await setup({
+    const { user, main, reason, attachment, submit, fillDates } = await setup({
       applyAccept: false,
     })
+    // Fechas válidas: así solo el archivo puede bloquear el envío.
+    await fillDates()
     await user.selectOptions(reason, "fatiga")
 
     await user.upload(
@@ -272,7 +314,8 @@ describe("Reportar Ausencia: validación", () => {
   })
 
   it("RA-08: al elegir un PDF de más de 10 MB aparece «El archivo supera el máximo de 10 MB.» y el envío queda bloqueado", async () => {
-    const { user, main, reason, attachment, submit } = await setup()
+    const { user, main, reason, attachment, submit, fillDates } = await setup()
+    await fillDates()
     await user.selectOptions(reason, "fatiga")
 
     await user.upload(attachment, pdf("incapacidad.pdf", MAX_BYTES + 1))
@@ -322,7 +365,7 @@ describe("Reportar Ausencia: validación", () => {
 })
 
 describe("Reportar Ausencia: envío correcto (RA-11)", () => {
-  it("RA-11: durante el envío el botón dice «Enviando aviso…» y está deshabilitado; al terminar salen el toast exacto, los campos deshabilitados, el texto de enviado fuera de regiones vivas y el foco en «Volver al Inicio»", async () => {
+  it("RA-11: durante el envío el botón dice «Enviando aviso…» y está deshabilitado; al terminar salen el toast, los campos deshabilitados, el texto de enviado fuera de regiones vivas y el foco en «Volver al Inicio»", async () => {
     // El envío real espera a que el test lo libere: así se ve el estado «enviando» sin carreras.
     let release = () => {}
     const gate = new Promise<void>((resolve) => {
@@ -332,10 +375,14 @@ describe("Reportar Ausencia: envío correcto (RA-11)", () => {
       await gate
       return absencesData.real.submitAbsenceReport(...args)
     }
-    const { user, main, form, reason, notes, attachment, submit } =
+    const { user, main, form, start, end, reason, notes, attachment, submit } =
       await setup()
     const file = pdf("soporte-medico.pdf")
+    const from = localDate(1)
+    const to = localDate(3)
 
+    await typeDate(user, start, from)
+    await typeDate(user, end, to)
     await user.selectOptions(reason, "incapacidad")
     await user.type(notes, NOTES)
     await user.upload(attachment, file)
@@ -350,6 +397,8 @@ describe("Reportar Ausencia: envío correcto (RA-11)", () => {
     await settle()
     expect(submitCalls(), "un segundo clic no reenvía").toHaveLength(1)
     // Revisión: lo que se ve como enviado es lo que se envió.
+    expect(start).toBeDisabled()
+    expect(end).toBeDisabled()
     expect(reason).toBeDisabled()
     expect(notes).toBeDisabled()
     expect(within(form).queryByRole("button", { name: SUBMIT })).toBeNull()
@@ -359,20 +408,26 @@ describe("Reportar Ausencia: envío correcto (RA-11)", () => {
 
     const toast = await findSuccessToast()
     expect(toast).toHaveAttribute("data-type", "success")
-    expect(toastDescription(toast)).toBe(SUCCESS_DESCRIPTION)
+    const period = `del ${shortDay(from)} al ${shortDay(to)}`
+    expect(toastDescription(toast)).toBe(
+      `Se buscará el mejor reemplazo para tu posición ${period} y el supervisor lo aprobará.`
+    )
     expect(main).not.toContainElement(toast)
 
     expect(submitCalls()).toHaveLength(1)
     const input = submitCalls()[0].args[0] as Record<string, unknown>
     expect(input).toMatchObject({
-      flightNumber: "AV-8520",
       reason: "incapacidad",
       notes: NOTES,
     })
+    expect(input).not.toHaveProperty("flightNumber")
+    expect(Object.values(input)).toEqual(expect.arrayContaining([from, to]))
     expect((input.attachment as File | null)?.name).toBe(file.name)
 
     // Estado persistente: campos deshabilitados (fieldset disabled), incluido «Quitar archivo».
     const scope = within(main)
+    expect(dateInput(main, START)).toBeDisabled()
+    expect(dateInput(main, END)).toBeDisabled()
     expect(scope.getByRole("combobox", { name: FIELD.reason })).toBeDisabled()
     expect(scope.getByRole("textbox", { name: FIELD.notes })).toBeDisabled()
     expect(getAttachmentInput(main)).toBeDisabled()
@@ -381,7 +436,10 @@ describe("Reportar Ausencia: envío correcto (RA-11)", () => {
     ).toBeDisabled()
 
     // La fila de acciones se sustituye por el texto de enviado y «Volver al Inicio».
-    const sent = getByFullText(main, SENT_TEXT)
+    const sent = getByFullText(
+      main,
+      new RegExp(`^Aviso enviado al supervisor para tu ausencia ${period}\\.$`)
+    )
     expect(
       sent.closest(LIVE_REGION),
       "el texto de enviado no debe estar dentro de una región viva"
@@ -395,7 +453,8 @@ describe("Reportar Ausencia: envío correcto (RA-11)", () => {
   })
 
   it("RA-13: tras enviar, «Volver al Inicio» lleva a /tripulante", async () => {
-    const { user, router, main, reason, submit } = await setup()
+    const { user, router, main, reason, submit, fillDates } = await setup()
+    await fillDates()
 
     await user.selectOptions(reason, "fatiga")
     await user.click(submit)

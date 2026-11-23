@@ -14,7 +14,7 @@ import type {
 interface CandidateListProps {
   request: ReplacementRequest
   onAssign: (candidate: Candidate) => void
-  onRequestSuggestions: () => void
+  onRequestSuggestions: (reason: string) => void
 }
 
 // Candidatos de una solicitud. Se monta con key={request.id}: al cambiar de solicitud
@@ -78,7 +78,9 @@ const CandidateList = ({
           {/* Estado persistente, sin región viva: no es carga ni error. */}
           {isEmpty ? (
             <p className={cn(typography.bodyMd, "text-muted-foreground")}>
-              Ningún tripulante cumple los requisitos para esta solicitud.
+              {request.aiState === "error"
+                ? "La IA no respondió en la última búsqueda. Pide nuevas sugerencias."
+                : "Ningún tripulante cumple los requisitos para esta solicitud."}
             </p>
           ) : null}
           {candidates.map((candidate) => (

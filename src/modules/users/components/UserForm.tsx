@@ -1,4 +1,4 @@
-import { useId, useState, type ReactNode } from "react"
+import { useId, type ReactNode } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Controller, useForm, useWatch } from "react-hook-form"
@@ -7,10 +7,13 @@ import flags from "react-phone-number-input/flags"
 import es from "react-phone-number-input/locale/es"
 import "react-phone-number-input/style.css"
 
-import { ConfirmedIcon } from "@/App/utils/icons"
+import {
+  UserCreationUnavailableError,
+  UserFieldError,
+  UserRequestError,
+} from "@/App/actions/users/users.actions"
 import { typography } from "@/App/utils/typography"
 import { cn } from "@/lib/utils"
-import { UserFieldError } from "@/modules/users/data/users.data"
 import {
   createUserSchema,
   type CreateUserFormValues,
@@ -20,9 +23,12 @@ import type {
   CrewUser,
   UserCatalogs,
   UserRoleGroup,
+  UserShift,
+  UserStatus,
 } from "@/modules/users/types/users.types"
+import { SHIFT_OPTIONS } from "@/modules/users/utils/userLabels"
 
-// Opciones del rol: el valor es el que se envía al backend y el que va en ?role=.
+// Opciones del rol: el valor es el del filtro (?role=); la acción lo traduce al backend.
 const ROLE_OPTIONS: { value: UserRoleGroup; label: string }[] = [
   { value: "tripulacion", label: "Tripulación" },
   { value: "supervisor", label: "Supervisor" },
@@ -47,17 +53,21 @@ interface FieldProps {
   label: string
   required?: boolean
   error?: string
+  // Ayuda bajo el control, enlazada con aria-describedby (`${id}-hint`).
+  hint?: string
   // Clases extra del contenedor, ej. "sm:col-span-2" para ocupar toda la fila.
   className?: string
   children: ReactNode
 }
 
-// Etiqueta, control y error. El control enlaza el error con aria-describedby (`${id}-error`).
+// Etiqueta, control, ayuda y error. El control enlaza la ayuda y el error con
+// aria-describedby (`${id}-hint`, `${id}-error`).
 const Field = ({
   id,
   label,
   required,
   error,
+  hint,
   className,
   children,
 }: FieldProps) => (
@@ -76,6 +86,14 @@ const Field = ({
       ) : null}
     </label>
     {children}
+    {hint ? (
+      <p
+        id={`${id}-hint`}
+        className={cn(typography.bodySm, "text-muted-foreground")}
+      >
+        {hint}
+      </p>
+    ) : null}
     {error ? (
       <p
         id={`${id}-error`}
@@ -97,8 +115,16 @@ const EMPTY_USER_FORM: CreateUserFormValues = {
   roleGroup: "",
   roleTitle: "",
   base: "",
-  licenseNumber: "",
-  certificates: [],
+  shift: "",
+  // El supervisor empieza disponible, como en el backend.
+  status: "disponible",
+}
+
+// Texto del aviso general (errores que no son de un campo).
+const genericErrorText = (error: unknown) => {
+  if (error instanceof UserRequestError) return error.message
+  if (error instanceof UserCreationUnavailableError) return error.message
+  return "No se pudo guardar el usuario. Intenta de nuevo."
 }
 
 interface UserFormProps {
@@ -106,22 +132,25 @@ interface UserFormProps {
   // Valores iniciales: sin ellos el formulario empieza vacío (alta); para editar, los
   // datos del usuario.
   defaultValues?: CreateUserFormValues
+  // Roles que se pueden elegir. Alta: los tres. Edición de un tripulante: solo el suyo
+  // (su rol no se puede cambiar); de un supervisor o administrador: esos dos.
+  roleOptions?: UserRoleGroup[]
   // Texto del botón y mientras se guarda, ej. «Crear usuario» / «Creando usuario…».
   submitLabel: string
   pendingLabel: string
-  // Petición al backend (crear o editar). Recibe la clave de idempotencia, que solo
-  // usa el alta (POST); la edición (PUT) no la necesita.
-  onSave: (input: CreateUserInput, idempotencyKey: string) => Promise<CrewUser>
+  // Petición al backend (crear o editar).
+  onSave: (input: CreateUserInput) => Promise<CrewUser>
   // Qué hacer al guardar bien (aviso y cerrar la ventana).
   onSaved: (user: CrewUser) => void
 }
 
 // Formulario de usuario, compartido por «Añadir usuario» y «Editar usuario».
 // Se monta al abrir la ventana y se desmonta al cerrarla, así cada apertura empieza
-// con sus valores iniciales y con su propia clave de idempotencia.
+// con sus valores iniciales.
 const UserForm = ({
   catalogs,
   defaultValues = EMPTY_USER_FORM,
+  roleOptions = ROLE_OPTIONS.map((option) => option.value),
   submitLabel,
   pendingLabel,
   onSave,
@@ -129,11 +158,8 @@ const UserForm = ({
 }: UserFormProps) => {
   const id = useId()
   const queryClient = useQueryClient()
-  // Una clave por intento de alta (ADR 003): si el mismo envío llega dos veces, el
-  // backend crea un solo usuario. Se renueva si hay que corregir datos y reenviar.
-  const [idempotencyKey, setIdempotencyKey] = useState(() =>
-    crypto.randomUUID()
-  )
+  // Con un solo rol posible (tripulante en edición), la lista queda con esa opción.
+  const roleLocked = roleOptions.length === 1
 
   // react-hook-form con las reglas de createUser.schema.ts (zod). defaultValues solo se
   // leen al montar: por eso la ventana monta el formulario cuando ya tiene los datos.
@@ -148,22 +174,26 @@ const UserForm = ({
     resolver: zodResolver(createUserSchema),
     defaultValues,
   })
-  // useWatch: valores en vivo de los campos que cambian lo que se muestra.
+  // El rol cambia qué campos se muestran.
   const roleGroup = useWatch({ control, name: "roleGroup" }) as
     UserRoleGroup | ""
-  // Cargo, licencia y certificados: solo Tripulación (Supervisor y Administrador no
-  // tienen horas de vuelo ni licencia).
   const isCrew = roleGroup === "tripulacion"
-  // Los certificados que se ofrecen dependen del cargo elegido.
-  const roleTitle = useWatch({ control, name: "roleTitle" })
-  const certificateOptions = catalogs.certificatesByTitle[roleTitle] ?? []
-  // La licencia se muestra cuando ya hay cargo: sin él no hay certificados que ofrecer.
-  const showLicense = isCrew && certificateOptions.length > 0
+  const isSupervisor = roleGroup === "supervisor"
+  // Un cargo guardado que no está en el catálogo se ofrece igual, para no obligar a
+  // cambiarlo al editar.
+  const crewPositions =
+    defaultValues.roleTitle &&
+    !catalogs.crewPositions.includes(defaultValues.roleTitle)
+      ? [defaultValues.roleTitle, ...catalogs.crewPositions]
+      : catalogs.crewPositions
+  // Supervisor guardado sin estado operativo: la lista ofrece «Sin estado» y no se exige.
+  const withoutStatus = defaultValues.status === ""
 
   // Envío al backend (crear o editar, según la ventana). Las mutaciones no se reintentan
   // solas (ADR 003): si falla, el usuario decide si vuelve a intentar.
   const mutation = useMutation({
-    mutationFn: (input: CreateUserInput) => onSave(input, idempotencyKey),
+    // Envuelta: mutationFn también recibe el contexto de TanStack, que onSave no espera.
+    mutationFn: (input: CreateUserInput) => onSave(input),
     onSuccess: (user) => {
       // Refresca la tabla, los indicadores, los conteos de los filtros y la ficha
       // (todo lo que empieza por ["users", …]).
@@ -171,66 +201,53 @@ const UserForm = ({
       onSaved(user)
     },
     onError: (error) => {
-      // Error de un campo del formulario (ej. correo repetido): se muestra en ese campo
-      // y se enfoca. Si el campo no está en el formulario, queda el aviso general.
-      if (
-        error instanceof UserFieldError &&
-        error.field in createUserSchema.shape
-      ) {
-        setError(
-          error.field as keyof CreateUserFormValues,
-          { message: error.message },
-          { shouldFocus: true }
-        )
-        setIdempotencyKey(crypto.randomUUID())
+      // 409 por correo repetido: se muestra debajo del correo y se enfoca.
+      if (error instanceof UserFieldError) {
+        setError(error.field, { message: error.message }, { shouldFocus: true })
       }
     },
   })
 
-  // Solo se llama si el formulario pasó las validaciones. Convierte los valores del
-  // formulario en los datos que espera el backend (CreateUserInput).
+  // Solo se llama si el formulario pasó las validaciones. Cada rol envía solo sus
+  // campos: los ocultos pueden conservar lo escrito antes de cambiar de rol.
   const onSubmit = (values: CreateUserFormValues) => {
-    // Evita un segundo envío mientras el primero está en curso.
+    // Evita un segundo envío mientras el primero está en curso (el backend no usa
+    // Idempotency-Key: el botón deshabilitado basta).
     if (mutation.isPending) return
     const role = values.roleGroup as UserRoleGroup
     mutation.mutate({
       firstName: values.firstName,
       lastName: values.lastName,
       email: values.email,
-      // El campo ya entrega el celular en formato internacional (E.164), sin espacios:
-      // indicativo + número, ej. «+14045550123». Así lo recibe el backend.
+      // El campo ya entrega el celular en formato internacional (E.164), sin espacios.
       phone: values.phone,
       roleGroup: role,
-      // Supervisor y Administrador no tienen cargo: se envía el nombre del rol.
-      roleTitle:
-        role === "tripulacion"
-          ? values.roleTitle
-          : (ROLE_OPTIONS.find((option) => option.value === role)?.label ??
-            role),
-      base: values.base,
-      // Los campos ocultos pueden conservar lo escrito antes de cambiar de rol:
-      // solo se envía la licencia si es Tripulación.
-      license:
-        role === "tripulacion"
-          ? { number: values.licenseNumber, certificates: values.certificates }
-          : undefined,
+      roleTitle: role === "tripulacion" ? values.roleTitle : "",
+      base: role === "administrador" ? "" : values.base,
+      shift: role === "supervisor" ? (values.shift as UserShift) : "",
+      status: role === "supervisor" ? (values.status as UserStatus | "") : "",
     })
   }
 
   // Props comunes de accesibilidad de cada control.
-  const a11y = (name: keyof CreateUserFormValues, required = true) => ({
+  const a11y = (
+    name: keyof CreateUserFormValues,
+    required = true,
+    hint = false
+  ) => ({
     id: `${id}-${name}`,
     "aria-required": required || undefined,
     "aria-invalid": errors[name] ? true : undefined,
-    "aria-describedby": errors[name] ? `${id}-${name}-error` : undefined,
+    "aria-describedby":
+      [hint && `${id}-${name}-hint`, errors[name] && `${id}-${name}-error`]
+        .filter(Boolean)
+        .join(" ") || undefined,
   })
   // Error que no corresponde a un campo (ej. servicio caído): se avisa junto al botón.
   const genericError =
-    mutation.isError &&
-    !(
-      mutation.error instanceof UserFieldError &&
-      mutation.error.field in createUserSchema.shape
-    )
+    mutation.isError && !(mutation.error instanceof UserFieldError)
+      ? genericErrorText(mutation.error)
+      : null
 
   return (
     // noValidate: los mensajes los pone el formulario (en español y accesibles), no el
@@ -348,41 +365,48 @@ const UserForm = ({
             </div>
           </fieldset>
 
-          {/* Datos operativos: rol, cargo (solo Tripulación) y base. Con cargo son
-              tres columnas; sin él, dos. */}
+          {/* Datos operativos: rol y, según el rol, cargo, base y turno. Administrador:
+              solo el rol. */}
           <fieldset className="min-w-0 rounded-lg bg-card p-4 shadow-xs">
             <legend className={cn(legendClass, "float-left w-full")}>
               Datos operativos
             </legend>
-            <div
-              className={cn(
-                "clear-both grid grid-cols-1 gap-3",
-                isCrew ? "sm:grid-cols-3" : "sm:grid-cols-2"
-              )}
-            >
+            <div className="clear-both grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field
                 id={`${id}-roleGroup`}
                 label="Rol"
                 required
                 error={errors.roleGroup?.message}
+                hint={
+                  roleLocked
+                    ? "El rol de un tripulante no se puede cambiar."
+                    : undefined
+                }
               >
+                {/* Bloqueado = una sola opción (sin «Selecciona…»), no `disabled`: así el
+                    valor sigue en el formulario y pasa la validación. */}
                 <select
-                  {...a11y("roleGroup")}
+                  {...a11y("roleGroup", true, roleLocked)}
                   className={controlClass}
                   {...register("roleGroup", {
-                    // Al cambiar de rol, el cargo elegido ya no aplica.
-                    onChange: () => setValue("roleTitle", ""),
+                    // Al cambiar de rol, el cargo y el turno elegidos ya no aplican.
+                    onChange: () => {
+                      setValue("roleTitle", "")
+                      setValue("shift", "")
+                    },
                   })}
                 >
-                  <option value="">Selecciona…</option>
-                  {ROLE_OPTIONS.map((option) => (
+                  {roleLocked ? null : <option value="">Selecciona…</option>}
+                  {ROLE_OPTIONS.filter((option) =>
+                    roleOptions.includes(option.value)
+                  ).map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>
                   ))}
                 </select>
               </Field>
-              {/* Cargo: solo Tripulación (Comandante, Copiloto, Auxiliar de Vuelo…). */}
+              {/* Cargo: solo Tripulación. El código lo asigna el backend (AC-0001…). */}
               {isCrew ? (
                 <Field
                   id={`${id}-roleTitle`}
@@ -393,131 +417,94 @@ const UserForm = ({
                   <select
                     {...a11y("roleTitle")}
                     className={controlClass}
-                    {...register("roleTitle", {
-                      // Al cambiar de cargo, los certificados marcados ya no aplican.
-                      onChange: () => setValue("certificates", []),
-                    })}
+                    {...register("roleTitle")}
                   >
                     <option value="">Selecciona…</option>
-                    {catalogs.crewTitles.map((title) => (
-                      <option key={title} value={title}>
-                        {title}
+                    {crewPositions.map((position) => (
+                      <option key={position} value={position}>
+                        {position}
                       </option>
                     ))}
                   </select>
                 </Field>
               ) : null}
-              <Field
-                id={`${id}-base`}
-                label="Base"
-                required
-                error={errors.base?.message}
-              >
-                <select
-                  {...a11y("base")}
-                  className={controlClass}
-                  {...register("base")}
+              {/* Base: Tripulación y Supervisor. */}
+              {isCrew || isSupervisor ? (
+                <Field
+                  id={`${id}-base`}
+                  label="Base"
+                  required
+                  error={errors.base?.message}
                 >
-                  <option value="">Selecciona…</option>
-                  {catalogs.bases.map((base) => (
-                    <option key={base.code} value={base.code}>
-                      {base.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
+                  <select
+                    {...a11y("base")}
+                    className={controlClass}
+                    {...register("base")}
+                  >
+                    <option value="">Selecciona…</option>
+                    {catalogs.bases.map((base) => (
+                      <option key={base.code} value={base.code}>
+                        {base.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              ) : null}
+              {/* Turno: aparece (y es obligatorio) solo al elegir Supervisor. */}
+              {isSupervisor ? (
+                <Field
+                  id={`${id}-shift`}
+                  label="Turno"
+                  required
+                  error={errors.shift?.message}
+                >
+                  <select
+                    {...a11y("shift")}
+                    className={controlClass}
+                    {...register("shift")}
+                  >
+                    <option value="">Selecciona…</option>
+                    {SHIFT_OPTIONS.map((shift) => (
+                      <option key={shift.value} value={shift.value}>
+                        {shift.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              ) : null}
+              {/* Estado operativo (D14): solo Supervisor, con el catálogo del backend.
+                  Siempre tiene uno elegido, así que no lleva «Selecciona…». Un
+                  supervisor guardado sin estado se abre con «Sin estado», que no se
+                  envía. */}
+              {isSupervisor ? (
+                <Field
+                  id={`${id}-status`}
+                  label="Estado operativo"
+                  required={!withoutStatus}
+                  error={errors.status?.message}
+                >
+                  <select
+                    {...a11y("status", !withoutStatus)}
+                    className={controlClass}
+                    {...register("status")}
+                  >
+                    {withoutStatus ? (
+                      <option value="">Sin estado</option>
+                    ) : null}
+                    {catalogs.supervisorStatuses.map((status) => (
+                      <option key={status.value} value={status.value}>
+                        {status.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              ) : null}
             </div>
           </fieldset>
-
-          {/* Licencia: solo Tripulación, y aparece al elegir el cargo (los certificados
-              dependen de él). Supervisor y Administrador no tienen licencia. */}
-          {showLicense ? (
-            <fieldset className="min-w-0 rounded-lg bg-card p-4 shadow-xs">
-              <legend className={cn(legendClass, "float-left w-full")}>
-                Licencia
-              </legend>
-              {/* Móvil: uno debajo del otro. Desde sm: número a la izquierda (angosto)
-                  y certificados a la derecha (ancho), alineados arriba. */}
-              <div className="clear-both grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] sm:items-start">
-                <Field
-                  id={`${id}-licenseNumber`}
-                  label="Número de licencia"
-                  required
-                  error={errors.licenseNumber?.message}
-                >
-                  <input
-                    {...a11y("licenseNumber")}
-                    placeholder="Ej. FAA ATP #1108-US"
-                    className={controlClass}
-                    {...register("licenseNumber")}
-                  />
-                </Field>
-
-                {/* Certificados del cargo como chips: un tripulante tiene varios
-                    (ej. ATP + IR + ME). Cada chip es una casilla real (oculta a la vista),
-                    así funciona con teclado y lector de pantalla. */}
-                <fieldset
-                  aria-invalid={errors.certificates ? true : undefined}
-                  aria-describedby={
-                    errors.certificates ? `${id}-certificates-error` : undefined
-                  }
-                  className="min-w-0"
-                >
-                  {/* float + clear-both: la legend se comporta como la etiqueta de al lado. */}
-                  <legend
-                    className={cn(
-                      typography.labelMd,
-                      "float-left mb-1 w-full font-semibold text-brand-primary"
-                    )}
-                  >
-                    Certificados
-                    <span aria-hidden="true" className="text-destructive">
-                      {" "}
-                      *
-                    </span>
-                  </legend>
-                  <div className="clear-both flex flex-col gap-1">
-                    <div className="flex flex-wrap gap-2">
-                      {certificateOptions.map((certificate) => (
-                        <label
-                          key={certificate}
-                          className={cn(
-                            typography.labelMd,
-                            "group inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border border-brand-border bg-card px-3.5 font-semibold text-brand-primary transition-colors select-none hover:bg-brand-neutral has-checked:border-brand-primary has-checked:bg-brand-primary has-checked:text-white has-focus-visible:ring-2 has-focus-visible:ring-brand-tertiary has-focus-visible:ring-offset-2 has-focus-visible:ring-offset-card motion-reduce:transition-none lg:min-h-8"
-                          )}
-                        >
-                          <input
-                            type="checkbox"
-                            value={certificate}
-                            className="sr-only"
-                            {...register("certificates")}
-                          />
-                          {/* El ✓ solo se ve marcado; el estado ya lo anuncia la casilla. */}
-                          <ConfirmedIcon
-                            aria-hidden="true"
-                            className="hidden size-4 shrink-0 group-has-checked:block"
-                          />
-                          {certificate}
-                        </label>
-                      ))}
-                    </div>
-                    {errors.certificates ? (
-                      <p
-                        id={`${id}-certificates-error`}
-                        className={cn(typography.bodySm, "text-destructive")}
-                      >
-                        {errors.certificates.message}
-                      </p>
-                    ) : null}
-                  </div>
-                </fieldset>
-              </div>
-            </fieldset>
-          ) : null}
         </div>
       </div>
 
-      {/* Pie: error general (si lo hay) y el botón de crear. */}
+      {/* Pie: error general (si lo hay) y el botón de guardar. */}
       <div className="flex justify-end border-t border-brand-border bg-card px-5 py-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           {genericError ? (
@@ -525,7 +512,7 @@ const UserForm = ({
               role="alert"
               className={cn(typography.bodySm, "text-destructive")}
             >
-              No se pudo guardar el usuario. Intenta de nuevo.
+              {genericError}
             </p>
           ) : null}
           <button
@@ -533,7 +520,7 @@ const UserForm = ({
             disabled={mutation.isPending}
             className={cn(
               typography.labelMd,
-              "inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-brand-secondary px-4 font-semibold text-white transition-colors hover:bg-brand-secondary-hover focus-visible:ring-2 focus-visible:ring-brand-tertiary focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:cursor-wait disabled:opacity-70 lg:min-h-9"
+              "inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-md bg-brand-secondary px-4 font-semibold text-white transition-colors hover:bg-brand-secondary-hover focus-visible:ring-2 focus-visible:ring-brand-tertiary focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:cursor-wait disabled:opacity-70 lg:min-h-9"
             )}
           >
             {mutation.isPending ? pendingLabel : submitLabel}

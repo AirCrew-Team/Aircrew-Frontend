@@ -28,6 +28,8 @@ type DataFn = (...args: unknown[]) => unknown
 // forzar errores. Sin override, delega en la función real (datos simulados).
 const aircraftData = vi.hoisted(() => ({
   calls: [] as { name: string; args: unknown[] }[],
+  // Lo que devolvió cada llamada, en el mismo orden que calls.
+  results: [] as unknown[],
   overrides: {} as Record<string, DataFn | undefined>,
 }))
 
@@ -36,7 +38,11 @@ vi.mock("@/modules/aircraft/data/aircraft.data", async (importOriginal) => {
   return Object.fromEntries(
     Object.entries(actual).map(([name, value]) => {
       // Las clases (AircraftFieldError) se dejan tal cual: el formulario usa instanceof.
-      if (typeof value !== "function" || name === "AircraftFieldError") {
+      if (
+        typeof value !== "function" ||
+        name === "AircraftFieldError" ||
+        name === "AircraftRequestError"
+      ) {
         return [name, value]
       }
       const real = value as DataFn
@@ -44,7 +50,9 @@ vi.mock("@/modules/aircraft/data/aircraft.data", async (importOriginal) => {
         name,
         (...args: unknown[]) => {
           aircraftData.calls.push({ name, args })
-          return (aircraftData.overrides[name] ?? real)(...args)
+          const result = (aircraftData.overrides[name] ?? real)(...args)
+          aircraftData.results.push(result)
+          return result
         },
       ]
     })
@@ -53,6 +61,7 @@ vi.mock("@/modules/aircraft/data/aircraft.data", async (importOriginal) => {
 
 afterEach(() => {
   aircraftData.calls.length = 0
+  aircraftData.results.length = 0
   aircraftData.overrides = {}
   vi.restoreAllMocks()
 })
@@ -66,6 +75,14 @@ const lastListParams = () =>
 
 const lastCall = (name: string) =>
   aircraftData.calls.filter((call) => call.name === name).at(-1)?.args
+
+// Aeronave que devolvió el último createAircraft (su id es el que recibe la foto).
+const lastCreated = async () => {
+  const index = aircraftData.calls.findLastIndex(
+    (call) => call.name === "createAircraft"
+  )
+  return (await aircraftData.results[index]) as { id: string }
+}
 
 const renderPage = async (search = "") => {
   const user = userEvent.setup()
@@ -310,7 +327,8 @@ describe("Aeronaves: informe y manifiesto", () => {
     const history = dialog.getByRole("region", {
       name: "Historial de mantenimientos",
     })
-    expect(history).toHaveTextContent("Revisión general programada")
+    // Texto del motivo según el catálogo (GET /aircraft/options).
+    expect(history).toHaveTextContent("Revisión programada")
     expect(history).toHaveTextContent("2 mar 2026 – 9 mar 2026")
   })
 
@@ -518,7 +536,11 @@ describe("Aeronaves: registrar y editar", () => {
       condition: "operativa",
       maintenanceType: null,
     })
-    expect((input as { photo?: File }).photo?.name).toBe("n402dx.png")
+    // La foto no va en el formulario: se sube después, con el id de la aeronave nueva.
+    expect(input).not.toHaveProperty("photo")
+    const [photoId, photoFile] = lastCall("uploadAircraftPhoto") ?? []
+    expect(photoId).toBe((await lastCreated()).id)
+    expect((photoFile as File).name).toBe("n402dx.png")
     await waitFor(() => expect(registrations()[0]).toBe("N402DX"))
     expect(rowOf("N402DX").querySelector("img")).toHaveAttribute(
       "src",
@@ -558,7 +580,7 @@ describe("Aeronaves: registrar y editar", () => {
       form.queryByRole("button", { name: "Quitar foto" })
     ).not.toBeInTheDocument()
     await user.click(form.getByRole("radio", { name: "En mantenimiento" }))
-    // Los motivos están en palabras claras.
+    // Los motivos vienen del catálogo, en palabras claras.
     expect(
       within(form.getByLabelText(/^Motivo del mantenimiento/))
         .getAllByRole("option")
@@ -567,11 +589,11 @@ describe("Aeronaves: registrar y editar", () => {
       "Selecciona…",
       "Problemas con el motor",
       "Daño en el ala",
-      "Falla en el tren de aterrizaje",
+      "Tren de aterrizaje",
       "Daño en el fuselaje",
-      "Falla eléctrica o de instrumentos",
-      "Falla en el sistema hidráulico",
-      "Revisión general programada",
+      "Falla eléctrica",
+      "Falla hidráulica",
+      "Revisión programada",
     ])
     await user.selectOptions(
       form.getByLabelText(/^Motivo del mantenimiento/),
@@ -588,7 +610,7 @@ describe("Aeronaves: registrar y editar", () => {
     )
     await waitFor(() =>
       expect(rowOf("N411DX")).toHaveTextContent(
-        "En mantenimientoFalla eléctrica o de instrumentos"
+        "En mantenimientoFalla eléctrica"
       )
     )
     expect(lastCall("updateAircraft")?.[1]).toMatchObject({

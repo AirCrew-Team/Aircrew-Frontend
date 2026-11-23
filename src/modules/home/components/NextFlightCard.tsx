@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 import { getNextFlight } from "@/modules/home/data/home.data"
 
 // Tarjeta 1: próximo vuelo. El briefing aún no existe: botón aria-disabled, enfocable y sin acción.
+// Con la sesión real sale de assignments/me/next; null (404) es que no hay vuelos próximos.
 const NextFlightCard = () => {
   const {
     data: flight,
@@ -33,6 +34,20 @@ const NextFlightCard = () => {
           >
             No se pudo cargar el próximo vuelo.
           </p>
+        ) : flight === null ? (
+          <div className="flex flex-col pt-2">
+            <h2
+              className={cn(
+                typography.headlineMd,
+                "font-bold text-brand-primary"
+              )}
+            >
+              Próximo vuelo
+            </h2>
+            <p className={cn(typography.bodySm, "text-muted-foreground")}>
+              No tienes vuelos programados.
+            </p>
+          </div>
         ) : (
           <>
             <div className="flex flex-col pt-2">
@@ -77,7 +92,7 @@ const NextFlightCard = () => {
                   Puerta Asignada
                 </dt>
                 <dd className="font-semibold text-brand-primary">
-                  Puerta {flight.gate}
+                  {flight.gate ? `Puerta ${flight.gate}` : "Por asignar"}
                 </dd>
               </div>
               <div className="col-span-2 flex items-center justify-between gap-2 pt-1">
@@ -132,7 +147,8 @@ const NextFlightCard = () => {
             >
               <DepartureIcon aria-hidden="true" className="size-5" />
             </span>
-            Itinerario Confirmado
+            {/* Sin vuelo, la etiqueta es el nombre de la tarjeta. */}
+            {flight === null ? "Próximo vuelo" : "Itinerario Confirmado"}
           </p>
           {flight ? (
             <p

@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from "react"
+import { useId, useMemo, useRef, useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useForm, useWatch } from "react-hook-form"
@@ -16,23 +16,29 @@ import { cn } from "@/lib/utils"
 import CertificationDialogHeader from "@/modules/adminCertifications/components/CertificationDialogHeader"
 import CertificationStatusBadge from "@/modules/adminCertifications/components/CertificationStatusBadge"
 import {
-  getCertificationDetail,
-  getUncertifiedCrew,
-  saveCertification,
-} from "@/modules/adminCertifications/data/adminCertifications.data"
+  useCertificationCatalog,
+  useCertificationsApi,
+} from "@/modules/adminCertifications/hooks/useCertificationsApi"
 import {
-  certificationSchema,
+  certificationSchemaFor,
   type CertificationFormValues,
 } from "@/modules/adminCertifications/schemas/certification.schema"
 import type {
   CertificateFile,
+  CertificationCatalog,
+  CrewArea,
   CrewCertification,
 } from "@/modules/adminCertifications/types/adminCertifications.types"
+import {
+  certificationErrorMessage,
+  isCertificationNotFound,
+} from "@/modules/adminCertifications/utils/certificationErrors"
 import {
   certificateName,
   certificateOptionsFor,
 } from "@/modules/adminCertifications/utils/certificates"
 import {
+  crewCode,
   crewInitials,
   crewName,
   crewRoleLine,
@@ -44,10 +50,7 @@ const ACCEPTED_TYPES = ["application/pdf", "image/png", "image/jpeg"]
 const MAX_FILE_BYTES = 5 * 1024 * 1024
 
 // Contra qué se verifica, según el cargo (texto de la sección «Verificación»).
-const VERIFY_HELP: Record<
-  CrewCertification["area"],
-  { title: string; detail: string }
-> = {
+const VERIFY_HELP: Record<CrewArea, { title: string; detail: string }> = {
   cabina_mando: {
     title: "Compara con el certificado físico del piloto",
     detail: "O con Airmen Inquiry, el registro público de pilotos de la FAA.",
@@ -117,7 +120,7 @@ const CrewCard = ({ crew }: { crew: CrewCertification }) => (
           "rounded-sm bg-brand-neutral px-2 py-1 font-mono text-brand-primary"
         )}
       >
-        {crew.id}
+        {crewCode(crew)}
       </span>
       <CertificationStatusBadge status={crew.status} />
     </div>
@@ -125,6 +128,8 @@ const CrewCard = ({ crew }: { crew: CrewCertification }) => (
 )
 
 interface CertificationFormProps {
+  // Catálogo de certificados: los de cada cargo, sus nombres y las reglas.
+  catalog: CertificationCatalog
   // Tripulante fijo (al editar o al registrar desde su ficha), con su copia actual.
   fixedCrew?: CrewCertification & { file: CertificateFile | null }
   // Tripulantes sin certificado, para elegir al registrar desde la barra.
@@ -135,12 +140,15 @@ interface CertificationFormProps {
 // Formulario con los datos ya cargados. Se monta al abrir la ventana: cada apertura
 // empieza con los valores del tripulante (o vacía).
 const CertificationForm = ({
+  catalog,
   fixedCrew,
   crewOptions = [],
   onSaved,
 }: CertificationFormProps) => {
   const id = useId()
   const queryClient = useQueryClient()
+  const { saveCertification } = useCertificationsApi()
+  const schema = useMemo(() => certificationSchemaFor(catalog), [catalog])
   const fileInputRef = useRef<HTMLInputElement>(null)
   // Copia del certificado: un archivo nuevo, null (quitar la que había) o undefined
   // (dejar la que había). Va fuera de react-hook-form porque es un File, no texto.
@@ -154,7 +162,7 @@ const CertificationForm = ({
     setValue,
     formState: { errors },
   } = useForm<CertificationFormValues>({
-    resolver: zodResolver(certificationSchema),
+    resolver: zodResolver(schema),
     defaultValues: {
       crewId: fixedCrew?.id ?? "",
       area: fixedCrew?.area ?? "",
@@ -169,12 +177,14 @@ const CertificationForm = ({
 
   const crew =
     fixedCrew ?? crewOptions.find((option) => option.id === crewId) ?? null
-  const certificateOptions = crew ? certificateOptionsFor(crew.roleTitle) : []
+  const certificateOptions = crew
+    ? certificateOptionsFor(catalog, crew.roleTitle)
+    : []
   // Copia que se verá: la nueva, ninguna si se quitó, o la que ya tenía.
   const shownFileName =
     newFile === undefined ? (fixedCrew?.file?.name ?? null) : newFile?.name
 
-  // Guardar (con la API, un PUT de la certificación del tripulante).
+  // Guardar: PUT de la certificación del tripulante; responde con la ficha completa.
   const mutation = useMutation({
     mutationFn: (values: CertificationFormValues) =>
       saveCertification(values.crewId, {
@@ -198,6 +208,12 @@ const CertificationForm = ({
         }
       )
       onSaved()
+    },
+    // 404: el tripulante ya no existe; la lista estaba desactualizada.
+    onError: (error) => {
+      if (isCertificationNotFound(error)) {
+        queryClient.invalidateQueries({ queryKey: ["certifications"] })
+      }
     },
   })
 
@@ -259,7 +275,8 @@ const CertificationForm = ({
                   <option value="">Selecciona…</option>
                   {crewOptions.map((option) => (
                     <option key={option.id} value={option.id}>
-                      {crewName(option)} · {option.roleTitle} ({option.id})
+                      {crewName(option)} · {option.roleTitle} (
+                      {crewCode(option)})
                     </option>
                   ))}
                 </select>
@@ -357,7 +374,7 @@ const CertificationForm = ({
                             aria-hidden="true"
                             className="hidden size-4 shrink-0 group-has-checked:block"
                           />
-                          {certificateName(code)}
+                          {certificateName(catalog, code)}
                         </label>
                       ))}
                     </div>
@@ -437,19 +454,22 @@ const CertificationForm = ({
           <fieldset className={cardClass}>
             <legend className={legendClass}>Verificación</legend>
             <div className="clear-both flex flex-col gap-3">
-              <div className="rounded-md bg-muted p-3">
-                <p
-                  className={cn(
-                    typography.labelMd,
-                    "font-bold text-brand-primary"
-                  )}
-                >
-                  {VERIFY_HELP[crew.area].title}
-                </p>
-                <p className={cn(typography.bodySm, "text-muted-foreground")}>
-                  {VERIFY_HELP[crew.area].detail}
-                </p>
-              </div>
+              {/* Sin área (cargo fuera del catálogo) no hay contra qué cotejar. */}
+              {crew.area ? (
+                <div className="rounded-md bg-muted p-3">
+                  <p
+                    className={cn(
+                      typography.labelMd,
+                      "font-bold text-brand-primary"
+                    )}
+                  >
+                    {VERIFY_HELP[crew.area].title}
+                  </p>
+                  <p className={cn(typography.bodySm, "text-muted-foreground")}>
+                    {VERIFY_HELP[crew.area].detail}
+                  </p>
+                </div>
+              ) : null}
               {/* La etiqueta nombra la casilla; la ayuda va aparte como descripción,
                   para que el lector no la lea como parte del nombre. */}
               <div className="flex items-start gap-3">
@@ -489,7 +509,10 @@ const CertificationForm = ({
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           {mutation.isError ? (
             <p role="alert" className={errorClass}>
-              No se pudo guardar el certificado. Intenta de nuevo.
+              {certificationErrorMessage(
+                mutation.error,
+                "No se pudo guardar el certificado. Intenta de nuevo."
+              )}
             </p>
           ) : null}
           <div className="flex justify-end gap-2">
@@ -546,6 +569,9 @@ const CertificationFormDialog = ({
   const [shown, setShown] = useState(target)
   if (target !== null && target !== shown) setShown(target)
   const crewId = shown?.crewId
+  const { getCertificationDetail, getUncertifiedCrew } = useCertificationsApi()
+  // Certificados de cada cargo y reglas del formulario (licencias de piloto y CDP).
+  const catalog = useCertificationCatalog()
 
   const detail = useQuery({
     queryKey: ["certifications", "adminDetail", crewId],
@@ -586,14 +612,14 @@ const CertificationFormDialog = ({
           description="Certificaciones FAA · Flight Ops Central"
           closeLabel="Cerrar formulario de certificado"
         />
-        {query.isPending ? (
+        {query.isPending || catalog.isPending ? (
           <p
             role="status"
             className={cn(typography.bodySm, "p-5 text-muted-foreground")}
           >
             Cargando formulario…
           </p>
-        ) : query.isError ? (
+        ) : query.isError || catalog.isError ? (
           <p
             role="alert"
             className={cn(typography.bodySm, "p-5 text-destructive")}
@@ -604,6 +630,7 @@ const CertificationFormDialog = ({
           <CertificationForm
             // key: si se abre otro tripulante, el formulario empieza de nuevo.
             key={crewId ?? "nuevo"}
+            catalog={catalog.data}
             fixedCrew={crewId ? detail.data : undefined}
             crewOptions={crewId ? undefined : uncertified.data}
             onSaved={onClose}
