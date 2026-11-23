@@ -12,7 +12,7 @@ import { server } from "../utils/server"
 // sin habilitación registrada. Su resumen muestra la advertencia del backend y no
 // afirma «Habilitado en …».
 
-const flightWith = (warnings?: string[]) => ({
+const flightWith = (warnings?: string[], absence?: string) => ({
   id: "f-1",
   flight_number: "DL1102",
   date: "2026-11-22",
@@ -48,15 +48,16 @@ const flightWith = (warnings?: string[]) => ({
         rationale: null,
         is_replacement: false,
         ...(warnings ? { warnings } : {}),
+        ...(absence ? { absence } : {}),
       },
     },
   ],
 })
 
-const loadAssigneeSummary = async (warnings?: string[]) => {
+const loadAssigneeSummary = async (warnings?: string[], absence?: string) => {
   server.use(
     http.get(`${API_URL}/api/recommendation/schedule`, () =>
-      HttpResponse.json([flightWith(warnings)])
+      HttpResponse.json([flightWith(warnings, absence)])
     )
   )
   useAuthStore.getState().setUser(REAL_USERS.supervisor)
@@ -65,6 +66,18 @@ const loadAssigneeSummary = async (warnings?: string[]) => {
 }
 
 describe("Programación: resumen del tripulante asignado", () => {
+  // Se ausentó después de asignarlo: sigue en el puesto hasta su reemplazo, marcado.
+  it("si se ausentó, lo dice primero y que está pendiente de reemplazo", async () => {
+    const summary = await loadAssigneeSummary(
+      [],
+      "Está ausente del 2026-11-20 al 2026-11-23."
+    )
+
+    expect(summary).toBe(
+      "Ausente: Está ausente del 2026-11-20 al 2026-11-23. Pendiente de reemplazo · Habilitado en A320 · 6 h de 100 este mes"
+    )
+  })
+
   it("con advertencias, las muestra y no dice «Habilitado en»", async () => {
     const summary = await loadAssigneeSummary([
       "Sin habilitación registrada en A320",

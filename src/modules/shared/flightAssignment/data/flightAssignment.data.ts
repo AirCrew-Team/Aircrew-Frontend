@@ -27,6 +27,8 @@ interface ApiAssignee {
   is_replacement: boolean
   // Datos sin registrar (p. ej. un tripulante recién creado): «Sin habilitación registrada…».
   warnings?: string[]
+  // Se ausentó después de asignarlo (motivo del backend): sigue hasta su reemplazo.
+  absence?: string | null
 }
 
 interface ApiSlot {
@@ -92,6 +94,9 @@ const toAssignee = (assignee: ApiAssignee, family: string): Assignee => {
     crewId: assignee.crew_id,
     fullName: assignee.full_name,
     summary: [
+      ...(assignee.absence
+        ? [`Ausente: ${assignee.absence} Pendiente de reemplazo`]
+        : []),
       ...warnings,
       ...(noRating ? [] : [`Habilitado en ${family}`]),
       `${assignee.month_hours} h de ${assignee.max_month_hours} este mes`,

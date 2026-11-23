@@ -27,9 +27,10 @@ interface LiveEvent {
 export const EVENTS_BY_ROLE: Partial<Record<Role, LiveEvent[]>> = {
   [ROLES.SUPER_VISOR]: [
     {
-      // Un tripulante reportó una ausencia: cola, seguimiento y tarjetas del Inicio.
+      // Un tripulante reportó una ausencia: cola, seguimiento, tarjetas del Inicio y
+      // Programación (si estaba asignado, su puesto se marca como ausente).
       name: "absence:reported",
-      refresh: [["replacements"], ["absences"], ["crew"]],
+      refresh: [["replacements"], ["absences"], ["crew"], ["assignment"]],
       tone: () => "warning",
     },
     {
