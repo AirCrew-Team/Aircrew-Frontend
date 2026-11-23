@@ -8,6 +8,8 @@ type DialogProps = {
   description?: string
   isOpen: boolean
   onClose: () => void
+  // "alertdialog" para avisos que piden una respuesta (p. ej. el cierre por inactividad).
+  role?: "dialog" | "alertdialog"
   title: string
 }
 
@@ -17,6 +19,7 @@ export function Dialog({
   description,
   isOpen,
   onClose,
+  role,
   title,
 }: DialogProps) {
   // Referencia al <dialog> nativo para abrirlo y cerrarlo por código
@@ -57,7 +60,13 @@ export function Dialog({
         // Con padding 0, un clic directo sobre <dialog> es un clic en el fondo.
         if (event.target === event.currentTarget) onClose()
       }}
+      // Escape es de este diálogo: no sube al documento, donde cerraría también un popup
+      // de Base UI que haya debajo (escucha el keydown en document).
+      onKeyDown={(event) => {
+        if (event.key === "Escape") event.stopPropagation()
+      }}
       ref={dialogRef}
+      role={role}
     >
       <div className="p-7 max-[700px]:p-5">
         {/* Encabezado: título, descripción y botón de cerrar */}
