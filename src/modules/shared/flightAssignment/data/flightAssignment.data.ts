@@ -25,6 +25,8 @@ interface ApiAssignee {
   source: "manual" | "ai" | "rule"
   rationale?: string | null
   is_replacement: boolean
+  // Datos sin registrar (p. ej. un tripulante recién creado): «Sin habilitación registrada…».
+  warnings?: string[]
 }
 
 interface ApiSlot {
@@ -78,11 +80,17 @@ const SOURCE: Record<ApiAssignee["source"], Assignee["source"]> = {
   rule: "regla",
 }
 
-// El backend solo deja a alguien en un puesto si cumple las reglas, incluida la habilitación.
+// El backend solo deja a alguien en un puesto si cumple las reglas. Si le faltan datos
+// (p. ej. recién creado, sin habilitación registrada), se muestran sus advertencias en vez
+// de afirmar la habilitación.
 const toAssignee = (assignee: ApiAssignee, family: string): Assignee => ({
   crewId: assignee.crew_id,
   fullName: assignee.full_name,
-  summary: `Habilitado en ${family} · ${assignee.month_hours} h de ${assignee.max_month_hours} este mes`,
+  summary: `${
+    assignee.warnings?.length
+      ? assignee.warnings.join(" · ")
+      : `Habilitado en ${family}`
+  } · ${assignee.month_hours} h de ${assignee.max_month_hours} este mes`,
   source: SOURCE[assignee.source],
   rationale: assignee.rationale ?? null,
 })
