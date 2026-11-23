@@ -81,19 +81,25 @@ const SOURCE: Record<ApiAssignee["source"], Assignee["source"]> = {
 }
 
 // El backend solo deja a alguien en un puesto si cumple las reglas. Si le faltan datos
-// (p. ej. recién creado, sin habilitación registrada), se muestran sus advertencias en vez
-// de afirmar la habilitación.
-const toAssignee = (assignee: ApiAssignee, family: string): Assignee => ({
-  crewId: assignee.crew_id,
-  fullName: assignee.full_name,
-  summary: `${
-    assignee.warnings?.length
-      ? assignee.warnings.join(" · ")
-      : `Habilitado en ${family}`
-  } · ${assignee.month_hours} h de ${assignee.max_month_hours} este mes`,
-  source: SOURCE[assignee.source],
-  rationale: assignee.rationale ?? null,
-})
+// (p. ej. recién creado), se muestran sus advertencias primero, y sin habilitación
+// registrada no se afirma «Habilitado en».
+const toAssignee = (assignee: ApiAssignee, family: string): Assignee => {
+  const warnings = assignee.warnings ?? []
+  const noRating = warnings.some((warning) =>
+    warning.startsWith("Sin habilitación")
+  )
+  return {
+    crewId: assignee.crew_id,
+    fullName: assignee.full_name,
+    summary: [
+      ...warnings,
+      ...(noRating ? [] : [`Habilitado en ${family}`]),
+      `${assignee.month_hours} h de ${assignee.max_month_hours} este mes`,
+    ].join(" · "),
+    source: SOURCE[assignee.source],
+    rationale: assignee.rationale ?? null,
+  }
+}
 
 const toSlot = (slot: ApiSlot, family: string): CrewSlot => ({
   // El id del backend (captain, fa-1…) viaja tal cual en las acciones.
