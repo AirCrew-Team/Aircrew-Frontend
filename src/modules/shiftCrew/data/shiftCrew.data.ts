@@ -1,4 +1,6 @@
 import * as demo from "./shiftCrew.demo"
+import { reasonFromApi } from "@/App/actions/absences/absences.actions"
+import { ABSENCE_REASON_LABELS } from "@/modules/shared/absences/absenceReasons"
 import { withDemo } from "@/modules/shared/session/demoSession"
 import { getMyBase, utcClock } from "@/modules/shared/base/myBase"
 import type {
@@ -14,7 +16,8 @@ import apiClient from "@/service/api-client"
 
 interface ApiFlightRef {
   id: string
-  flight_number: string
+  // null en una ausencia por fechas, sin vuelo.
+  flight_number: string | null
   origin: string
   destination: string
 }
@@ -50,11 +53,26 @@ interface ApiShiftCrew {
 // Sin dato del backend se muestra un guion, no un valor inventado.
 const NO_DATA = "—"
 
-const toFlightRef = (flight: ApiFlightRef): FlightRef => ({
-  flightNumber: flight.flight_number,
-  origin: flight.origin,
-  destination: flight.destination,
-})
+// null sin vuelo: el backend manda null o, en una ausencia por fechas, el vuelo con
+// todos sus campos en null.
+const toFlightRef = (
+  flight: ApiFlightRef | null | undefined
+): FlightRef | null =>
+  flight?.flight_number
+    ? {
+        flightNumber: flight.flight_number,
+        origin: flight.origin,
+        destination: flight.destination,
+      }
+    : null
+
+// El motivo de una ausencia reportada llega en inglés («fatigue») y se muestra con su
+// etiqueta; el de un estado de la cuenta ya viene en español («vacaciones»).
+const absentReason = (reason: string | null | undefined) => {
+  if (!reason) return NO_DATA
+  const known = reasonFromApi(reason)
+  return known ? ABSENCE_REASON_LABELS[known] : reason
+}
 
 const clockOrDash = (iso: string | null | undefined) =>
   iso ? utcClock(iso) : NO_DATA
@@ -86,24 +104,28 @@ const toCrewMember = (member: ApiShiftMember): CrewMember | null => {
         guardUntilUtc: clockOrDash(member.guard_until),
         replacementBlocker: member.replacement_blocker ?? null,
       }
-    case "in_flight":
-      return member.flight
+    case "in_flight": {
+      const flight = toFlightRef(member.flight)
+      return flight
         ? {
             ...base,
             status: "en_vuelo",
-            flight: toFlightRef(member.flight),
+            flight,
             arrivalUtc: clockOrDash(member.arrival_at),
           }
         : null
-    case "scheduled":
-      return member.flight
+    }
+    case "scheduled": {
+      const flight = toFlightRef(member.flight)
+      return flight
         ? {
             ...base,
             status: "programado",
-            flight: toFlightRef(member.flight),
+            flight,
             reportUtc: clockOrDash(member.report_at),
           }
         : null
+    }
     case "rest":
       return {
         ...base,
@@ -114,8 +136,8 @@ const toCrewMember = (member: ApiShiftMember): CrewMember | null => {
       return {
         ...base,
         status: "ausente",
-        flight: member.flight ? toFlightRef(member.flight) : null,
-        reason: member.reason ?? NO_DATA,
+        flight: toFlightRef(member.flight),
+        reason: absentReason(member.reason),
       }
     case "available":
       return { ...base, status: "sin_asignar" }
