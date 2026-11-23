@@ -18,14 +18,19 @@ interface FlightBoardProps {
   // Día elegido, en ISO de solo día. La página monta un tablero por día (key), así cambiar de
   // día reinicia el filtro, el corte y la selección.
   date: string
+  // Vuelo que llega seleccionado (aviso de la campana). Si no está en el día, vale la
+  // selección por defecto.
+  initialFlightId?: string
 }
 
 // Lista de vuelos del día (1/3) y ficha del vuelo seleccionado (2/3), con el patrón de pestañas
 // verticales de Recomendaciones. Guarda la selección, el filtro y el corte.
-const FlightBoard = ({ date }: FlightBoardProps) => {
+const FlightBoard = ({ date, initialFlightId }: FlightBoardProps) => {
   const titleId = useId()
   // null: aún no se eligió ninguno, así que vale el primero por completar (o el primero).
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(
+    initialFlightId ?? null
+  )
   const [filter, setFilter] = useState<FlightFilter>("todos")
   // Los vuelos que dejó el filtro al elegirlo (null = todos): la lista no se recalcula tras
   // una acción, solo al cambiar de filtro o de día.
@@ -41,6 +46,15 @@ const FlightBoard = ({ date }: FlightBoardProps) => {
   const listed = filteredIds
     ? flights.filter((flight) => filteredIds.includes(flight.id))
     : flights
+  // El vuelo pedido puede caer tras el corte: se despliega la lista para que tenga pestaña.
+  if (
+    !expanded &&
+    selectedId !== null &&
+    selectedId === initialFlightId &&
+    listed.findIndex((flight) => flight.id === selectedId) >= LIMIT
+  ) {
+    setExpanded(true)
+  }
   // Los vuelos con pestaña (lo que muestra FlightList con el corte).
   const visible = expanded ? listed : listed.slice(0, LIMIT)
   // Por defecto, el primero por completar entre los visibles (o el primer visible): nunca

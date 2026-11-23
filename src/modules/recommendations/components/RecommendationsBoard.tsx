@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useLocation, useSearchParams } from "react-router"
 import { toast } from "sonner"
 
 import { RecalculatingIcon } from "@/App/utils/icons"
@@ -23,6 +24,20 @@ const RecommendationsBoard = () => {
   const queryClient = useQueryClient()
   // null: aún no se eligió ninguna, así que vale la primera seleccionable.
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  // ?solicitud=<id> (aviso de la campana) la elige una vez por navegación. Si la cola aún
+  // no llegó, `selected` la toma al llegar; si ya no está, vale la selección por defecto.
+  // Luego se quita de la URL, así el mismo aviso vuelve a elegirla.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const { key: locationKey } = useLocation()
+  const [handledKey, setHandledKey] = useState<string | null>(null)
+  const requestedId = searchParams.get("solicitud")
+  if (requestedId && handledKey !== locationKey) {
+    setHandledKey(locationKey)
+    setSelectedId(requestedId)
+  }
+  useEffect(() => {
+    if (requestedId) setSearchParams({}, { replace: true })
+  }, [requestedId, setSearchParams])
   const [confirmedIds, setConfirmedIds] = useState<string[]>([])
   const [recalculatingIds, setRecalculatingIds] = useState<string[]>([])
   const selectedTabRef = useRef<HTMLButtonElement>(null)

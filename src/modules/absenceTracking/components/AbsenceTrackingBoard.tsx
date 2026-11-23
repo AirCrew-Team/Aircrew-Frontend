@@ -1,5 +1,6 @@
-import { useId, useState } from "react"
+import { useEffect, useId, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
+import { useLocation, useSearchParams } from "react-router"
 
 import { getAbsences } from "@/App/actions/absences/absences.actions"
 import type { Absence } from "@/App/types/absences.types"
@@ -87,6 +88,21 @@ const AbsenceTrackingBoard = () => {
   // animación de salida en lugar de quedar vacío.
   const [detailId, setDetailId] = useState<string | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
+  // ?ausencia=<id> (aviso de la campana) abre su detalle una vez por navegación, aunque
+  // no esté en la lista: el detalle carga por id. Luego se quita de la URL, así el mismo
+  // aviso vuelve a abrirlo.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const { key: locationKey } = useLocation()
+  const [handledKey, setHandledKey] = useState<string | null>(null)
+  const requestedId = searchParams.get("ausencia")
+  if (requestedId && handledKey !== locationKey) {
+    setHandledKey(locationKey)
+    setDetailId(requestedId)
+    setIsDetailOpen(true)
+  }
+  useEffect(() => {
+    if (requestedId) setSearchParams({}, { replace: true })
+  }, [requestedId, setSearchParams])
   const isDemo = useAuthStore((state) => isDemoUser(state.user))
   const demo = useQuery({
     queryKey: ["absences", "tracking"],
