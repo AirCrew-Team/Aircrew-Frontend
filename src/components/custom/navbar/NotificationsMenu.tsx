@@ -1,4 +1,6 @@
+import { useRef } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useLocation, useNavigate } from "react-router"
 
 import {
   getMyNotifications,
@@ -11,12 +13,14 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { EVENTS_BY_ROLE } from "@/hooks/useLiveAlerts"
 import { cn } from "@/lib/utils"
+import { notificationTarget } from "@/modules/shared/notifications/notificationTarget"
 import { isDemoUser, useAuthStore } from "@/stores/auth.store"
 
 import { barButton, popoverSurface } from "./navbar.styles"
@@ -39,8 +43,14 @@ const timeOf = (iso: string) => {
 // Avisos guardados en el backend (servicio notification): se ven aunque la persona no
 // estuviera conectada cuando llegaron. useLiveAlerts la refresca al llegar uno en vivo.
 // Al cerrar el menú quedan leídos. Las cuentas demo y el super_admin no tienen avisos.
+// Los avisos con destino (notificationTarget) son ítems del menú que llevan a su pantalla.
 const NotificationsMenu = () => {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const { pathname } = useLocation()
+  // Como en ProfileMenu: si la ruta cambia, MainLayout enfoca <main> y el menú no debe
+  // devolver el foco a la campana después.
+  const navigatingRef = useRef(false)
   const user = useAuthStore((state) => state.user)
   const enabled =
     user !== null && !isDemoUser(user) && Boolean(EVENTS_BY_ROLE[user.role])
@@ -64,6 +74,7 @@ const NotificationsMenu = () => {
   return (
     <DropdownMenu
       onOpenChange={(open) => {
+        if (open) navigatingRef.current = false
         if (!open && unread > 0 && !markAllRead.isPending) markAllRead.mutate()
       }}
     >
@@ -91,6 +102,7 @@ const NotificationsMenu = () => {
         align="end"
         sideOffset={8}
         className={cn(popoverSurface, "w-80 max-w-[calc(100vw-2rem)]")}
+        finalFocus={() => !navigatingRef.current}
       >
         <DropdownMenuGroup>
           <DropdownMenuLabel
@@ -116,40 +128,64 @@ const NotificationsMenu = () => {
             </p>
           </div>
         ) : (
-          <ul
+          <DropdownMenuGroup
             aria-label="Notificaciones recientes"
             className="flex max-h-96 flex-col overflow-y-auto"
           >
-            {alerts.map((alert) => (
-              <li
-                key={alert.id}
-                className={cn(
-                  "flex flex-col gap-0.5 border-b border-brand-border/60 px-3 py-2.5 last:border-b-0",
-                  !alert.read && "bg-brand-neutral"
-                )}
-              >
-                <p
+            {alerts.map((alert) => {
+              const target = notificationTarget(alert)
+              const className = cn(
+                "flex flex-col gap-0.5 border-b border-brand-border/60 px-3 py-2.5 last:border-b-0",
+                !alert.read && "bg-brand-neutral"
+              )
+              const content = (
+                <>
+                  <p
+                    className={cn(
+                      typography.bodySm,
+                      alert.read
+                        ? "text-foreground"
+                        : "font-semibold text-brand-primary"
+                    )}
+                  >
+                    {alert.message}
+                  </p>
+                  <time
+                    dateTime={alert.created_at}
+                    className={cn(typography.labelSm, "text-muted-foreground")}
+                  >
+                    {timeOf(alert.created_at)}
+                    {alert.read ? null : (
+                      <span className="sr-only"> · nueva</span>
+                    )}
+                  </time>
+                </>
+              )
+              // Sin destino (tipo desconocido o aviso sin id): texto, como antes.
+              return target ? (
+                <DropdownMenuItem
+                  key={alert.id}
                   className={cn(
-                    typography.bodySm,
-                    alert.read
-                      ? "text-foreground"
-                      : "font-semibold text-brand-primary"
+                    className,
+                    "items-start rounded-none text-left"
                   )}
+                  onClick={() => {
+                    // En la misma pantalla se reemplaza la entrada: Atrás no repite la
+                    // misma pantalla.
+                    const samePath = target.split("?")[0] === pathname
+                    navigatingRef.current = !samePath
+                    void navigate(target, { replace: samePath })
+                  }}
                 >
-                  {alert.message}
-                </p>
-                <time
-                  dateTime={alert.created_at}
-                  className={cn(typography.labelSm, "text-muted-foreground")}
-                >
-                  {timeOf(alert.created_at)}
-                  {alert.read ? null : (
-                    <span className="sr-only"> · nueva</span>
-                  )}
-                </time>
-              </li>
-            ))}
-          </ul>
+                  {content}
+                </DropdownMenuItem>
+              ) : (
+                <div key={alert.id} className={className}>
+                  {content}
+                </div>
+              )
+            })}
+          </DropdownMenuGroup>
         )}
       </DropdownMenuContent>
     </DropdownMenu>

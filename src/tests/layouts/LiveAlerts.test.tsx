@@ -159,7 +159,7 @@ describe("Avisos en vivo (SSE) y campana", () => {
 
     const user = userEvent.setup()
     await user.click(button)
-    const list = await screen.findByRole("list", {
+    const list = await screen.findByRole("group", {
       name: "Notificaciones recientes",
     })
     expect(within(list).getByText(REPORTED)).toBeInTheDocument()
